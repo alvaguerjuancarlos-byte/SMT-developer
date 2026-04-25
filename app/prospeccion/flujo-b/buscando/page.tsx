@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useEffect, useState, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 
 const CANDIDATES = [
   {
@@ -353,8 +353,10 @@ function AgentStatusBar({ stage }: { stage: Stage }) {
   )
 }
 
-export default function BuscandoPage() {
+function BuscandoContent() {
   const router = useRouter()
+  const params = useSearchParams()
+  const proyecto = params.get('proyecto') || ''
   const [stage, setStage] = useState<Stage>(1)
   const [statusText, setStatusText] = useState('Agente Scout buscando terrenos...')
 
@@ -506,7 +508,7 @@ export default function BuscandoPage() {
                 Scout, Legal y Mercado han procesado los 3 candidatos. El reporte completo está listo.
               </p>
               <button
-                onClick={() => router.push('/analisis')}
+                onClick={() => router.push(`/analisis/flujo-b${proyecto ? `?proyecto=${encodeURIComponent(proyecto)}` : ''}`)}
                 className="inline-flex items-center gap-2 bg-[#1D9E75] text-white px-8 py-3.5 rounded-xl text-[15px] font-semibold hover:bg-[#0F6E56] transition-colors cursor-pointer"
               >
                 Ver Análisis Completo
@@ -520,5 +522,17 @@ export default function BuscandoPage() {
         </div>
       </main>
     </div>
+  )
+}
+
+export default function BuscandoPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-[#F7F8F6] flex items-center justify-center">
+        <p className="text-[#9aab9f]">Iniciando Scout…</p>
+      </div>
+    }>
+      <BuscandoContent />
+    </Suspense>
   )
 }

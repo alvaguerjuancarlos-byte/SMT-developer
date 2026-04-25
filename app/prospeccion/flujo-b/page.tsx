@@ -384,7 +384,7 @@ export default function FlujoB() {
   const handleNext = () => {
     if (!canAdvance()) return
     if (step < TOTAL_STEPS) setStep(s => s + 1)
-    else router.push('/prospeccion/flujo-b/buscando')
+    else router.push(`/prospeccion/flujo-b/buscando?proyecto=${encodeURIComponent(data.nombreProyecto)}`)
   }
 
   return (
