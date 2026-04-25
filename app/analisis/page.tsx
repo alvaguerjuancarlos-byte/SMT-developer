@@ -1,414 +1,389 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
-import { useRouter } from 'next/navigation'
-import { useApp } from '../providers'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { Suspense } from 'react'
 
-type Agent = {
-  id: string
-  name: string
-  status: 'complete' | 'running' | 'pending'
-  summary: string
-  details: string[]
-  score: number
-}
-
-function ScoreRing({ score, size = 120 }: { score: number; size?: number }) {
-  const r = (size - 16) / 2
-  const circ = 2 * Math.PI * r
-  const dash = (score / 100) * circ
-
-  const color = score >= 70 ? '#4ade80' : score >= 50 ? '#fbbf24' : '#f87171'
-
+function CheckIcon({ color = '#1D9E75' }: { color?: string }) {
   return (
-    <svg width={size} height={size} className="-rotate-90">
-      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth={8} />
-      <circle
-        cx={size / 2} cy={size / 2} r={r}
-        fill="none"
-        stroke={color}
-        strokeWidth={8}
-        strokeDasharray={`${dash} ${circ}`}
-        strokeLinecap="round"
-        style={{ transition: 'stroke-dasharray 0.8s ease' }}
-      />
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+      <path d="M2.5 7l3 3 6-6" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
     </svg>
   )
 }
 
-function Slider({
-  label, min, max, value, step = 1, format, onChange
-}: {
-  label: string; min: number; max: number; value: number; step?: number; format: (v: number) => string; onChange: (v: number) => void
+function SectionTitle({ children }: { children: React.ReactNode }) {
+  return (
+    <h2 className="text-[13px] font-bold text-[#9aab9f] tracking-[0.12em] uppercase mb-4">{children}</h2>
+  )
+}
+
+function Card({ children, className = '' }: { children: React.ReactNode; className?: string }) {
+  return (
+    <div className={`bg-white rounded-2xl border border-[#E2E8E4] shadow-sm p-6 ${className}`}>
+      {children}
+    </div>
+  )
+}
+
+function MetricRow({ label, value, valueClass = 'text-[#111d17]', border = true }: {
+  label: string
+  value: React.ReactNode
+  valueClass?: string
+  border?: boolean
 }) {
   return (
-    <div className="flex flex-col gap-2">
-      <div className="flex justify-between items-center">
-        <label className="text-sm font-medium text-gray-700">{label}</label>
-        <span className="text-sm font-bold text-[#085041] bg-[#085041]/10 px-2 py-0.5 rounded-md">{format(value)}</span>
-      </div>
-      <div className="flex items-center gap-3">
-        <span className="text-xs text-gray-400 w-16 text-right">{format(min)}</span>
-        <input
-          type="range"
-          min={min}
-          max={max}
-          step={step}
-          value={value}
-          onChange={e => onChange(Number(e.target.value))}
-          className="flex-1 h-2 rounded-full appearance-none bg-gray-200 cursor-pointer"
-        />
-        <span className="text-xs text-gray-400 w-16">{format(max)}</span>
-      </div>
+    <div className={`flex items-center justify-between py-3 ${border ? 'border-b border-[#F0F4F2]' : ''} last:border-0`}>
+      <p className="text-[13px] text-[#5a7065]">{label}</p>
+      <p className={`text-[13px] font-semibold ${valueClass}`}>{value}</p>
     </div>
   )
 }
 
-function AgentCard({ agent }: { agent: Agent }) {
-  const [open, setOpen] = useState(false)
-
-  const statusColor = {
-    complete: 'bg-green-100 text-green-700',
-    running: 'bg-blue-100 text-blue-700',
-    pending: 'bg-gray-100 text-gray-500',
-  }[agent.status]
-
-  const statusLabel = { complete: 'Completado', running: 'Ejecutando...', pending: 'Pendiente' }[agent.status]
+function ScoreGauge({ score }: { score: number }) {
+  const size = 140
+  const r = 54
+  const circ = Math.PI * r
+  const dash = (score / 100) * circ
+  const color = score >= 70 ? '#1D9E75' : score >= 50 ? '#D97706' : '#DC2626'
+  const label = score >= 70 ? 'Proyecto Viable' : score >= 50 ? 'Revisar Supuestos' : 'Riesgo Elevado'
+  const labelColor = score >= 70 ? 'text-[#0F6E56]' : score >= 50 ? 'text-[#92600A]' : 'text-red-700'
 
   return (
-    <div className="border border-gray-100 rounded-xl overflow-hidden bg-white shadow-sm">
-      <button
-        onClick={() => setOpen(o => !o)}
-        className="w-full flex items-center gap-4 px-5 py-4 hover:bg-gray-50/50 transition-colors text-left"
-      >
-        <div className={`w-2 h-2 rounded-full flex-shrink-0 ${agent.status === 'complete' ? 'bg-green-400' : agent.status === 'running' ? 'bg-blue-400 animate-pulse' : 'bg-gray-300'}`} />
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-0.5">
-            <span className="font-semibold text-sm text-gray-800">{agent.name}</span>
-            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusColor}`}>{statusLabel}</span>
-          </div>
-          <p className="text-xs text-gray-500 truncate">{agent.summary}</p>
+    <div className="flex flex-col items-center">
+      <div className="relative" style={{ width: size, height: size / 2 + 16 }}>
+        <svg width={size} height={size} style={{ transform: 'rotate(-180deg)', marginTop: -(size / 2) }}>
+          <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#F0F4F2" strokeWidth="12" strokeDasharray={`${circ} ${circ}`} strokeLinecap="round"/>
+          <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth="12"
+            strokeDasharray={`${dash} ${circ}`} strokeLinecap="round"
+            style={{ transition: 'stroke-dasharray 1s ease' }}/>
+        </svg>
+        <div className="absolute bottom-0 left-0 right-0 flex flex-col items-center">
+          <span className="text-[32px] font-black" style={{ color }}>{score}</span>
+          <span className="text-[11px] text-[#9aab9f]">/ 100</span>
         </div>
-        <div className="flex items-center gap-3 flex-shrink-0">
-          <div className="text-right">
-            <p className="text-xs text-gray-400">Score</p>
-            <p className={`text-sm font-bold ${agent.score >= 70 ? 'text-green-600' : agent.score >= 50 ? 'text-amber-600' : 'text-red-600'}`}>
-              {agent.score}/100
-            </p>
-          </div>
-          <svg
-            className={`w-4 h-4 text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`}
-            fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+      </div>
+      <span className={`text-[12px] font-bold mt-2 ${labelColor}`}>{label}</span>
+    </div>
+  )
+}
+
+function StressCard({ title, scenario, tirImpact, status }: {
+  title: string
+  scenario: string
+  tirImpact: string
+  status: 'green' | 'amber' | 'red'
+}) {
+  const colors = {
+    green: { bg: 'bg-[#F0FBF6]', border: 'border-[#9FE1CB]', badge: 'bg-[#E1F5EE] text-[#0F6E56]', dot: '#1D9E75' },
+    amber: { bg: 'bg-[#FFFBEB]', border: 'border-[#F5D97A]', badge: 'bg-[#FEF3C7] text-[#92600A]', dot: '#D97706' },
+    red:   { bg: 'bg-[#FFF5F5]', border: 'border-[#FECACA]', badge: 'bg-[#FEE2E2] text-[#991B1B]', dot: '#DC2626' },
+  }
+  const c = colors[status]
+
+  return (
+    <div className={`${c.bg} border ${c.border} rounded-2xl p-5`}>
+      <div className="flex items-start justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: c.dot }} />
+          <p className="text-[13px] font-bold text-[#111d17]">{title}</p>
+        </div>
+        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${c.badge}`}>
+          {status === 'green' ? 'Tolerable' : status === 'amber' ? 'Monitorear' : 'Crítico'}
+        </span>
+      </div>
+      <p className="text-[12px] text-[#5a7065] mb-3">{scenario}</p>
+      <p className="text-[13px] font-semibold text-[#111d17]">{tirImpact}</p>
+    </div>
+  )
+}
+
+function AnalisisContent() {
+  const router = useRouter()
+  const params = useSearchParams()
+  const proyecto = params.get('proyecto') || 'Proyecto sin nombre'
+
+  return (
+    <div className="min-h-screen bg-[#F7F8F6] flex flex-col">
+      {/* Header */}
+      <header className="px-8 py-5 flex items-center gap-3 border-b border-[#E2E8E4] bg-white sticky top-0 z-10">
+        <div className="w-8 h-8 rounded-lg bg-[#1D9E75] flex items-center justify-center">
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+            <path d="M9 2L16 6V12L9 16L2 12V6L9 2Z" stroke="white" strokeWidth="1.5" fill="none"/>
+            <path d="M9 2V16M2 6L16 12M16 6L2 12" stroke="white" strokeWidth="1" strokeOpacity="0.5"/>
           </svg>
         </div>
-      </button>
-
-      {open && (
-        <div className="px-5 pb-5 border-t border-gray-100 bg-gray-50/30">
-          <div className="pt-4 space-y-3">
-            {agent.details.map((d, i) => (
-              <div key={i} className="flex items-start gap-2">
-                <svg className="w-4 h-4 text-[#085041] mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                </svg>
-                <p className="text-sm text-gray-600">{d}</p>
-              </div>
-            ))}
-          </div>
+        <div>
+          <span className="text-[15px] font-medium text-[#1a1a1a] tracking-wide">SMT Developer</span>
+          <span className="block text-[10px] text-[#6b7c74] tracking-[0.12em] uppercase">Inteligencia inmobiliaria</span>
         </div>
-      )}
+        <div className="ml-auto flex items-center gap-3">
+          <button
+            onClick={() => router.back()}
+            className="flex items-center gap-1.5 text-[13px] text-[#5a7065] hover:text-[#111d17] transition-colors"
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M10 4L6 8L10 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+            </svg>
+            Volver
+          </button>
+        </div>
+      </header>
+
+      <main className="flex-1 px-4 py-10">
+        <div className="w-full max-w-[780px] mx-auto flex flex-col gap-8">
+
+          {/* 1 · Hero banner */}
+          <div className="bg-[#111d17] rounded-2xl p-7 text-white">
+            <div className="flex items-start justify-between mb-5">
+              <div>
+                <span className="inline-flex items-center gap-1.5 text-[10px] font-bold tracking-[0.14em] uppercase bg-[#1D9E75] text-white px-3 py-1 rounded-full mb-3">
+                  <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                  Análisis Completado
+                </span>
+                <h1 className="text-[26px] font-bold text-white leading-tight">{proyecto}</h1>
+                <p className="text-[13px] text-white/50 mt-1">Reporte de inversión · Flujo A · Monterrey, N.L.</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-4 pt-5 border-t border-white/10">
+              <div>
+                <p className="text-[11px] text-white/40 uppercase tracking-wide mb-1">TIR Proyectada</p>
+                <p className="text-[28px] font-black text-[#4ade80]">22.4%</p>
+                <p className="text-[11px] text-white/40">anual</p>
+              </div>
+              <div>
+                <p className="text-[11px] text-white/40 uppercase tracking-wide mb-1">Inversión Total</p>
+                <p className="text-[28px] font-black text-white">$45.2 M</p>
+                <p className="text-[11px] text-white/40">MXN</p>
+              </div>
+              <div>
+                <p className="text-[11px] text-white/40 uppercase tracking-wide mb-1">Score Resiliencia</p>
+                <p className="text-[28px] font-black text-[#4ade80]">78</p>
+                <p className="text-[11px] text-white/40">/ 100</p>
+              </div>
+            </div>
+          </div>
+
+          {/* 2 · Recomendación Principal */}
+          <div>
+            <SectionTitle>Recomendación Principal</SectionTitle>
+            <div className="bg-[#F0FBF6] border border-[#1D9E75]/30 rounded-2xl p-6">
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 rounded-xl bg-[#1D9E75] flex items-center justify-center shrink-0">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                    <rect x="3" y="3" width="18" height="18" rx="2" stroke="white" strokeWidth="1.8"/>
+                    <path d="M3 9h18M9 21V9" stroke="white" strokeWidth="1.8" strokeLinecap="round"/>
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-[11px] font-bold text-[#1D9E75] tracking-[0.12em] uppercase mb-1">Tipología recomendada</p>
+                  <h3 className="text-[20px] font-bold text-[#111d17] mb-2">Residencial Vertical · 48 departamentos</h3>
+                  <p className="text-[14px] text-[#5a7065] leading-relaxed">
+                    Con base en el análisis normativo (CUS 2.4, 12 niveles permitidos), la demanda activa en Valle Oriente y el perfil de comprador NSE A/B de 28–45 años, la tipología óptima es un edificio de departamentos de 2 y 3 recámaras en rangos de 85–120 m². Esta configuración maximiza el área vendible, logra la absorción proyectada de 8 unidades/mes y produce una TIR del <strong>22.4%</strong> con margen bruto del <strong>31.2%</strong>.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* 3 · Ficha Legal */}
+          <div>
+            <SectionTitle>Ficha Legal y Normativa</SectionTitle>
+            <Card>
+              <div className="grid grid-cols-2 gap-x-8">
+                <div className="divide-y divide-[#F0F4F2]">
+                  <MetricRow label="Uso de suelo" value="Habitacional Plurifamiliar" />
+                  <MetricRow label="COS permitido" value="60%" />
+                  <MetricRow label="CUS" value="2.4" />
+                </div>
+                <div className="divide-y divide-[#F0F4F2]">
+                  <MetricRow label="Altura máxima" value="12 niveles" />
+                  <MetricRow label="Cajones por unidad" value="1.2" />
+                  <MetricRow label="Municipio" value="San Pedro Garza García" />
+                </div>
+              </div>
+              <div className="mt-4 flex items-start gap-2 bg-[#FFFBEB] border border-[#F5D97A] rounded-xl px-4 py-3">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" className="mt-0.5 shrink-0">
+                  <path d="M7 2L12.5 11.5H1.5L7 2Z" stroke="#D97706" strokeWidth="1.4" strokeLinejoin="round"/>
+                  <path d="M7 6v3" stroke="#D97706" strokeWidth="1.4" strokeLinecap="round"/>
+                  <circle cx="7" cy="10" r="0.5" fill="#D97706"/>
+                </svg>
+                <p className="text-[12px] text-[#92600A]"><strong>Restricción:</strong> Retiro mínimo de 5 m frente a vialidad primaria. Impacta área de planta baja.</p>
+              </div>
+            </Card>
+          </div>
+
+          {/* 4 · Estimación de Costos */}
+          <div>
+            <SectionTitle>Estimación de Costos e Ingresos</SectionTitle>
+            <Card className="p-0 overflow-hidden">
+              <table className="w-full">
+                <tbody>
+                  {[
+                    { label: 'Costo del terreno', value: '$8,500,000', sub: '$7,083/m² · 1,200 m²', highlight: false },
+                    { label: 'Construcción por m²', value: '$16,500/m²', sub: 'Clase media-alta, acabados premium', highlight: false },
+                    { label: 'Costo total construcción', value: '$23,760,000', sub: '1,440 m² construidos', highlight: false },
+                    { label: 'Indirectos y permisos', value: '$3,240,000', sub: '8% sobre costo de obra', highlight: false },
+                    { label: 'Honorarios y diseño', value: '$1,800,000', sub: '4.5% sobre costo de obra', highlight: false },
+                    { label: 'Imprevistos (5%)', value: '$1,188,000', sub: 'Reserva de contingencia', highlight: false },
+                    { label: 'Inversión Total', value: '$45,200,000', sub: '', highlight: true },
+                    { label: 'Precio venta estimado / m²', value: '$38,500/m²', sub: 'Mercado Valle Oriente · NSE A/B', highlight: false },
+                    { label: 'Ingresos proyectados', value: '$66,780,000', sub: '1,734 m² vendibles · 100% absorción', highlight: false },
+                    { label: 'Utilidad bruta', value: '$21,580,000', sub: '', highlight: false },
+                    { label: 'Margen bruto', value: '47.7%', sub: 'sobre inversión total', highlight: true },
+                  ].map((row, i) => (
+                    <tr key={i} className={row.highlight ? 'bg-[#F0FBF6]' : i % 2 === 0 ? 'bg-white' : 'bg-[#FAFBFA]'}>
+                      <td className="px-6 py-3 border-b border-[#F0F4F2]">
+                        <p className={`text-[13px] ${row.highlight ? 'font-bold text-[#0F6E56]' : 'text-[#5a7065]'}`}>{row.label}</p>
+                        {row.sub && <p className="text-[11px] text-[#9aab9f]">{row.sub}</p>}
+                      </td>
+                      <td className="px-6 py-3 border-b border-[#F0F4F2] text-right">
+                        <p className={`text-[13px] ${row.highlight ? 'font-bold text-[#0F6E56]' : 'font-semibold text-[#111d17]'}`}>{row.value}</p>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </Card>
+          </div>
+
+          {/* 5 · Análisis de Mercado */}
+          <div>
+            <SectionTitle>Análisis de Mercado</SectionTitle>
+            <Card>
+              <div className="flex items-center gap-3 mb-5">
+                <span className="inline-flex items-center gap-1.5 text-[12px] font-bold px-3 py-1.5 rounded-full bg-[#E1F5EE] text-[#0F6E56] border border-[#9FE1CB]">
+                  <span className="w-2 h-2 rounded-full bg-[#1D9E75]" />
+                  Demanda Alta
+                </span>
+                <span className="text-[12px] text-[#5a7065]">Valle Oriente · San Pedro Garza García</span>
+              </div>
+              <div className="grid grid-cols-2 gap-x-8 mb-5">
+                <div className="divide-y divide-[#F0F4F2]">
+                  <MetricRow label="Velocidad de absorción" value="8 unidades / mes" valueClass="text-[#0F6E56] font-semibold" />
+                  <MetricRow label="Proyectos activos radio 500 m" value="4 proyectos" />
+                  <MetricRow label="Precio promedio zona" value="$9,200 / m²" />
+                </div>
+                <div className="divide-y divide-[#F0F4F2]">
+                  <MetricRow label="Perfil comprador NSE" value="A / B · 28–45 años" />
+                  <MetricRow label="Plusvalía 3 años" value="+18%" valueClass="text-[#0F6E56] font-semibold" />
+                  <MetricRow label="Inventario promedio" value="14 meses" />
+                </div>
+              </div>
+              <div className="bg-[#F0FBF6] border border-[#D4EFE3] rounded-xl px-4 py-3">
+                <p className="text-[11px] font-bold text-[#1D9E75] uppercase tracking-wide mb-1">Producto recomendado</p>
+                <p className="text-[13px] font-semibold text-[#111d17]">Departamentos 2–3 rec. de 85–120 m² con terraza y 1–2 cajones</p>
+              </div>
+            </Card>
+          </div>
+
+          {/* 6 · Score de Resiliencia */}
+          <div>
+            <SectionTitle>Score de Resiliencia</SectionTitle>
+            <Card>
+              <div className="flex items-start gap-8">
+                <ScoreGauge score={78} />
+                <div className="flex-1">
+                  <p className="text-[14px] text-[#5a7065] leading-relaxed mb-4">
+                    El Score de Resiliencia mide la capacidad del proyecto para mantenerse viable ante escenarios adversos de mercado, costos y absorción. Un puntaje de <strong className="text-[#111d17]">78/100</strong> indica que el proyecto <strong className="text-[#0F6E56]">absorbe desviaciones moderadas</strong> sin comprometer la rentabilidad mínima requerida (TIR ≥ 12%).
+                  </p>
+                  <div className="grid grid-cols-3 gap-3">
+                    {[
+                      { label: 'Solidez financiera', score: 82, color: '#1D9E75' },
+                      { label: 'Riesgo regulatorio', score: 75, color: '#1D9E75' },
+                      { label: 'Exposición de mercado', score: 71, color: '#D97706' },
+                    ].map(d => (
+                      <div key={d.label} className="bg-[#F7F8F6] rounded-xl p-3">
+                        <p className="text-[10px] text-[#9aab9f] mb-2">{d.label}</p>
+                        <div className="h-1.5 bg-[#E2E8E4] rounded-full overflow-hidden mb-1">
+                          <div className="h-full rounded-full" style={{ width: `${d.score}%`, backgroundColor: d.color }} />
+                        </div>
+                        <p className="text-[12px] font-bold" style={{ color: d.color }}>{d.score}/100</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </Card>
+          </div>
+
+          {/* 7 · Stress Test */}
+          <div>
+            <SectionTitle>Stress Test — Escenarios Adversos</SectionTitle>
+            <div className="grid grid-cols-1 gap-4">
+              <StressCard
+                title="Shock de Costos +15%"
+                scenario="Incremento generalizado en materiales y mano de obra del 15% sobre el presupuesto base. Costo total sube de $45.2 M a $49.8 M."
+                tirImpact="TIR baja de 22.4% → 17.8% · Margen: 47.7% → 38.4% · Proyecto sigue viable"
+                status="amber"
+              />
+              <StressCard
+                title="Freno de Ventas −50%"
+                scenario="Absorción cae de 8 a 4 unidades/mes. Plazo se extiende de 6 a 12 meses. Costo financiero adicional estimado: $2.1 M."
+                tirImpact="TIR baja de 22.4% → 14.1% · Margen: 47.7% → 39.2% · Proyecto sigue viable con ajuste de plazo"
+                status="amber"
+              />
+              <StressCard
+                title="Ajuste de Mercado −10% en Precio"
+                scenario="Precio de venta cae de $38,500 a $34,650/m² por corrección de mercado. Ingresos bajan de $66.8 M a $60.1 M."
+                tirImpact="TIR baja de 22.4% → 9.8% · Margen: 47.7% → 24.5% · Proyecto al límite — revisar supuestos"
+                status="red"
+              />
+            </div>
+          </div>
+
+          {/* 8 · Punto de Quiebre */}
+          <div>
+            <SectionTitle>Punto de Quiebre</SectionTitle>
+            <Card>
+              <div className="grid grid-cols-3 gap-4 mb-5">
+                {[
+                  { label: 'Desviación máx. de costos', value: '+28.4%', desc: 'antes de TIR < 12%', color: '#1D9E75' },
+                  { label: 'Absorción mínima viable', value: '38%', desc: 'de las unidades proyectadas', color: '#D97706' },
+                  { label: 'Precio venta mínimo', value: '$29,800/m²', desc: 'para recuperar inversión', color: '#D97706' },
+                ].map(b => (
+                  <div key={b.label} className="bg-[#F7F8F6] rounded-xl p-4 text-center border border-[#E2E8E4]">
+                    <p className="text-[10px] text-[#9aab9f] uppercase tracking-wide mb-2">{b.label}</p>
+                    <p className="text-[22px] font-black" style={{ color: b.color }}>{b.value}</p>
+                    <p className="text-[11px] text-[#9aab9f] mt-1">{b.desc}</p>
+                  </div>
+                ))}
+              </div>
+              <div className="flex items-start gap-2 bg-[#F0FBF6] border border-[#9FE1CB] rounded-xl px-4 py-3">
+                <CheckIcon />
+                <p className="text-[12px] text-[#0F6E56]">
+                  El proyecto mantiene viabilidad en el 87% de los escenarios simulados. La principal vulnerabilidad es una caída sostenida en precio de venta mayor al 22.4%.
+                </p>
+              </div>
+            </Card>
+          </div>
+
+          {/* 9 · CTA */}
+          <div className="bg-[#F0FBF6] border border-[#1D9E75]/30 rounded-2xl p-6 flex items-center justify-between">
+            <div>
+              <p className="text-[15px] font-bold text-[#0F6E56] mb-1">Análisis completo · Listo para presentar</p>
+              <p className="text-[13px] text-[#5a9078]">Genera la propuesta ejecutiva con escenarios A/B/C para inversionistas.</p>
+            </div>
+            <button
+              onClick={() => router.push('/propuesta')}
+              className="flex items-center gap-2 bg-[#1D9E75] text-white px-6 py-3.5 rounded-xl text-[14px] font-semibold hover:bg-[#0F6E56] transition-colors cursor-pointer shrink-0 ml-6"
+            >
+              Generar Propuesta de Inversión
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <path d="M6 4l4 4-4 4" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
+              </svg>
+            </button>
+          </div>
+
+        </div>
+      </main>
     </div>
   )
 }
 
-function fmt$(v: number) { return '$' + v.toLocaleString('es-MX') }
-function fmtPct(v: number) { return v.toFixed(1) + '%' }
-function fmtMes(v: number) { return v + ' meses' }
-
 export default function AnalisisPage() {
-  const router = useRouter()
-  const { terrain, currentStep, setCurrentStep } = useApp()
-
-  useEffect(() => {
-    setCurrentStep(2)
-  }, [setCurrentStep])
-
-  const sup = parseFloat(terrain.superficieTotal) || 2500
-  const precioTerreno = parseFloat(terrain.precioTotal) || 25_000_000
-  const cus = parseFloat(terrain.cus) || 2.5
-
-  const [precioVenta, setPrecioVenta] = useState(40_000)
-  const [absorcion, setAbsorcion] = useState(75)
-  const [costoConst, setCostoConst] = useState(16_000)
-  const [plazo, setPlazo] = useState(36)
-  const [tasaDesc, setTasaDesc] = useState(12)
-
-  const metricas = useMemo(() => {
-    const areaVendible = sup * cus * 0.85
-    const ingresos = precioVenta * areaVendible * (absorcion / 100)
-    const costoObra = costoConst * sup * cus
-    const costoTotal = precioTerreno + costoObra + ingresos * 0.08
-    const utilidad = ingresos - costoTotal
-    const margen = costoTotal > 0 ? (utilidad / costoTotal) * 100 : 0
-    const plazoAnios = plazo / 12
-    const tir = plazoAnios > 0 ? (Math.pow(1 + utilidad / costoTotal, 1 / plazoAnios) - 1) * 100 : 0
-    const van = utilidad / Math.pow(1 + tasaDesc / 100, plazoAnios) - costoTotal * 0.1
-
-    const rawScore = Math.min(100, Math.max(0, tir * 2.5 + absorcion * 0.3 + 20))
-    const score = Math.round(rawScore)
-
-    return { areaVendible, ingresos, costoObra, costoTotal, utilidad, margen, tir, van, score }
-  }, [sup, precioTerreno, cus, precioVenta, absorcion, costoConst, plazo, tasaDesc])
-
-  const agents: Agent[] = [
-    {
-      id: 'mercado',
-      name: 'Agente de Mercado',
-      status: 'complete',
-      summary: `Análisis de comparables: ${terrain.municipio || 'zona'} — ${terrain.usoSuelo || 'Uso mixto'}`,
-      score: Math.min(100, Math.round(metricas.score * 0.95 + 5)),
-      details: [
-        `Precio de oferta en zona: $${(precioVenta * 0.9).toLocaleString('es-MX')} – $${(precioVenta * 1.1).toLocaleString('es-MX')} /m²`,
-        `Tasa de absorción histórica en la zona: ${(absorcion - 10).toFixed(0)}% – ${Math.min(100, absorcion + 10).toFixed(0)}% semestral`,
-        `Inventario activo en radio 1km: 4 proyectos comparables detectados`,
-        `Tendencia de precios: alza moderada del 6–8% anual en los últimos 24 meses`,
-        `Perfil de demanda predominante: NSE B/B+ — unidades 70–120 m²`,
-      ],
-    },
-    {
-      id: 'regulacion',
-      name: 'Agente de Regulación',
-      status: 'complete',
-      summary: `CUS ${terrain.cus || '2.5'} / COS ${terrain.cos || '0.6'} — ${terrain.usoSuelo || 'Por confirmar'}`,
-      score: terrain.escrituras && terrain.planoCatastral ? 88 : 62,
-      details: [
-        `Uso de suelo: ${terrain.usoSuelo || 'Habitacional Mixto'} — compatible con desarrollo vertical`,
-        `CUS aplicable: ${terrain.cus || '2.5'} | COS: ${terrain.cos || '0.6'} | Niveles: ${terrain.nivelesMax || '8'}`,
-        `Área máxima de construcción: ${(sup * (parseFloat(terrain.cus) || 2.5)).toLocaleString('es-MX')} m² brutos`,
-        terrain.escrituras ? '✓ Escrituras disponibles — situación jurídica clara' : '⚠ Sin escrituras — revisar situación jurídica',
-        terrain.docUsoSuelo ? '✓ Constancia de uso de suelo disponible' : '⚠ Pendiente constancia de uso de suelo',
-        `Restricciones identificadas: restricción vial frontal 3m, cajones: 1.2 por unidad`,
-      ],
-    },
-    {
-      id: 'financiero',
-      name: 'Agente Financiero',
-      status: 'complete',
-      summary: `TIR proyectada: ${metricas.tir.toFixed(1)}% | Margen: ${metricas.margen.toFixed(1)}%`,
-      score: Math.min(100, Math.round(metricas.tir * 2 + 20)),
-      details: [
-        `Inversión total estimada: $${metricas.costoTotal.toLocaleString('es-MX', { maximumFractionDigits: 0 })}`,
-        `Ingresos proyectados (${absorcion}% absorción): $${metricas.ingresos.toLocaleString('es-MX', { maximumFractionDigits: 0 })}`,
-        `Utilidad bruta: $${metricas.utilidad.toLocaleString('es-MX', { maximumFractionDigits: 0 })}`,
-        `TIR anual: ${metricas.tir.toFixed(2)}% — ${metricas.tir >= 20 ? 'ATRACTIVA' : metricas.tir >= 12 ? 'ACEPTABLE' : 'BAJA'}`,
-        `Punto de equilibrio: ${(metricas.costoTotal / (precioVenta * metricas.areaVendible / 100)).toFixed(0)}% de absorción`,
-        `VAN (tasa ${tasaDesc}%): $${metricas.van.toLocaleString('es-MX', { maximumFractionDigits: 0 })}`,
-      ],
-    },
-    {
-      id: 'riesgo',
-      name: 'Agente de Riesgo',
-      status: 'complete',
-      summary: `Riesgo ${metricas.score >= 70 ? 'BAJO' : metricas.score >= 50 ? 'MODERADO' : 'ALTO'} — ${3 - [terrain.agua, terrain.drenaje, terrain.electricidad].filter(Boolean).length} servicios faltantes`,
-      score: metricas.score >= 70 ? 80 : metricas.score >= 50 ? 58 : 38,
-      details: [
-        `Riesgo de mercado: ${metricas.tir >= 20 ? 'BAJO' : 'MODERADO'} — sensibilidad precio ±10% impacta TIR en ${(metricas.tir * 0.18).toFixed(1)} pp`,
-        `Riesgo regulatorio: ${terrain.docUsoSuelo ? 'BAJO' : 'MODERADO'} — uso de suelo ${terrain.docUsoSuelo ? 'confirmado' : 'pendiente de verificación'}`,
-        `Riesgo de construcción: MODERADO — estimado de costos con ±15% de variación`,
-        `Riesgo de liquidez: ${plazo <= 30 ? 'BAJO' : 'MODERADO'} — plazo de ${plazo} meses con absorción ${absorcion}%`,
-        `Riesgo jurídico: ${terrain.escrituras ? 'BAJO' : 'ALTO'} — ${terrain.escrituras ? 'documentación completa' : 'escrituras no disponibles'}`,
-        `Score de riesgo compuesto: ${metricas.score >= 70 ? '🟢 Bajo' : metricas.score >= 50 ? '🟡 Moderado' : '🔴 Alto'}`,
-      ],
-    },
-    {
-      id: 'propuesta',
-      name: 'Agente de Propuesta',
-      status: currentStep >= 2 ? 'complete' : 'pending',
-      summary: 'Generación de documento ejecutivo para inversionistas',
-      score: metricas.score,
-      details: [
-        'Documento ejecutivo con escenarios A/B listos para exportar',
-        `Escenario A (base): TIR ${metricas.tir.toFixed(1)}% — absorción ${absorcion}%`,
-        `Escenario B (optimista): TIR ${(metricas.tir * 1.25).toFixed(1)}% — precio venta +15%`,
-        `Escenario C (conservador): TIR ${(metricas.tir * 0.75).toFixed(1)}% — absorción ${(absorcion * 0.8).toFixed(0)}%`,
-        'Riesgos con mitigantes documentados — lista de debida diligencia',
-        'Tabla financiera comparativa de 3 escenarios lista para presentación',
-      ],
-    },
-  ]
-
-  const scoreColor = metricas.score >= 70 ? 'text-green-400' : metricas.score >= 50 ? 'text-amber-400' : 'text-red-400'
-  const scoreLabel = metricas.score >= 70 ? 'PROYECTO VIABLE' : metricas.score >= 50 ? 'REVISAR SUPUESTOS' : 'RIESGO ELEVADO'
-
   return (
-    <div className="max-w-6xl mx-auto w-full px-6 py-8">
-      <div className="mb-6 flex items-start justify-between">
-        <div>
-          <div className="flex items-center gap-3 mb-2">
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#085041]/10 text-[#085041]">
-              Paso 2 de 3
-            </span>
-          </div>
-          <h1 className="text-2xl font-bold text-gray-900">Panel de Análisis</h1>
-          <p className="text-gray-500 mt-1 text-sm">Ajuste los supuestos financieros y revise el diagnóstico de cada agente.</p>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-
-        {/* Left col: Score hero + KPIs + Sliders */}
-        <div className="lg:col-span-1 flex flex-col gap-5">
-
-          {/* Mastermind score hero */}
-          <div className="bg-[#085041] rounded-2xl p-6 text-white shadow-xl">
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-              <span className="text-xs font-semibold uppercase tracking-widest text-white/70">Score Mastermind</span>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <div>
-                <div className={`text-6xl font-black ${scoreColor} leading-none`}>{metricas.score}</div>
-                <div className="text-white/40 text-sm mt-1">/ 100 puntos</div>
-                <div className={`mt-3 text-sm font-bold ${scoreColor}`}>{scoreLabel}</div>
-              </div>
-              <div className="relative">
-                <ScoreRing score={metricas.score} size={110} />
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <span className={`text-xl font-black ${scoreColor}`}>{metricas.score}%</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-6 pt-4 border-t border-white/10 grid grid-cols-2 gap-3">
-              <div>
-                <p className="text-white/50 text-xs">TIR Anual</p>
-                <p className={`text-lg font-bold ${metricas.tir >= 20 ? 'text-green-400' : metricas.tir >= 12 ? 'text-amber-400' : 'text-red-400'}`}>
-                  {metricas.tir.toFixed(1)}%
-                </p>
-              </div>
-              <div>
-                <p className="text-white/50 text-xs">Margen Neto</p>
-                <p className={`text-lg font-bold ${metricas.margen >= 25 ? 'text-green-400' : metricas.margen >= 15 ? 'text-amber-400' : 'text-red-400'}`}>
-                  {metricas.margen.toFixed(1)}%
-                </p>
-              </div>
-              <div>
-                <p className="text-white/50 text-xs">Utilidad Bruta</p>
-                <p className="text-sm font-semibold text-white/80">
-                  ${(metricas.utilidad / 1_000_000).toFixed(1)}M
-                </p>
-              </div>
-              <div>
-                <p className="text-white/50 text-xs">VAN</p>
-                <p className={`text-sm font-semibold ${metricas.van >= 0 ? 'text-green-300' : 'text-red-300'}`}>
-                  ${(metricas.van / 1_000_000).toFixed(1)}M
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* KPIs financieros */}
-          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
-            <h3 className="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
-              <svg className="w-4 h-4 text-[#085041]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-              </svg>
-              KPIs del Proyecto
-            </h3>
-            <div className="space-y-3">
-              {[
-                { label: 'Inversión Total', value: `$${(metricas.costoTotal / 1_000_000).toFixed(1)}M`, sub: 'terreno + obra + indirectos', color: 'text-blue-600' },
-                { label: 'Ingresos Proyectados', value: `$${(metricas.ingresos / 1_000_000).toFixed(1)}M`, sub: `${absorcion}% absorción`, color: 'text-indigo-600' },
-                { label: 'Área Vendible', value: `${metricas.areaVendible.toLocaleString('es-MX', { maximumFractionDigits: 0 })} m²`, sub: `CUS ${cus} × efic. 85%`, color: 'text-purple-600' },
-                { label: 'Precio Terreno / m² const.', value: `$${(precioTerreno / metricas.areaVendible).toLocaleString('es-MX', { maximumFractionDigits: 0 })}`, sub: 'incidencia en área vendible', color: 'text-amber-600' },
-              ].map(k => (
-                <div key={k.label} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
-                  <div>
-                    <p className="text-xs font-medium text-gray-600">{k.label}</p>
-                    <p className="text-xs text-gray-400">{k.sub}</p>
-                  </div>
-                  <span className={`text-sm font-bold ${k.color}`}>{k.value}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Right col: Sliders + Agents */}
-        <div className="lg:col-span-2 flex flex-col gap-5">
-
-          {/* Sliders de supuestos */}
-          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
-            <div className="flex items-center gap-2 mb-5">
-              <svg className="w-4 h-4 text-[#085041]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
-              </svg>
-              <h3 className="text-sm font-semibold text-gray-700">Supuestos Financieros</h3>
-              <span className="ml-auto text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">Recalcula automáticamente</span>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Slider label="Precio de venta" min={15000} max={80000} step={1000} value={precioVenta} format={v => `$${(v / 1000).toFixed(0)}k/m²`} onChange={setPrecioVenta} />
-              <Slider label="Tasa de absorción" min={10} max={100} value={absorcion} format={fmtPct} onChange={setAbsorcion} />
-              <Slider label="Costo de construcción" min={8000} max={30000} step={500} value={costoConst} format={v => `$${(v / 1000).toFixed(1)}k/m²`} onChange={setCostoConst} />
-              <Slider label="Plazo del proyecto" min={12} max={72} step={6} value={plazo} format={fmtMes} onChange={setPlazo} />
-              <Slider label="Tasa de descuento (WACC)" min={6} max={25} step={0.5} value={tasaDesc} format={fmtPct} onChange={setTasaDesc} />
-            </div>
-
-            {/* Sensitivity summary */}
-            <div className="mt-5 grid grid-cols-3 gap-3">
-              <div className="bg-gray-50 rounded-lg p-3 text-center">
-                <p className="text-xs text-gray-400 mb-1">Peor caso (-20%)</p>
-                <p className="text-sm font-bold text-red-500">{(metricas.tir * 0.7).toFixed(1)}% TIR</p>
-              </div>
-              <div className="bg-[#085041]/5 rounded-lg p-3 text-center border border-[#085041]/10">
-                <p className="text-xs text-[#085041] mb-1 font-medium">Caso base</p>
-                <p className="text-sm font-bold text-[#085041]">{metricas.tir.toFixed(1)}% TIR</p>
-              </div>
-              <div className="bg-gray-50 rounded-lg p-3 text-center">
-                <p className="text-xs text-gray-400 mb-1">Mejor caso (+20%)</p>
-                <p className="text-sm font-bold text-green-600">{(metricas.tir * 1.3).toFixed(1)}% TIR</p>
-              </div>
-            </div>
-          </div>
-
-          {/* 5 agentes colapsables */}
-          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
-            <div className="flex items-center gap-2 mb-4">
-              <svg className="w-4 h-4 text-[#085041]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18" />
-              </svg>
-              <h3 className="text-sm font-semibold text-gray-700">Diagnóstico de Agentes</h3>
-              <span className="ml-auto text-xs text-gray-400">{agents.filter(a => a.status === 'complete').length}/{agents.length} completados</span>
-            </div>
-            <div className="space-y-3">
-              {agents.map(agent => <AgentCard key={agent.id} agent={agent} />)}
-            </div>
-          </div>
-
-          {/* CTA */}
-          <div className="flex justify-end gap-3">
-            <button
-              onClick={() => router.push('/prospeccion')}
-              className="px-5 py-2.5 border border-gray-200 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
-            >
-              ← Regresar
-            </button>
-            <button
-              onClick={() => { setCurrentStep(3); router.push('/propuesta') }}
-              className="px-5 py-2.5 bg-[#085041] text-white rounded-lg text-sm font-medium hover:bg-[#063d31] transition-colors flex items-center gap-2"
-            >
-              Generar Propuesta
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-              </svg>
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
+    <Suspense fallback={<div className="min-h-screen bg-[#F7F8F6] flex items-center justify-center"><p className="text-[#9aab9f]">Cargando análisis…</p></div>}>
+      <AnalisisContent />
+    </Suspense>
   )
 }
