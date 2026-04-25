@@ -12,8 +12,25 @@ const CANDIDATES = [
     pm2: '$7,083/m²',
     zona: 'San Pedro Garza García',
     uso: 'Habitacional Mixto',
-    mercado: 'Demanda Alta',
     mercadoColor: 'green',
+    legal: {
+      usoSuelo: 'Habitacional Plurifamiliar',
+      cos: '60%',
+      cus: '2.4',
+      altura: '12 niveles',
+      cajones: '1.2 por unidad',
+      restriccion: 'Restricción: 5 m frente a vialidad primaria',
+      municipio: 'San Pedro Garza García',
+    },
+    mercado: {
+      label: 'Demanda Alta',
+      precioZona: '$9,200/m²',
+      absorcion: '8 unidades/mes',
+      competencia: '4 proyectos en radio 500 m',
+      perfilNSE: 'A/B · 28–45 años',
+      plusvalia: '+18% últimos 3 años',
+      producto: 'Depto. 2–3 rec. de 85–120 m²',
+    },
   },
   {
     id: 2,
@@ -23,8 +40,25 @@ const CANDIDATES = [
     pm2: '$6,118/m²',
     zona: 'Monterrey Norte',
     uso: 'Comercial / Mixto',
-    mercado: 'Mercado Activo',
     mercadoColor: 'blue',
+    legal: {
+      usoSuelo: 'Comercial Barrial / Mixto',
+      cos: '70%',
+      cus: '2.1',
+      altura: '8 niveles',
+      cajones: '1.5 por local',
+      restriccion: 'Restricción: uso habitacional requiere % mínimo comercial',
+      municipio: 'Monterrey',
+    },
+    mercado: {
+      label: 'Mercado Activo',
+      precioZona: '$7,800/m²',
+      absorcion: '5 unidades/mes',
+      competencia: '6 proyectos en radio 500 m',
+      perfilNSE: 'B/C+ · 30–50 años',
+      plusvalia: '+11% últimos 3 años',
+      producto: 'Local comercial PB + deptos. superiores',
+    },
   },
   {
     id: 3,
@@ -34,8 +68,25 @@ const CANDIDATES = [
     pm2: '$6,095/m²',
     zona: 'San Pedro Garza García',
     uso: 'Habitacional',
-    mercado: 'Alta Plusvalía',
     mercadoColor: 'purple',
+    legal: {
+      usoSuelo: 'Habitacional Unifamiliar / Plurifamiliar',
+      cos: '55%',
+      cus: '3.0',
+      altura: '15 niveles',
+      cajones: '1.5 por unidad',
+      restriccion: 'Restricción: área jardinada mínima 20% del predio',
+      municipio: 'San Pedro Garza García',
+    },
+    mercado: {
+      label: 'Alta Plusvalía',
+      precioZona: '$11,500/m²',
+      absorcion: '6 unidades/mes',
+      competencia: '3 proyectos en radio 500 m',
+      perfilNSE: 'A · 32–55 años',
+      plusvalia: '+26% últimos 3 años',
+      producto: 'Torre residencial premium 100–160 m²',
+    },
   },
 ]
 
@@ -103,6 +154,101 @@ function AgentBadge({
   )
 }
 
+function Dot({ color }: { color: string }) {
+  return <span className="w-2 h-2 rounded-full shrink-0 inline-block" style={{ backgroundColor: color }} />
+}
+
+function LegalSheet({ legal }: { legal: typeof CANDIDATES[0]['legal'] }) {
+  return (
+    <div className="px-5 pb-4 border-b border-[#F0F4F2]">
+      <p className="text-[10px] font-bold text-[#378ADD] tracking-[0.12em] uppercase mb-2 flex items-center gap-1.5">
+        <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
+          <path d="M2 6l3 3 5-5" stroke="#378ADD" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+        Ficha normativa · Agente Legal
+      </p>
+      <div className="grid grid-cols-2 gap-x-6 gap-y-1.5">
+        <div className="flex items-center gap-1.5">
+          <Dot color="#1D9E75" />
+          <span className="text-[11px] text-[#5a7065]">Uso de suelo: <span className="font-semibold text-[#111d17]">{legal.usoSuelo}</span></span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <Dot color="#1D9E75" />
+          <span className="text-[11px] text-[#5a7065]">COS / CUS: <span className="font-semibold text-[#111d17]">{legal.cos} / {legal.cus}</span></span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <Dot color="#1D9E75" />
+          <span className="text-[11px] text-[#5a7065]">Altura máx: <span className="font-semibold text-[#111d17]">{legal.altura}</span></span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <Dot color="#1D9E75" />
+          <span className="text-[11px] text-[#5a7065]">Cajones: <span className="font-semibold text-[#111d17]">{legal.cajones}</span></span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <Dot color="#6b7c74" />
+          <span className="text-[11px] text-[#5a7065]">Municipio: <span className="font-semibold text-[#111d17]">{legal.municipio}</span></span>
+        </div>
+      </div>
+      <div className="mt-2 flex items-start gap-1.5 bg-[#FFFBEB] border border-[#F5D97A] rounded-lg px-2.5 py-1.5">
+        <Dot color="#D97706" />
+        <span className="text-[11px] text-[#92600A]">{legal.restriccion}</span>
+      </div>
+    </div>
+  )
+}
+
+function MarketSheet({ mercado, color }: { mercado: typeof CANDIDATES[0]['mercado']; color: string }) {
+  const headerColors: Record<string, string> = {
+    green: 'text-[#0F6E56]',
+    blue: 'text-[#185FA5]',
+    purple: 'text-[#6B3FA0]',
+  }
+  const dotColors: Record<string, string> = {
+    green: '#1D9E75',
+    blue: '#378ADD',
+    purple: '#8B5CF6',
+  }
+
+  return (
+    <div className="px-5 pb-4">
+      <p className={`text-[10px] font-bold tracking-[0.12em] uppercase mb-2 flex items-center gap-1.5 ${headerColors[color]}`}>
+        <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
+          <path d="M1 9l3-4 2.5 2 3-5" stroke={dotColors[color]} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+        Reporte de mercado · Agente Mercado
+      </p>
+      <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 mb-2">
+        <div className="flex items-center gap-1.5">
+          <Dot color={dotColors[color]} />
+          <span className="text-[11px] text-[#5a7065]">Precio zona: <span className="font-semibold text-[#111d17]">{mercado.precioZona}</span></span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <Dot color={dotColors[color]} />
+          <span className="text-[11px] text-[#5a7065]">Absorción: <span className="font-semibold text-[#111d17]">{mercado.absorcion}</span></span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <Dot color={dotColors[color]} />
+          <span className="text-[11px] text-[#5a7065]">Competencia: <span className="font-semibold text-[#111d17]">{mercado.competencia}</span></span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <Dot color={dotColors[color]} />
+          <span className="text-[11px] text-[#5a7065]">Perfil: <span className="font-semibold text-[#111d17]">{mercado.perfilNSE}</span></span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <Dot color="#1D9E75" />
+          <span className="text-[11px] text-[#5a7065]">Plusvalía: <span className="font-semibold text-[#0F6E56]">{mercado.plusvalia}</span></span>
+        </div>
+      </div>
+      <div className="flex items-start gap-1.5 bg-[#F0FBF6] border border-[#9FE1CB] rounded-lg px-2.5 py-1.5">
+        <svg width="11" height="11" viewBox="0 0 12 12" fill="none" className="mt-0.5 shrink-0">
+          <path d="M6 1l1.5 3 3.5.5-2.5 2.5.5 3.5L6 9l-3 1.5.5-3.5L1 4.5 4.5 4z" stroke="#1D9E75" strokeWidth="1" fill="#E1F5EE"/>
+        </svg>
+        <span className="text-[11px] text-[#0F6E56] font-medium">Producto recomendado: {mercado.producto}</span>
+      </div>
+    </div>
+  )
+}
+
 function CandidateCard({
   c,
   stage,
@@ -116,12 +262,6 @@ function CandidateCard({
   const legalDone = stage >= 3
   const marketDone = stage >= 4
 
-  const marketColors: Record<string, string> = {
-    green: 'bg-[#E1F5EE] text-[#0F6E56] border-[#9FE1CB]',
-    blue: 'bg-[#E6F1FB] text-[#185FA5] border-[#85B7EB]',
-    purple: 'bg-[#F3EEFF] text-[#6B3FA0] border-[#C4A8E8]',
-  }
-
   return (
     <div
       className="bg-white rounded-2xl border border-[#E2E8E4] shadow-sm overflow-hidden transition-all duration-500"
@@ -131,6 +271,7 @@ function CandidateCard({
         transitionDelay: `${index * 100}ms`,
       }}
     >
+      {/* Header */}
       <div className="px-5 py-4 border-b border-[#F0F4F2] flex items-center justify-between">
         <div>
           <span className="text-[10px] font-bold text-[#9aab9f] tracking-[0.12em] uppercase">Candidato #{c.id}</span>
@@ -143,6 +284,7 @@ function CandidateCard({
         </div>
       </div>
 
+      {/* Base metrics */}
       <div className="px-5 py-3 flex gap-4 border-b border-[#F0F4F2]">
         <div>
           <p className="text-[10px] text-[#9aab9f] uppercase tracking-wide">Superficie</p>
@@ -158,58 +300,27 @@ function CandidateCard({
         </div>
       </div>
 
-      <div className="px-5 py-3 flex flex-wrap gap-2">
-        <div
-          className={`flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded-full border transition-all duration-500 ${
-            legalDone
-              ? 'bg-[#E1F5EE] text-[#0F6E56] border-[#9FE1CB]'
-              : 'bg-[#F7F8F6] text-[#9aab9f] border-[#E2E8E4]'
-          }`}
-        >
-          {legalDone ? (
-            <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-              <path d="M1.5 5l2.5 2.5 4.5-4.5" stroke="#1D9E75" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          ) : (
-            <span className="w-2 h-2 rounded-full border border-[#D0DDD5]" />
-          )}
-          Uso de suelo: {legalDone ? 'Compatible' : 'Verificando…'}
+      {/* Legal pending */}
+      {!legalDone && (
+        <div className="px-5 py-3">
+          <div className="flex flex-wrap gap-2">
+            <div className="flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded-full border bg-[#F7F8F6] text-[#9aab9f] border-[#E2E8E4]">
+              <span className="w-2 h-2 rounded-full border border-[#D0DDD5]" />
+              Normativa: verificando…
+            </div>
+            <div className="flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded-full border bg-[#F7F8F6] text-[#9aab9f] border-[#E2E8E4]">
+              <span className="w-2 h-2 rounded-full border border-[#D0DDD5]" />
+              Mercado: pendiente
+            </div>
+          </div>
         </div>
+      )}
 
-        <div
-          className={`flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded-full border transition-all duration-500 ${
-            legalDone
-              ? 'bg-[#E1F5EE] text-[#0F6E56] border-[#9FE1CB]'
-              : 'bg-[#F7F8F6] text-[#9aab9f] border-[#E2E8E4]'
-          }`}
-        >
-          {legalDone ? (
-            <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-              <path d="M1.5 5l2.5 2.5 4.5-4.5" stroke="#1D9E75" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          ) : (
-            <span className="w-2 h-2 rounded-full border border-[#D0DDD5]" />
-          )}
-          Normativa: {legalDone ? 'Sin restricciones' : 'Pendiente'}
-        </div>
+      {/* Legal done sheet */}
+      {legalDone && <LegalSheet legal={c.legal} />}
 
-        <div
-          className={`flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded-full border transition-all duration-500 ${
-            marketDone
-              ? `${marketColors[c.mercadoColor]}`
-              : 'bg-[#F7F8F6] text-[#9aab9f] border-[#E2E8E4]'
-          }`}
-        >
-          {marketDone ? (
-            <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-              <path d="M2 7l2-3 2 1.5 2-4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          ) : (
-            <span className="w-2 h-2 rounded-full border border-[#D0DDD5]" />
-          )}
-          {marketDone ? c.mercado : 'Mercado pendiente'}
-        </div>
-      </div>
+      {/* Market done sheet */}
+      {marketDone && <MarketSheet mercado={c.mercado} color={c.mercadoColor} />}
     </div>
   )
 }
