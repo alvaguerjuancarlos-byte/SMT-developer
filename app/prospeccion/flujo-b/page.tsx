@@ -44,6 +44,7 @@ const PRIORIDADES = [
 ]
 
 interface FormData {
+  nombreProyecto: string
   ciudad: string
   zona: string
   tipoDev: string
@@ -54,6 +55,7 @@ interface FormData {
 }
 
 const INITIAL: FormData = {
+  nombreProyecto: '',
   ciudad: '',
   zona: '',
   tipoDev: '',
@@ -63,7 +65,7 @@ const INITIAL: FormData = {
   notas: '',
 }
 
-const TOTAL_STEPS = 5
+const TOTAL_STEPS = 6
 
 function ProgressBar({ step }: { step: number }) {
   return (
@@ -108,6 +110,31 @@ function Step1({ data, setData }: { data: FormData; setData: (d: FormData) => vo
   return (
     <div>
       <p className="text-[12px] font-semibold text-[#1D9E75] tracking-[0.12em] uppercase mb-2">Scout IA · Flujo B</p>
+      <h2 className="text-[24px] font-semibold text-[#111d17] mb-2">Nombre del proyecto</h2>
+      <p className="text-[14px] text-[#5a7065] mb-6">
+        Este nombre identificará el proyecto y los 3 candidatos de terreno a lo largo del análisis Scout y el reporte comparativo final.
+      </p>
+      <div>
+        <label className="block text-[12px] text-[#5a7065] mb-2">Nombre del proyecto</label>
+        <input
+          type="text"
+          value={data.nombreProyecto}
+          onChange={e => setData({ ...data, nombreProyecto: e.target.value })}
+          placeholder="Ej. Residencial Valle 2026, Torre Midtown, Plaza Industrial Norte"
+          className="w-full border border-[#E2E8E4] rounded-xl px-4 py-3 text-[14px] text-[#111d17] bg-white focus:outline-none focus:border-[#1D9E75] focus:ring-2 focus:ring-[#1D9E75]/20 placeholder:text-[#c5d0cb]"
+        />
+        <p className="text-[11px] text-[#9aab9f] mt-2">
+          Puedes usar el concepto de desarrollo, la zona objetivo o el nombre comercial que tengas en mente.
+        </p>
+      </div>
+    </div>
+  )
+}
+
+function Step2({ data, setData }: { data: FormData; setData: (d: FormData) => void }) {
+  return (
+    <div>
+      <p className="text-[12px] font-semibold text-[#1D9E75] tracking-[0.12em] uppercase mb-2">Scout IA · Flujo B</p>
       <h2 className="text-[24px] font-semibold text-[#111d17] mb-2">¿En qué ciudad quieres buscar?</h2>
       <p className="text-[14px] text-[#5a7065] mb-6">El Scout enfocará su búsqueda en el mercado que elijas.</p>
 
@@ -140,7 +167,7 @@ function Step1({ data, setData }: { data: FormData; setData: (d: FormData) => vo
   )
 }
 
-function Step2({ data, setData }: { data: FormData; setData: (d: FormData) => void }) {
+function Step3({ data, setData }: { data: FormData; setData: (d: FormData) => void }) {
   return (
     <div>
       <p className="text-[12px] font-semibold text-[#1D9E75] tracking-[0.12em] uppercase mb-2">Scout IA · Flujo B</p>
@@ -164,7 +191,7 @@ function Step2({ data, setData }: { data: FormData; setData: (d: FormData) => vo
   )
 }
 
-function Step3({ data, setData }: { data: FormData; setData: (d: FormData) => void }) {
+function Step4({ data, setData }: { data: FormData; setData: (d: FormData) => void }) {
   return (
     <div>
       <p className="text-[12px] font-semibold text-[#1D9E75] tracking-[0.12em] uppercase mb-2">Scout IA · Flujo B</p>
@@ -196,7 +223,7 @@ function Step3({ data, setData }: { data: FormData; setData: (d: FormData) => vo
   )
 }
 
-function Step4({ data, setData }: { data: FormData; setData: (d: FormData) => void }) {
+function Step5({ data, setData }: { data: FormData; setData: (d: FormData) => void }) {
   const toggle = (id: string) => {
     const curr = data.prioridades
     if (curr.includes(id)) {
@@ -252,7 +279,7 @@ function Step4({ data, setData }: { data: FormData; setData: (d: FormData) => vo
   )
 }
 
-function Step5({ data }: { data: FormData }) {
+function Step6({ data }: { data: FormData }) {
   const tipo = TIPOS_DESARROLLO.find(t => t.id === data.tipoDev)
   const superficie = RANGOS_SUPERFICIE.find(r => r.id === data.superficie)
   const presupuesto = RANGOS_PRESUPUESTO.find(r => r.id === data.presupuesto)
@@ -266,7 +293,7 @@ function Step5({ data }: { data: FormData }) {
 
       <div className="rounded-2xl border border-[#1D9E75]/30 bg-[#F0FBF6] p-5 mb-5">
         <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 rounded-xl bg-[#1D9E75] flex items-center justify-center">
+          <div className="w-10 h-10 rounded-xl bg-[#1D9E75] flex items-center justify-center shrink-0">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
               <circle cx="11" cy="11" r="7" stroke="white" strokeWidth="1.8"/>
               <path d="M16.5 16.5L21 21" stroke="white" strokeWidth="1.8" strokeLinecap="round"/>
@@ -278,6 +305,13 @@ function Step5({ data }: { data: FormData }) {
             <p className="text-[11px] text-[#5a9078]">El análisis iniciará en cuanto confirmes</p>
           </div>
         </div>
+
+        {data.nombreProyecto && (
+          <div className="mb-3 px-4 py-3 bg-[#1D9E75] rounded-xl">
+            <p className="text-[10px] font-semibold text-[#9FE1CB] tracking-[0.12em] uppercase mb-0.5">Proyecto</p>
+            <p className="text-[16px] font-bold text-white">{data.nombreProyecto}</p>
+          </div>
+        )}
 
         <div className="grid grid-cols-2 gap-3">
           <div className="bg-white rounded-xl p-3 border border-[#D4EFE3]">
@@ -334,10 +368,11 @@ export default function FlujoB() {
   const [data, setData] = useState<FormData>(INITIAL)
 
   const canAdvance = () => {
-    if (step === 1) return data.ciudad !== ''
-    if (step === 2) return data.tipoDev !== ''
-    if (step === 3) return data.superficie !== '' && data.presupuesto !== ''
-    if (step === 4) return data.prioridades.length > 0
+    if (step === 1) return data.nombreProyecto.trim() !== ''
+    if (step === 2) return data.ciudad !== ''
+    if (step === 3) return data.tipoDev !== ''
+    if (step === 4) return data.superficie !== '' && data.presupuesto !== ''
+    if (step === 5) return data.prioridades.length > 0
     return true
   }
 
@@ -387,7 +422,8 @@ export default function FlujoB() {
             {step === 2 && <Step2 data={data} setData={setData} />}
             {step === 3 && <Step3 data={data} setData={setData} />}
             {step === 4 && <Step4 data={data} setData={setData} />}
-            {step === 5 && <Step5 data={data} />}
+            {step === 5 && <Step5 data={data} setData={setData} />}
+            {step === 6 && <Step6 data={data} />}
           </div>
 
           <div className="flex items-center justify-between">

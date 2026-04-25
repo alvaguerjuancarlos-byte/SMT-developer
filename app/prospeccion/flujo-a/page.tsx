@@ -44,6 +44,7 @@ const TIPOS_DESARROLLO = [
 ]
 
 interface FormData {
+  nombreProyecto: string
   direccion: string
   ciudad: string
   colonia: string
@@ -56,6 +57,7 @@ interface FormData {
 }
 
 const INITIAL: FormData = {
+  nombreProyecto: '',
   direccion: '',
   ciudad: '',
   colonia: '',
@@ -67,7 +69,7 @@ const INITIAL: FormData = {
   tiposDesarrollo: [],
 }
 
-const TOTAL_STEPS = 4
+const TOTAL_STEPS = 5
 
 function ProgressBar({ step }: { step: number }) {
   return (
@@ -164,6 +166,29 @@ function Step1({ data, setData }: { data: FormData; setData: (d: FormData) => vo
   return (
     <div>
       <p className="text-[12px] font-semibold text-[#1D9E75] tracking-[0.12em] uppercase mb-2">Flujo A · Captura</p>
+      <h2 className="text-[24px] font-semibold text-[#111d17] mb-2">Nombre del proyecto</h2>
+      <p className="text-[14px] text-[#5a7065] mb-6">
+        Este nombre identificará el proyecto a lo largo del análisis y aparecerá en el reporte final.
+      </p>
+      <div>
+        <FieldLabel>Nombre del proyecto</FieldLabel>
+        <TextInput
+          value={data.nombreProyecto}
+          onChange={v => setData({ ...data, nombreProyecto: v })}
+          placeholder="Ej. Torre Cumbres 2026, Plaza San Pedro, Residencial Montaña"
+        />
+        <p className="text-[11px] text-[#9aab9f] mt-2">
+          Puedes usar el nombre del terreno, la zona o el concepto de desarrollo que tienes en mente.
+        </p>
+      </div>
+    </div>
+  )
+}
+
+function Step2({ data, setData }: { data: FormData; setData: (d: FormData) => void }) {
+  return (
+    <div>
+      <p className="text-[12px] font-semibold text-[#1D9E75] tracking-[0.12em] uppercase mb-2">Flujo A · Captura</p>
       <h2 className="text-[24px] font-semibold text-[#111d17] mb-2">Ubicación del terreno</h2>
       <p className="text-[14px] text-[#5a7065] mb-6">Ingresa la dirección del predio que quieres analizar.</p>
 
@@ -207,7 +232,7 @@ function Step1({ data, setData }: { data: FormData; setData: (d: FormData) => vo
   )
 }
 
-function Step2({ data, setData }: { data: FormData; setData: (d: FormData) => void }) {
+function Step3({ data, setData }: { data: FormData; setData: (d: FormData) => void }) {
   return (
     <div>
       <p className="text-[12px] font-semibold text-[#1D9E75] tracking-[0.12em] uppercase mb-2">Flujo A · Captura</p>
@@ -255,7 +280,7 @@ function Step2({ data, setData }: { data: FormData; setData: (d: FormData) => vo
   )
 }
 
-function Step3({ data, setData }: { data: FormData; setData: (d: FormData) => void }) {
+function Step4({ data, setData }: { data: FormData; setData: (d: FormData) => void }) {
   const toggleTipo = (id: string) => {
     const curr = data.tiposDesarrollo
     setData({
@@ -310,7 +335,7 @@ function SummaryRow({ label, value }: { label: string; value: React.ReactNode })
   )
 }
 
-function Step4({ data }: { data: FormData }) {
+function Step5({ data }: { data: FormData }) {
   const usoSuelo = USOS_SUELO.find(u => u.id === data.usoSuelo)
   const estado = ESTADOS_TERRENO.find(e => e.id === data.estadoTerreno)
   const presupuesto = RANGOS_PRESUPUESTO.find(r => r.id === data.presupuesto)
@@ -324,7 +349,7 @@ function Step4({ data }: { data: FormData }) {
 
       <div className="rounded-2xl border border-[#1D9E75]/30 bg-[#F0FBF6] p-5 mb-5">
         <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 rounded-xl bg-[#1D9E75] flex items-center justify-center">
+          <div className="w-10 h-10 rounded-xl bg-[#1D9E75] flex items-center justify-center shrink-0">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
               <path d="M9 12l2 2 4-4" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               <circle cx="12" cy="12" r="9" stroke="white" strokeWidth="1.8"/>
@@ -335,6 +360,13 @@ function Step4({ data }: { data: FormData }) {
             <p className="text-[11px] text-[#5a9078]">El análisis iniciará en cuanto confirmes</p>
           </div>
         </div>
+
+        {data.nombreProyecto && (
+          <div className="mb-3 px-4 py-3 bg-[#1D9E75] rounded-xl">
+            <p className="text-[10px] font-semibold text-[#9FE1CB] tracking-[0.12em] uppercase mb-0.5">Proyecto</p>
+            <p className="text-[16px] font-bold text-white">{data.nombreProyecto}</p>
+          </div>
+        )}
 
         <div className="bg-white rounded-xl border border-[#D4EFE3] px-4 divide-y divide-[#F0F4F2]">
           <SummaryRow label="Dirección" value={data.direccion} />
@@ -373,9 +405,10 @@ export default function FlujoA() {
   const [data, setData] = useState<FormData>(INITIAL)
 
   const canAdvance = () => {
-    if (step === 1) return data.direccion.trim() !== '' && data.ciudad !== '' && data.colonia.trim() !== ''
-    if (step === 2) return data.superficie !== '' && data.usoSuelo !== '' && data.estadoTerreno !== ''
-    if (step === 3) return data.presupuesto !== '' && data.tiposDesarrollo.length > 0
+    if (step === 1) return data.nombreProyecto.trim() !== ''
+    if (step === 2) return data.direccion.trim() !== '' && data.ciudad !== '' && data.colonia.trim() !== ''
+    if (step === 3) return data.superficie !== '' && data.usoSuelo !== '' && data.estadoTerreno !== ''
+    if (step === 4) return data.presupuesto !== '' && data.tiposDesarrollo.length > 0
     return true
   }
 
@@ -387,7 +420,7 @@ export default function FlujoA() {
   const handleNext = () => {
     if (!canAdvance()) return
     if (step < TOTAL_STEPS) setStep(s => s + 1)
-    else router.push('/analisis')
+    else router.push(`/analisis?proyecto=${encodeURIComponent(data.nombreProyecto)}`)
   }
 
   return (
@@ -424,7 +457,8 @@ export default function FlujoA() {
             {step === 1 && <Step1 data={data} setData={setData} />}
             {step === 2 && <Step2 data={data} setData={setData} />}
             {step === 3 && <Step3 data={data} setData={setData} />}
-            {step === 4 && <Step4 data={data} />}
+            {step === 4 && <Step4 data={data} setData={setData} />}
+            {step === 5 && <Step5 data={data} />}
           </div>
 
           <div className="flex items-center justify-between">
