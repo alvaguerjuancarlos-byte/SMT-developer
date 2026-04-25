@@ -364,7 +364,7 @@ function AnalisisContent() {
               <p className="text-[13px] text-[#5a9078]">Genera la propuesta ejecutiva con escenarios A/B/C para inversionistas.</p>
             </div>
             <button
-              onClick={() => router.push('/propuesta')}
+              onClick={() => router.push(`/propuesta?proyecto=${encodeURIComponent(proyecto)}`)}
               className="flex items-center gap-2 bg-[#1D9E75] text-white px-6 py-3.5 rounded-xl text-[14px] font-semibold hover:bg-[#0F6E56] transition-colors cursor-pointer shrink-0 ml-6"
             >
               Generar Propuesta de Inversión

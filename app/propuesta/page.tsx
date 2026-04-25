@@ -120,7 +120,7 @@ function PropuestaContent() {
         </div>
         <div className="ml-auto flex items-center gap-2">
           <button
-            onClick={() => router.push('/analisis')}
+            onClick={() => router.push(`/analisis${proyecto !== 'Proyecto de Inversión' ? `?proyecto=${encodeURIComponent(proyecto)}` : ''}`)}
             className="flex items-center gap-1.5 text-[13px] text-[#5a7065] hover:text-[#111d17] transition-colors mr-2"
           >
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
