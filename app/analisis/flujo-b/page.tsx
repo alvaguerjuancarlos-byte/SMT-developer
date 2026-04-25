@@ -395,7 +395,7 @@ function AnalisisflujoB() {
               <p className="text-[13px] text-[#5a7065]">Genera la propuesta comparativa con los tres candidatos para inversionistas.</p>
             </div>
             <button
-              onClick={() => router.push(`/propuesta?proyecto=${encodeURIComponent(proyecto)}`)}
+              onClick={() => router.push(`/propuesta/flujo-b?proyecto=${encodeURIComponent(proyecto)}`)}
               className="flex items-center gap-2 bg-[#1D9E75] text-white px-6 py-3.5 rounded-xl text-[14px] font-semibold hover:bg-[#0F6E56] transition-colors cursor-pointer shrink-0 ml-6"
             >
               Generar Propuesta Comparativa
