@@ -302,28 +302,48 @@ function Step2({ data, setData }: { data: FormData; setData: (d: FormData) => vo
   const [pendingLat, setPendingLat] = useState<number | null>(data.lat)
   const [pendingLng, setPendingLng] = useState<number | null>(data.lng)
   const [searching, setSearching] = useState(false)
-  const [geocodeError, setGeocodeError] = useState(false)
+  const [geocodeStatus, setGeocodeStatus] = useState<'ok' | 'fallback' | 'error' | null>(null)
 
   const handleSearch = async () => {
-    const query = [data.direccion, data.ciudad].filter(Boolean).join(', ')
-    if (!query.trim()) return
+    if (!data.direccion.trim()) return
     setSearching(true)
-    setGeocodeError(false)
+    setGeocodeStatus(null)
     try {
       await loadGoogleMaps()
       const geocoder = new google.maps.Geocoder()
-      const { results } = await geocoder.geocode({ address: query, region: 'mx' })
-      if (results[0]?.geometry?.location) {
-        const lat = results[0].geometry.location.lat()
-        const lng = results[0].geometry.location.lng()
-        setSearchResult({ lat, lng })
-        setPendingLat(lat)
-        setPendingLng(lng)
-      } else {
-        setGeocodeError(true)
+
+      const applyResult = (loc: google.maps.LatLng) => {
+        setSearchResult({ lat: loc.lat(), lng: loc.lng() })
+        setPendingLat(loc.lat())
+        setPendingLng(loc.lng())
       }
+
+      // Full query: direccion + colonia + ciudad + México
+      const fullQuery = [data.direccion, data.colonia, data.ciudad, 'México']
+        .filter(Boolean).join(', ')
+      const { results: r1 } = await geocoder.geocode({ address: fullQuery, region: 'mx' })
+      if (r1[0]?.geometry?.location) {
+        applyResult(r1[0].geometry.location)
+        setGeocodeStatus('ok')
+        return
+      }
+
+      // Fallback: just ciudad + México
+      if (data.ciudad) {
+        const { results: r2 } = await geocoder.geocode({
+          address: `${data.ciudad}, México`,
+          region: 'mx',
+        })
+        if (r2[0]?.geometry?.location) {
+          applyResult(r2[0].geometry.location)
+          setGeocodeStatus('fallback')
+          return
+        }
+      }
+
+      setGeocodeStatus('error')
     } catch {
-      setGeocodeError(true)
+      setGeocodeStatus('error')
     } finally {
       setSearching(false)
     }
@@ -357,8 +377,11 @@ function Step2({ data, setData }: { data: FormData; setData: (d: FormData) => vo
               {searching ? 'Buscando…' : 'Buscar'}
             </button>
           </div>
-          {geocodeError && (
-            <p className="text-[11px] text-red-500 mt-1">No se encontró la dirección. Intenta ser más específico.</p>
+          {geocodeStatus === 'fallback' && (
+            <p className="text-[11px] text-amber-600 mt-1">No encontramos esa dirección exacta — el mapa muestra la ciudad. Arrastra el marcador al predio.</p>
+          )}
+          {geocodeStatus === 'error' && (
+            <p className="text-[11px] text-red-500 mt-1">No se encontró la ubicación. Intenta agregar colonia o ciudad.</p>
           )}
         </div>
 
