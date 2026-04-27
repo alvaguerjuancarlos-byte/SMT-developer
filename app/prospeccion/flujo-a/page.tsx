@@ -101,13 +101,14 @@ function loadGoogleMaps(): Promise<void> {
 function MapPicker({
   lat,
   lng,
+  searchInputRef,
   onPlaceSelected,
 }: {
   lat: number | null
   lng: number | null
+  searchInputRef: React.RefObject<HTMLInputElement | null>
   onPlaceSelected: (address: string, lat: number, lng: number) => void
 }) {
-  const inputRef     = useRef<HTMLInputElement>(null)
   const mapRef       = useRef<HTMLDivElement>(null)
   const mapObj       = useRef<google.maps.Map | null>(null)
   const marker       = useRef<google.maps.Marker | null>(null)
@@ -119,7 +120,7 @@ function MapPicker({
   }, [])
 
   useEffect(() => {
-    if (!ready || !mapRef.current || !inputRef.current) return
+    if (!ready || !mapRef.current || !searchInputRef.current) return
 
     const center = lat && lng ? { lat, lng } : MONTERREY
     mapObj.current = new google.maps.Map(mapRef.current, {
@@ -147,7 +148,7 @@ function MapPicker({
       if (pos) onPlaceSelected('', pos.lat(), pos.lng())
     })
 
-    autocomplete.current = new google.maps.places.Autocomplete(inputRef.current!, {
+    autocomplete.current = new google.maps.places.Autocomplete(searchInputRef.current!, {
       componentRestrictions: { country: 'mx' },
       fields: ['formatted_address', 'geometry', 'name'],
       types: ['address'],
@@ -168,32 +169,20 @@ function MapPicker({
 
   if (!ready) {
     return (
-      <div className="flex flex-col gap-2">
-        <div className="w-full h-11 rounded-xl border border-[#E2E8E4] bg-[#F7F8F6] animate-pulse" />
-        <div className="w-full rounded-xl border border-[#E2E8E4] bg-[#F7F8F6] flex items-center justify-center" style={{ height: 280 }}>
-          <p className="text-[13px] text-[#9aab9f]">Cargando mapa…</p>
-        </div>
+      <div className="w-full rounded-xl border border-[#E2E8E4] bg-[#F7F8F6] flex items-center justify-center" style={{ height: 280 }}>
+        <p className="text-[13px] text-[#9aab9f]">Cargando mapa…</p>
       </div>
     )
   }
 
   return (
-    <div className="flex flex-col gap-2">
-      <input
-        ref={inputRef}
-        type="text"
-        placeholder="Busca la dirección del terreno…"
-        defaultValue=""
-        className="w-full border border-[#E2E8E4] rounded-xl px-4 py-3 text-[14px] text-[#111d17] bg-white focus:outline-none focus:border-[#1D9E75] focus:ring-2 focus:ring-[#1D9E75]/20 placeholder:text-[#c5d0cb]"
-      />
-      <div className="relative w-full rounded-xl overflow-hidden border border-[#E2E8E4]" style={{ height: 280 }}>
-        <div ref={mapRef} className="w-full h-full" />
-        {lat && lng && (
-          <div className="absolute bottom-3 left-3 bg-white border border-[#E2E8E4] shadow-sm rounded-lg px-3 py-1.5">
-            <p className="text-[10px] text-[#9aab9f] font-mono">{lat.toFixed(6)}, {lng.toFixed(6)}</p>
-          </div>
-        )}
-      </div>
+    <div className="relative w-full rounded-xl overflow-hidden border border-[#E2E8E4]" style={{ height: 280 }}>
+      <div ref={mapRef} className="w-full h-full" />
+      {lat && lng && (
+        <div className="absolute bottom-3 left-3 bg-white border border-[#E2E8E4] shadow-sm rounded-lg px-3 py-1.5">
+          <p className="text-[10px] text-[#9aab9f] font-mono">{lat.toFixed(6)}, {lng.toFixed(6)}</p>
+        </div>
+      )}
     </div>
   )
 }
@@ -313,6 +302,8 @@ function Step1({ data, setData }: { data: FormData; setData: (d: FormData) => vo
 }
 
 function Step2({ data, setData }: { data: FormData; setData: (d: FormData) => void }) {
+  const direccionRef = useRef<HTMLInputElement>(null)
+
   return (
     <div>
       <p className="text-[12px] font-semibold text-[#1D9E75] tracking-[0.12em] uppercase mb-2">Flujo A · Captura</p>
@@ -322,10 +313,13 @@ function Step2({ data, setData }: { data: FormData; setData: (d: FormData) => vo
       <div className="flex flex-col gap-4">
         <div>
           <FieldLabel>Calle y número</FieldLabel>
-          <TextInput
+          <input
+            ref={direccionRef}
+            type="text"
             value={data.direccion}
-            onChange={v => setData({ ...data, direccion: v })}
+            onChange={e => setData({ ...data, direccion: e.target.value })}
             placeholder="Ej. Av. Vasconcelos 300, Pte."
+            className="w-full border border-[#E2E8E4] rounded-xl px-4 py-3 text-[14px] text-[#111d17] bg-white focus:outline-none focus:border-[#1D9E75] focus:ring-2 focus:ring-[#1D9E75]/20 placeholder:text-[#c5d0cb]"
           />
         </div>
         <div>
@@ -346,16 +340,16 @@ function Step2({ data, setData }: { data: FormData; setData: (d: FormData) => vo
           />
         </div>
 
-        {/* Google Maps */}
         <div>
           <FieldLabel>Ubicación en mapa</FieldLabel>
           <MapPicker
             lat={data.lat}
             lng={data.lng}
-            onPlaceSelected={(_, lat, lng) => setData({ ...data, lat, lng })}
+            searchInputRef={direccionRef}
+            onPlaceSelected={(address, lat, lng) => setData({ ...data, direccion: address, lat, lng })}
           />
           <p className="text-[11px] text-[#9aab9f] mt-2">
-            El mapa se mueve automáticamente al escribir la dirección. Arrastra el marcador para ajustar la posición exacta.
+            Arrastra el marcador para ajustar la posición exacta.
           </p>
         </div>
 
