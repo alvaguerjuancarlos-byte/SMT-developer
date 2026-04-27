@@ -50,7 +50,6 @@ interface FormData {
   direccion: string
   ciudad: string
   colonia: string
-  mapsLink: string
   lat: number | null
   lng: number | null
   superficie: string
@@ -58,6 +57,7 @@ interface FormData {
   estadoTerreno: string
   presupuesto: string
   tiposDesarrollo: string[]
+  mapsLink: string
 }
 
 const INITIAL: FormData = {
@@ -65,7 +65,6 @@ const INITIAL: FormData = {
   direccion: '',
   ciudad: '',
   colonia: '',
-  mapsLink: '',
   lat: null,
   lng: null,
   superficie: '',
@@ -73,15 +72,15 @@ const INITIAL: FormData = {
   estadoTerreno: '',
   presupuesto: '',
   tiposDesarrollo: [],
+  mapsLink: '',
 }
 
 const TOTAL_STEPS = 5
 
-// Load Google Maps script once
 function loadGoogleMaps(): Promise<void> {
   return new Promise((resolve, reject) => {
     if (typeof window === 'undefined') return
-    if ((window as any).google?.maps) { resolve(); return }
+    if ((window as any).google?.maps?.places) { resolve(); return }
     const existing = document.getElementById('gmap-script')
     if (existing) {
       existing.addEventListener('load', () => resolve())
@@ -90,7 +89,7 @@ function loadGoogleMaps(): Promise<void> {
     const key = process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY || ''
     const script = document.createElement('script')
     script.id = 'gmap-script'
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=geocoding`
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=places`
     script.async = true
     script.defer = true
     script.onload = () => resolve()
@@ -100,36 +99,32 @@ function loadGoogleMaps(): Promise<void> {
 }
 
 function MapPicker({
-  direccion,
-  ciudad,
   lat,
   lng,
-  onLocationChange,
+  onPlaceSelected,
 }: {
-  direccion: string
-  ciudad: string
   lat: number | null
   lng: number | null
-  onLocationChange: (lat: number, lng: number) => void
+  onPlaceSelected: (address: string, lat: number, lng: number) => void
 }) {
-  const mapRef   = useRef<HTMLDivElement>(null)
-  const mapObj   = useRef<google.maps.Map | null>(null)
-  const marker   = useRef<google.maps.Marker | null>(null)
-  const geocoder = useRef<google.maps.Geocoder | null>(null)
-  const debounce = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const inputRef     = useRef<HTMLInputElement>(null)
+  const mapRef       = useRef<HTMLDivElement>(null)
+  const mapObj       = useRef<google.maps.Map | null>(null)
+  const marker       = useRef<google.maps.Marker | null>(null)
+  const autocomplete = useRef<google.maps.places.Autocomplete | null>(null)
   const [ready, setReady] = useState(false)
-  const [geocoding, setGeocoding] = useState(false)
 
   useEffect(() => {
     loadGoogleMaps().then(() => setReady(true)).catch(console.error)
   }, [])
 
   useEffect(() => {
-    if (!ready || !mapRef.current) return
+    if (!ready || !mapRef.current || !inputRef.current) return
+
     const center = lat && lng ? { lat, lng } : MONTERREY
     mapObj.current = new google.maps.Map(mapRef.current, {
       center,
-      zoom: 15,
+      zoom: lat && lng ? 17 : 12,
       mapTypeControl: false,
       streetViewControl: false,
       fullscreenControl: false,
@@ -138,62 +133,67 @@ function MapPicker({
         { featureType: 'transit', stylers: [{ visibility: 'off' }] },
       ],
     })
+
     marker.current = new google.maps.Marker({
       position: center,
       map: mapObj.current,
       draggable: true,
       title: 'Ubicación del terreno',
+      visible: !!(lat && lng),
     })
-    geocoder.current = new google.maps.Geocoder()
+
     marker.current.addListener('dragend', () => {
       const pos = marker.current!.getPosition()
-      if (pos) onLocationChange(pos.lat(), pos.lng())
+      if (pos) onPlaceSelected('', pos.lat(), pos.lng())
+    })
+
+    autocomplete.current = new google.maps.places.Autocomplete(inputRef.current!, {
+      componentRestrictions: { country: 'mx' },
+      fields: ['formatted_address', 'geometry', 'name'],
+      types: ['address'],
+    })
+
+    autocomplete.current.addListener('place_changed', () => {
+      const place = autocomplete.current!.getPlace()
+      if (!place.geometry?.location) return
+      const loc = place.geometry.location
+      const address = place.formatted_address || place.name || ''
+      mapObj.current!.setCenter(loc)
+      mapObj.current!.setZoom(17)
+      marker.current!.setPosition(loc)
+      marker.current!.setVisible(true)
+      onPlaceSelected(address, loc.lat(), loc.lng())
     })
   }, [ready])
 
-  useEffect(() => {
-    if (!ready || !geocoder.current || !mapObj.current || !marker.current) return
-    if (!direccion.trim()) return
-    if (debounce.current) clearTimeout(debounce.current)
-    debounce.current = setTimeout(() => {
-      const query = [direccion, ciudad, 'México'].filter(Boolean).join(', ')
-      setGeocoding(true)
-      geocoder.current!.geocode({ address: query }, (results, status) => {
-        setGeocoding(false)
-        if (status === 'OK' && results && results[0]) {
-          const loc = results[0].geometry.location
-          mapObj.current!.setCenter(loc)
-          mapObj.current!.setZoom(17)
-          marker.current!.setPosition(loc)
-          onLocationChange(loc.lat(), loc.lng())
-        }
-      })
-    }, 800)
-    return () => { if (debounce.current) clearTimeout(debounce.current) }
-  }, [direccion, ciudad, ready])
-
   if (!ready) {
     return (
-      <div className="w-full h-[300px] rounded-xl border border-[#E2E8E4] bg-[#F7F8F6] flex items-center justify-center">
-        <p className="text-[13px] text-[#9aab9f]">Cargando mapa…</p>
+      <div className="flex flex-col gap-2">
+        <div className="w-full h-11 rounded-xl border border-[#E2E8E4] bg-[#F7F8F6] animate-pulse" />
+        <div className="w-full rounded-xl border border-[#E2E8E4] bg-[#F7F8F6] flex items-center justify-center" style={{ height: 280 }}>
+          <p className="text-[13px] text-[#9aab9f]">Cargando mapa…</p>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="relative w-full rounded-xl overflow-hidden border border-[#E2E8E4]" style={{ height: 300 }}>
-      <div ref={mapRef} className="w-full h-full" />
-      {geocoding && (
-        <div className="absolute top-3 left-1/2 -translate-x-1/2 bg-white border border-[#E2E8E4] shadow-md rounded-full px-3 py-1.5 flex items-center gap-2">
-          <span className="w-3 h-3 rounded-full border-2 border-[#1D9E75] border-t-transparent animate-spin" />
-          <span className="text-[11px] text-[#5a7065]">Localizando…</span>
-        </div>
-      )}
-      {lat && lng && (
-        <div className="absolute bottom-3 left-3 bg-white border border-[#E2E8E4] shadow-sm rounded-lg px-3 py-1.5">
-          <p className="text-[10px] text-[#9aab9f] font-mono">{lat.toFixed(6)}, {lng.toFixed(6)}</p>
-        </div>
-      )}
+    <div className="flex flex-col gap-2">
+      <input
+        ref={inputRef}
+        type="text"
+        placeholder="Busca la dirección del terreno…"
+        defaultValue=""
+        className="w-full border border-[#E2E8E4] rounded-xl px-4 py-3 text-[14px] text-[#111d17] bg-white focus:outline-none focus:border-[#1D9E75] focus:ring-2 focus:ring-[#1D9E75]/20 placeholder:text-[#c5d0cb]"
+      />
+      <div className="relative w-full rounded-xl overflow-hidden border border-[#E2E8E4]" style={{ height: 280 }}>
+        <div ref={mapRef} className="w-full h-full" />
+        {lat && lng && (
+          <div className="absolute bottom-3 left-3 bg-white border border-[#E2E8E4] shadow-sm rounded-lg px-3 py-1.5">
+            <p className="text-[10px] text-[#9aab9f] font-mono">{lat.toFixed(6)}, {lng.toFixed(6)}</p>
+          </div>
+        )}
+      </div>
     </div>
   )
 }
@@ -350,11 +350,9 @@ function Step2({ data, setData }: { data: FormData; setData: (d: FormData) => vo
         <div>
           <FieldLabel>Ubicación en mapa</FieldLabel>
           <MapPicker
-            direccion={data.direccion}
-            ciudad={data.ciudad}
             lat={data.lat}
             lng={data.lng}
-            onLocationChange={(lat, lng) => setData({ ...data, lat, lng })}
+            onPlaceSelected={(_, lat, lng) => setData({ ...data, lat, lng })}
           />
           <p className="text-[11px] text-[#9aab9f] mt-2">
             El mapa se mueve automáticamente al escribir la dirección. Arrastra el marcador para ajustar la posición exacta.
