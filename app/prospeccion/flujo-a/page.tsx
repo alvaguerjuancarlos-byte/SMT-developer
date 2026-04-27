@@ -99,33 +99,30 @@ function loadGoogleMaps(): Promise<void> {
 }
 
 function MapPicker({
-  lat,
-  lng,
-  searchInputRef,
-  onPlaceSelected,
+  searchResult,
+  onMarkerMove,
 }: {
-  lat: number | null
-  lng: number | null
-  searchInputRef: React.RefObject<HTMLInputElement | null>
-  onPlaceSelected: (address: string, lat: number, lng: number) => void
+  searchResult: { lat: number; lng: number } | null
+  onMarkerMove: (lat: number, lng: number) => void
 }) {
-  const mapRef       = useRef<HTMLDivElement>(null)
-  const mapObj       = useRef<google.maps.Map | null>(null)
-  const marker       = useRef<google.maps.Marker | null>(null)
-  const autocomplete = useRef<google.maps.places.Autocomplete | null>(null)
+  const mapRef = useRef<HTMLDivElement>(null)
+  const mapObj = useRef<google.maps.Map | null>(null)
+  const marker = useRef<google.maps.Marker | null>(null)
   const [ready, setReady] = useState(false)
+  const [markerPos, setMarkerPos] = useState<{ lat: number; lng: number } | null>(searchResult)
 
   useEffect(() => {
     loadGoogleMaps().then(() => setReady(true)).catch(console.error)
   }, [])
 
+  // Initialize map once Maps SDK is ready
   useEffect(() => {
-    if (!ready || !mapRef.current || !searchInputRef.current) return
+    if (!ready || !mapRef.current) return
 
-    const center = lat && lng ? { lat, lng } : MONTERREY
+    const center = searchResult ?? MONTERREY
     mapObj.current = new google.maps.Map(mapRef.current, {
       center,
-      zoom: lat && lng ? 17 : 12,
+      zoom: searchResult ? 17 : 12,
       mapTypeControl: false,
       streetViewControl: false,
       fullscreenControl: false,
@@ -140,32 +137,29 @@ function MapPicker({
       map: mapObj.current,
       draggable: true,
       title: 'Ubicación del terreno',
-      visible: !!(lat && lng),
+      visible: !!searchResult,
     })
 
     marker.current.addListener('dragend', () => {
       const pos = marker.current!.getPosition()
-      if (pos) onPlaceSelected('', pos.lat(), pos.lng())
-    })
-
-    autocomplete.current = new google.maps.places.Autocomplete(searchInputRef.current!, {
-      componentRestrictions: { country: 'mx' },
-      fields: ['formatted_address', 'geometry', 'name'],
-      types: ['address'],
-    })
-
-    autocomplete.current.addListener('place_changed', () => {
-      const place = autocomplete.current!.getPlace()
-      if (!place.geometry?.location) return
-      const loc = place.geometry.location
-      const address = place.formatted_address || place.name || ''
-      mapObj.current!.setCenter(loc)
-      mapObj.current!.setZoom(17)
-      marker.current!.setPosition(loc)
-      marker.current!.setVisible(true)
-      onPlaceSelected(address, loc.lat(), loc.lng())
+      if (pos) {
+        const coords = { lat: pos.lat(), lng: pos.lng() }
+        setMarkerPos(coords)
+        onMarkerMove(coords.lat, coords.lng)
+      }
     })
   }, [ready])
+
+  // Re-center map whenever a new geocode result arrives
+  useEffect(() => {
+    if (!searchResult || !mapObj.current || !marker.current) return
+    const loc = new google.maps.LatLng(searchResult.lat, searchResult.lng)
+    mapObj.current.setCenter(loc)
+    mapObj.current.setZoom(17)
+    marker.current.setPosition(loc)
+    marker.current.setVisible(true)
+    setMarkerPos(searchResult)
+  }, [searchResult])
 
   if (!ready) {
     return (
@@ -178,9 +172,9 @@ function MapPicker({
   return (
     <div className="relative w-full rounded-xl overflow-hidden border border-[#E2E8E4]" style={{ height: 280 }}>
       <div ref={mapRef} className="w-full h-full" />
-      {lat && lng && (
+      {markerPos && (
         <div className="absolute bottom-3 left-3 bg-white border border-[#E2E8E4] shadow-sm rounded-lg px-3 py-1.5">
-          <p className="text-[10px] text-[#9aab9f] font-mono">{lat.toFixed(6)}, {lng.toFixed(6)}</p>
+          <p className="text-[10px] text-[#9aab9f] font-mono">{markerPos.lat.toFixed(6)}, {markerPos.lng.toFixed(6)}</p>
         </div>
       )}
     </div>
@@ -302,7 +296,40 @@ function Step1({ data, setData }: { data: FormData; setData: (d: FormData) => vo
 }
 
 function Step2({ data, setData }: { data: FormData; setData: (d: FormData) => void }) {
-  const direccionRef = useRef<HTMLInputElement>(null)
+  const [searchResult, setSearchResult] = useState<{ lat: number; lng: number } | null>(
+    data.lat !== null && data.lng !== null ? { lat: data.lat, lng: data.lng } : null
+  )
+  const [pendingLat, setPendingLat] = useState<number | null>(data.lat)
+  const [pendingLng, setPendingLng] = useState<number | null>(data.lng)
+  const [searching, setSearching] = useState(false)
+  const [geocodeError, setGeocodeError] = useState(false)
+
+  const handleSearch = async () => {
+    const query = [data.direccion, data.ciudad].filter(Boolean).join(', ')
+    if (!query.trim()) return
+    setSearching(true)
+    setGeocodeError(false)
+    try {
+      await loadGoogleMaps()
+      const geocoder = new google.maps.Geocoder()
+      const { results } = await geocoder.geocode({ address: query, region: 'mx' })
+      if (results[0]?.geometry?.location) {
+        const lat = results[0].geometry.location.lat()
+        const lng = results[0].geometry.location.lng()
+        setSearchResult({ lat, lng })
+        setPendingLat(lat)
+        setPendingLng(lng)
+      } else {
+        setGeocodeError(true)
+      }
+    } catch {
+      setGeocodeError(true)
+    } finally {
+      setSearching(false)
+    }
+  }
+
+  const confirmed = data.lat !== null && data.lat === pendingLat && data.lng === pendingLng
 
   return (
     <div>
@@ -313,15 +340,28 @@ function Step2({ data, setData }: { data: FormData; setData: (d: FormData) => vo
       <div className="flex flex-col gap-4">
         <div>
           <FieldLabel>Calle y número</FieldLabel>
-          <input
-            ref={direccionRef}
-            type="text"
-            value={data.direccion}
-            onChange={e => setData({ ...data, direccion: e.target.value })}
-            placeholder="Ej. Av. Vasconcelos 300, Pte."
-            className="w-full border border-[#E2E8E4] rounded-xl px-4 py-3 text-[14px] text-[#111d17] bg-white focus:outline-none focus:border-[#1D9E75] focus:ring-2 focus:ring-[#1D9E75]/20 placeholder:text-[#c5d0cb]"
-          />
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={data.direccion}
+              onChange={e => setData({ ...data, direccion: e.target.value })}
+              onKeyDown={e => { if (e.key === 'Enter') handleSearch() }}
+              placeholder="Ej. Av. Vasconcelos 300, Pte."
+              className="flex-1 border border-[#E2E8E4] rounded-xl px-4 py-3 text-[14px] text-[#111d17] bg-white focus:outline-none focus:border-[#1D9E75] focus:ring-2 focus:ring-[#1D9E75]/20 placeholder:text-[#c5d0cb]"
+            />
+            <button
+              onClick={handleSearch}
+              disabled={!data.direccion.trim() || searching}
+              className="shrink-0 px-4 py-3 rounded-xl text-[13px] font-medium bg-[#1D9E75] text-white hover:bg-[#0F6E56] disabled:bg-[#E2E8E4] disabled:text-[#9aab9f] transition-colors"
+            >
+              {searching ? 'Buscando…' : 'Buscar'}
+            </button>
+          </div>
+          {geocodeError && (
+            <p className="text-[11px] text-red-500 mt-1">No se encontró la dirección. Intenta ser más específico.</p>
+          )}
         </div>
+
         <div>
           <FieldLabel>Ciudad</FieldLabel>
           <SelectInput
@@ -343,14 +383,24 @@ function Step2({ data, setData }: { data: FormData; setData: (d: FormData) => vo
         <div>
           <FieldLabel>Ubicación en mapa</FieldLabel>
           <MapPicker
-            lat={data.lat}
-            lng={data.lng}
-            searchInputRef={direccionRef}
-            onPlaceSelected={(address, lat, lng) => setData({ ...data, direccion: address, lat, lng })}
+            searchResult={searchResult}
+            onMarkerMove={(lat, lng) => { setPendingLat(lat); setPendingLng(lng) }}
           />
-          <p className="text-[11px] text-[#9aab9f] mt-2">
-            Arrastra el marcador para ajustar la posición exacta.
-          </p>
+          {!searchResult ? (
+            <p className="text-[11px] text-[#9aab9f] mt-2">Escribe la dirección y pulsa Buscar para ubicarla en el mapa.</p>
+          ) : (
+            <button
+              onClick={() => setData({ ...data, lat: pendingLat!, lng: pendingLng! })}
+              disabled={confirmed}
+              className={`mt-3 w-full py-3 rounded-xl text-[13px] font-medium transition-colors ${
+                confirmed
+                  ? 'bg-[#F0FBF6] text-[#1D9E75] border border-[#1D9E75]/30 cursor-default'
+                  : 'bg-[#1D9E75] text-white hover:bg-[#0F6E56]'
+              }`}
+            >
+              {confirmed ? '✓ Ubicación confirmada' : 'Confirmar ubicación'}
+            </button>
+          )}
         </div>
 
         <div>
