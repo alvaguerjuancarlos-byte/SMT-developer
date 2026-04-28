@@ -40,7 +40,8 @@ function MetricRow({ label, value, valueClass = 'text-[#111d17]', border = true 
 }
 
 function ScoreGauge({ score }: { score: number }) {
-  const size = 140
+  // Arc: M 16 74 A 54 54 0 0 1 124 74  →  cx=70 cy=74 r=54
+  // Stroke top: cy - r - strokeWidth/2 = 74 - 54 - 6 = 14px from SVG top  ✓ no overflow
   const r = 54
   const circ = Math.PI * r
   const dash = (score / 100) * circ
@@ -50,15 +51,17 @@ function ScoreGauge({ score }: { score: number }) {
 
   return (
     <div className="flex flex-col items-center">
-      <div className="relative" style={{ width: size, height: size / 2 + 16 }}>
-        <svg width={size} height={size} style={{ transform: 'rotate(-180deg)', marginTop: -(size / 2) }}>
-          <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#F0F4F2" strokeWidth="12" strokeDasharray={`${circ} ${circ}`} strokeLinecap="round"/>
-          <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth="12"
-            strokeDasharray={`${dash} ${circ}`} strokeLinecap="round"
+      <div className="relative" style={{ width: 140, height: 90 }}>
+        <svg width="140" height="90" viewBox="0 0 140 90" fill="none">
+          <path d="M 16 74 A 54 54 0 0 1 124 74"
+            stroke="#F0F4F2" strokeWidth="12" strokeLinecap="round" fill="none"/>
+          <path d="M 16 74 A 54 54 0 0 1 124 74"
+            stroke={color} strokeWidth="12" strokeLinecap="round" fill="none"
+            strokeDasharray={`${dash} ${circ}`}
             style={{ transition: 'stroke-dasharray 1s ease' }}/>
         </svg>
-        <div className="absolute bottom-0 left-0 right-0 flex flex-col items-center">
-          <span className="text-[32px] font-black" style={{ color }}>{score}</span>
+        <div className="absolute bottom-0 left-0 right-0 flex flex-col items-center pb-1">
+          <span className="text-[32px] font-black leading-none" style={{ color }}>{score}</span>
           <span className="text-[11px] text-[#9aab9f]">/ 100</span>
         </div>
       </div>
