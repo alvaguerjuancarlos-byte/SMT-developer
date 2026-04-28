@@ -1,11 +1,31 @@
 'use client'
 
-import { useEffect, useState, Suspense } from 'react'
+import { useEffect, useState, useRef, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+
+function loadGoogleMaps(): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (typeof window === 'undefined') return
+    if ((window as any).google?.maps) { resolve(); return }
+    const existing = document.getElementById('gmap-script')
+    if (existing) { existing.addEventListener('load', () => resolve()); return }
+    const key = process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY || ''
+    const script = document.createElement('script')
+    script.id = 'gmap-script'
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=places`
+    script.async = true
+    script.defer = true
+    script.onload = () => resolve()
+    script.onerror = () => reject(new Error('Error cargando Google Maps'))
+    document.head.appendChild(script)
+  })
+}
 
 const CANDIDATES = [
   {
     id: 1,
+    lat: 25.6505,
+    lng: -100.3319,
     nombre: 'Terreno en Valle Oriente',
     precio: '$8,500,000',
     superficie: '1,200 m²',
@@ -34,6 +54,8 @@ const CANDIDATES = [
   },
   {
     id: 2,
+    lat: 25.7618,
+    lng: -100.3661,
     nombre: 'Predio en Cumbres Elite',
     precio: '$5,200,000',
     superficie: '850 m²',
@@ -62,6 +84,8 @@ const CANDIDATES = [
   },
   {
     id: 3,
+    lat: 25.6447,
+    lng: -100.3590,
     nombre: 'Lote en Del Valle',
     precio: '$12,800,000',
     superficie: '2,100 m²',
@@ -249,14 +273,119 @@ function MarketSheet({ mercado, color }: { mercado: typeof CANDIDATES[0]['mercad
   )
 }
 
+const CANDIDATE_COLORS: Record<string, string> = {
+  green: '#1D9E75',
+  blue: '#378ADD',
+  purple: '#8B5CF6',
+}
+
+const MAPA_CENTRO = { lat: 25.690, lng: -100.348 }
+
+function pinIcon(num: number, color: string, highlighted: boolean): google.maps.Icon {
+  const w = highlighted ? 38 : 30
+  const h = highlighted ? 48 : 38
+  const stroke = highlighted ? ` stroke="white" stroke-width="2"` : ''
+  const svg = encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 30 38">` +
+    `<path d="M15 0C6.716 0 0 6.716 0 15c0 10.5 15 23 15 23S30 25.5 30 15C30 6.716 23.284 0 15 0z" fill="${color}"${stroke}/>` +
+    `<text x="15" y="19" text-anchor="middle" dominant-baseline="middle" fill="white" font-size="12" font-weight="bold" font-family="sans-serif">${num}</text>` +
+    `</svg>`
+  )
+  return {
+    url: `data:image/svg+xml,${svg}`,
+    scaledSize: new google.maps.Size(w, h),
+    anchor: new google.maps.Point(w / 2, h),
+  }
+}
+
+function CandidatesMap({
+  candidates,
+  highlightedId,
+  onPinClick,
+}: {
+  candidates: typeof CANDIDATES
+  highlightedId: number | null
+  onPinClick: (id: number) => void
+}) {
+  const mapRef     = useRef<HTMLDivElement>(null)
+  const mapObj     = useRef<google.maps.Map | null>(null)
+  const markersRef = useRef<google.maps.Marker[]>([])
+  const callbackRef = useRef(onPinClick)
+  const [ready, setReady] = useState(false)
+
+  useEffect(() => { callbackRef.current = onPinClick }, [onPinClick])
+
+  useEffect(() => {
+    loadGoogleMaps().then(() => setReady(true)).catch(console.error)
+  }, [])
+
+  useEffect(() => {
+    if (!ready || !mapRef.current) return
+    mapObj.current = new google.maps.Map(mapRef.current, {
+      center: MAPA_CENTRO,
+      zoom: 11,
+      mapTypeControl: false,
+      streetViewControl: false,
+      fullscreenControl: false,
+      styles: [
+        { featureType: 'poi', stylers: [{ visibility: 'off' }] },
+        { featureType: 'transit', stylers: [{ visibility: 'off' }] },
+      ],
+    })
+    markersRef.current = candidates.map((c) => {
+      const color = CANDIDATE_COLORS[c.mercadoColor] ?? '#1D9E75'
+      const marker = new google.maps.Marker({
+        position: { lat: c.lat, lng: c.lng },
+        map: mapObj.current!,
+        icon: pinIcon(c.id, color, false),
+        title: c.nombre,
+      })
+      marker.addListener('click', () => callbackRef.current(c.id))
+      return marker
+    })
+  }, [ready])
+
+  useEffect(() => {
+    if (!markersRef.current.length) return
+    markersRef.current.forEach((marker, i) => {
+      const c = candidates[i]
+      const color = CANDIDATE_COLORS[c.mercadoColor] ?? '#1D9E75'
+      const hi = c.id === highlightedId
+      marker.setIcon(pinIcon(c.id, color, hi))
+      marker.setZIndex(hi ? 100 : 1)
+    })
+  }, [highlightedId, candidates])
+
+  if (!ready) {
+    return (
+      <div
+        className="w-full rounded-2xl border border-[#E2E8E4] bg-[#F7F8F6] flex items-center justify-center mb-4"
+        style={{ height: 320 }}
+      >
+        <p className="text-[13px] text-[#9aab9f]">Cargando mapa…</p>
+      </div>
+    )
+  }
+
+  return (
+    <div
+      ref={mapRef}
+      className="w-full rounded-2xl overflow-hidden border border-[#E2E8E4] shadow-sm mb-4"
+      style={{ height: 320 }}
+    />
+  )
+}
+
 function CandidateCard({
   c,
   stage,
   index,
+  highlighted,
 }: {
   c: typeof CANDIDATES[0]
   stage: Stage
   index: number
+  highlighted: boolean
 }) {
   const visible = stage >= 2
   const legalDone = stage >= 3
@@ -264,7 +393,10 @@ function CandidateCard({
 
   return (
     <div
-      className="bg-white rounded-2xl border border-[#E2E8E4] shadow-sm overflow-hidden transition-all duration-500"
+      id={`candidate-${c.id}`}
+      className={`bg-white rounded-2xl border shadow-sm overflow-hidden transition-all duration-500 ${
+        highlighted ? 'border-[#1D9E75] shadow-[0_0_0_2px_#1D9E75]' : 'border-[#E2E8E4]'
+      }`}
       style={{
         opacity: visible ? 1 : 0,
         transform: visible ? 'translateY(0)' : 'translateY(12px)',
@@ -359,6 +491,7 @@ function BuscandoContent() {
   const proyecto = params.get('proyecto') || ''
   const [stage, setStage] = useState<Stage>(1)
   const [statusText, setStatusText] = useState('Agente Scout buscando terrenos...')
+  const [highlightedId, setHighlightedId] = useState<number | null>(null)
 
   useEffect(() => {
     const timers: ReturnType<typeof setTimeout>[] = []
@@ -464,7 +597,7 @@ function BuscandoContent() {
           {stage >= 2 && (
             <div className="flex flex-col gap-4 mb-8">
               {CANDIDATES.map((c, i) => (
-                <CandidateCard key={c.id} c={c} stage={stage} index={i} />
+                <CandidateCard key={c.id} c={c} stage={stage} index={i} highlighted={highlightedId === c.id} />
               ))}
             </div>
           )}
@@ -493,6 +626,18 @@ function BuscandoContent() {
                 <p className="text-[12px] text-[#7a9089]">Analizando demanda, comparables y tendencias de la zona…</p>
               </div>
             </div>
+          )}
+
+          {/* Stage 4 — map */}
+          {stage === 4 && (
+            <CandidatesMap
+              candidates={CANDIDATES}
+              highlightedId={highlightedId}
+              onPinClick={(id) => {
+                setHighlightedId(id)
+                document.getElementById(`candidate-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+              }}
+            />
           )}
 
           {/* Stage 4 — CTA */}
