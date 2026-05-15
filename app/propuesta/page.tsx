@@ -1,41 +1,62 @@
 'use client'
 
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Suspense } from 'react'
+import { Suspense, useEffect, useState } from 'react'
+import { downloadPDF } from '@/lib/downloadPDF'
+
+interface StressItem { titulo: string; escenario: string; impacto: string; status: 'green' | 'amber' | 'red' }
+
+interface AnalisisData {
+  proyecto?: string
+  recomendacion: { tipologia: string; descripcion: string }
+  fichaLegal: { usoSuelo: string; cos: string; cus: string; altura: string; cajones: string; municipio: string; restriccion: string }
+  financiero: {
+    costoTerreno: number; costoTerrenoM2: number; construccionM2: number
+    costoTotalConstruccion: number; indirectos: number; honorarios: number
+    imprevistos: number; inversionTotal: number; precioVentaM2: number
+    ingresosProyectados: number; utilidadBruta: number; margenBruto: number; tir: number
+  }
+  mercado: { demanda: string; zona: string; absorcion: string; proyectosActivos: string; precioPromedioZona: string; perfilNSE: string; plusvalia: string; inventario: string; productoRecomendado: string }
+  score: { total: number; solidezFinanciera: number; riesgoRegulatorio: number; exposicionMercado: number }
+  stressTest: StressItem[]
+  puntoQuiebre: { desviacionMaxCostos: string; absorcionMinViable: string; precioVentaMinimo: string; resumen: string }
+}
+
+interface FormData {
+  nombreProyecto: string; direccion: string; ciudad: string; colonia: string
+  superficie: string; usoSuelo: string; estadoTerreno: string; presupuesto: string
+}
+
+const FALLBACK_A: AnalisisData = {
+  recomendacion: { tipologia: 'Residencial Vertical · 48 departamentos', descripcion: '' },
+  fichaLegal: { usoSuelo: 'Habitacional Plurifamiliar', cos: '60%', cus: '2.4', altura: '12 niveles', cajones: '1.2 por unidad', municipio: 'San Pedro Garza García', restriccion: '' },
+  financiero: { costoTerreno: 8500000, costoTerrenoM2: 7083, construccionM2: 16500, costoTotalConstruccion: 23760000, indirectos: 3240000, honorarios: 1800000, imprevistos: 1188000, inversionTotal: 45200000, precioVentaM2: 38500, ingresosProyectados: 66780000, utilidadBruta: 12800000, margenBruto: 28.3, tir: 22.4 },
+  mercado: { demanda: 'Alta', zona: 'Valle Oriente · San Pedro Garza García', absorcion: '8 unidades / mes', proyectosActivos: '4 proyectos en radio 500 m', precioPromedioZona: '$9,200 / m²', perfilNSE: 'A / B · 28–45 años', plusvalia: '+18%', inventario: '14 meses', productoRecomendado: 'Departamentos 2–3 rec. de 85–120 m²' },
+  score: { total: 78, solidezFinanciera: 82, riesgoRegulatorio: 75, exposicionMercado: 71 },
+  stressTest: [
+    { titulo: 'Shock de Costos +15%', escenario: 'Costo total sube de $45.2 M a $49.8 M por incremento en materiales y mano de obra.', impacto: 'TIR: 22.4% → 17.8% · Margen: 28.3% → 20.1% · Proyecto sigue viable', status: 'amber' },
+    { titulo: 'Freno de Ventas −50%', escenario: 'Absorción cae de 8 a 4 unidades/mes. Plazo se extiende 6 meses adicionales.', impacto: 'TIR: 22.4% → 14.1% · Margen: 28.3% → 22.4% · Viable con ajuste de plazo', status: 'amber' },
+    { titulo: 'Ajuste de Mercado −10% en Precio', escenario: 'Precio de venta cae. Ingresos bajan considerablemente.', impacto: 'TIR: 22.4% → 9.8% · Margen: 28.3% → 12.6% · Al límite — revisar supuestos', status: 'red' },
+  ],
+  puntoQuiebre: { desviacionMaxCostos: '+28.4%', absorcionMinViable: '38%', precioVentaMinimo: '$29,800/m²', resumen: '' },
+}
+
+function fmt(n: number) { return `$${n.toLocaleString('es-MX')}` }
+function fmtM(n: number) { return `$${(n / 1_000_000).toFixed(1)} M` }
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
     <h2 className="text-[11px] font-bold text-[#9aab9f] tracking-[0.14em] uppercase mb-4 flex items-center gap-3">
-      <span className="flex-1 h-px bg-[#E2E8E4]" />
-      {children}
-      <span className="flex-1 h-px bg-[#E2E8E4]" />
+      <span className="flex-1 h-px bg-[#E2E8E4]" />{children}<span className="flex-1 h-px bg-[#E2E8E4]" />
     </h2>
   )
 }
 
 function Card({ children, className = '' }: { children: React.ReactNode; className?: string }) {
-  return (
-    <div className={`bg-white rounded-2xl border border-[#E2E8E4] shadow-sm ${className}`}>
-      {children}
-    </div>
-  )
+  return <div className={`bg-white rounded-2xl border border-[#E2E8E4] shadow-sm ${className}`}>{children}</div>
 }
 
-function MetricCard({ label, value, sub, dark = false }: {
-  label: string; value: string; sub?: string; dark?: boolean
-}) {
-  return (
-    <div className={`rounded-2xl p-5 border ${dark ? 'bg-[#111d17] border-[#1D9E75]/30' : 'bg-white border-[#E2E8E4]'}`}>
-      <p className={`text-[10px] font-semibold tracking-[0.14em] uppercase mb-2 ${dark ? 'text-[#9FE1CB]' : 'text-[#9aab9f]'}`}>{label}</p>
-      <p className={`text-[28px] font-black leading-none ${dark ? 'text-[#4ade80]' : 'text-[#111d17]'}`}>{value}</p>
-      {sub && <p className={`text-[11px] mt-1 ${dark ? 'text-white/40' : 'text-[#9aab9f]'}`}>{sub}</p>}
-    </div>
-  )
-}
-
-function TableRow({ label, value, highlight = false, sub }: {
-  label: string; value: string; highlight?: boolean; sub?: string
-}) {
+function TableRow({ label, value, highlight = false, sub }: { label: string; value: string; highlight?: boolean; sub?: string }) {
   return (
     <tr className={`${highlight ? 'bg-[#F0FBF6]' : ''} border-b border-[#F0F4F2] last:border-0`}>
       <td className="px-6 py-3">
@@ -50,9 +71,7 @@ function TableRow({ label, value, highlight = false, sub }: {
 }
 
 function ScoreArc({ score }: { score: number }) {
-  const r = 46
-  const circ = Math.PI * r
-  const dash = (score / 100) * circ
+  const r = 46, circ = Math.PI * r, dash = (score / 100) * circ
   const color = score >= 70 ? '#1D9E75' : score >= 50 ? '#D97706' : '#DC2626'
   const label = score >= 70 ? 'Proyecto Viable' : score >= 50 ? 'Revisar Supuestos' : 'Riesgo Elevado'
   const labelColor = score >= 70 ? '#0F6E56' : score >= 50 ? '#92600A' : '#991B1B'
@@ -74,9 +93,7 @@ function ScoreArc({ score }: { score: number }) {
   )
 }
 
-function StressRow({ title, scenario, impact, status }: {
-  title: string; scenario: string; impact: string; status: 'green' | 'amber' | 'red'
-}) {
+function StressRow({ titulo, escenario, impacto, status }: StressItem) {
   const cfg = {
     green: { badge: 'bg-[#E1F5EE] text-[#0F6E56]', dot: '#1D9E75', label: 'Tolerable' },
     amber: { badge: 'bg-[#FEF3C7] text-[#92600A]', dot: '#D97706', label: 'Monitorear' },
@@ -87,14 +104,23 @@ function StressRow({ title, scenario, impact, status }: {
       <span className="w-2.5 h-2.5 rounded-full mt-1 shrink-0" style={{ backgroundColor: cfg.dot }} />
       <div className="flex-1">
         <div className="flex items-center gap-2 mb-1">
-          <p className="text-[13px] font-bold text-[#111d17]">{title}</p>
+          <p className="text-[13px] font-bold text-[#111d17]">{titulo}</p>
           <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${cfg.badge}`}>{cfg.label}</span>
         </div>
-        <p className="text-[12px] text-[#5a7065] mb-1">{scenario}</p>
-        <p className="text-[12px] font-semibold text-[#111d17]">{impact}</p>
+        <p className="text-[12px] text-[#5a7065] mb-1">{escenario}</p>
+        <p className="text-[12px] font-semibold text-[#111d17]">{impacto}</p>
       </div>
     </div>
   )
+}
+
+const USOS_LABEL: Record<string, string> = {
+  habitacional: 'Habitacional', comercial: 'Comercial', mixto: 'Mixto',
+  industrial: 'Industrial', agricola: 'Agrícola', 'sin-uso': 'Sin uso definido',
+}
+const ESTADO_LABEL: Record<string, string> = {
+  'baldio-limpio': 'Baldío limpio', 'baldio-escombro': 'Baldío con escombro',
+  construccion: 'Construcción existente', vegetacion: 'Vegetación densa',
 }
 
 function PropuestaContent() {
@@ -103,10 +129,35 @@ function PropuestaContent() {
   const proyecto = params.get('proyecto') || 'Proyecto de Inversión'
   const today = new Date().toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' })
 
+  const [d, setD] = useState<AnalisisData>(FALLBACK_A)
+  const [form, setForm] = useState<FormData | null>(null)
+  const [aiGenerated, setAiGenerated] = useState(false)
+  const [pdfLoading, setPdfLoading] = useState(false)
+
+  const handleDownloadPDF = async () => {
+    setPdfLoading(true)
+    try {
+      await downloadPDF(`propuesta-${proyecto.replace(/\s+/g, '-').toLowerCase()}.pdf`)
+    } finally {
+      setPdfLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    const raw = localStorage.getItem('smt_analisis_data')
+    if (raw) {
+      try { setD(JSON.parse(raw)); setAiGenerated(true) } catch { /* fallback */ }
+    }
+    const rawForm = localStorage.getItem('smt_flujo_a_data')
+    if (rawForm) {
+      try { setForm(JSON.parse(rawForm)) } catch { /* ignore */ }
+    }
+  }, [])
+
+  const f = d.financiero
+
   return (
     <div className="min-h-screen bg-[#F7F8F6] flex flex-col">
-
-      {/* Sticky header */}
       <header className="px-8 py-4 flex items-center gap-3 border-b border-[#E2E8E4] bg-white sticky top-0 z-20">
         <div className="w-8 h-8 rounded-lg bg-[#1D9E75] flex items-center justify-center shrink-0">
           <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
@@ -119,6 +170,20 @@ function PropuestaContent() {
           <span className="block text-[10px] text-[#6b7c74] tracking-[0.12em] uppercase">Inteligencia inmobiliaria</span>
         </div>
         <div className="ml-auto flex items-center gap-2">
+          {aiGenerated && (
+            <span className="text-[10px] font-bold tracking-[0.12em] uppercase bg-[#E1F5EE] border border-[#9FE1CB] text-[#0F6E56] px-3 py-1 rounded-full">
+              IA generado
+            </span>
+          )}
+          <button onClick={() => router.push('/dashboard')} className="flex items-center gap-1.5 text-[13px] text-[#5a7065] hover:text-[#111d17] border border-[#E2E8E4] hover:border-[#C8D5CF] px-3 py-1.5 rounded-xl transition-colors mr-1">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <rect x="1" y="1" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.3"/>
+              <rect x="8" y="1" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.3"/>
+              <rect x="1" y="8" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.3"/>
+              <rect x="8" y="8" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.3"/>
+            </svg>
+            Mis Proyectos
+          </button>
           <button
             onClick={() => router.push(`/analisis${proyecto !== 'Proyecto de Inversión' ? `?proyecto=${encodeURIComponent(proyecto)}` : ''}`)}
             className="flex items-center gap-1.5 text-[13px] text-[#5a7065] hover:text-[#111d17] transition-colors mr-2"
@@ -128,36 +193,33 @@ function PropuestaContent() {
             </svg>
             Volver al Análisis
           </button>
-          <div className="relative group">
-            <button disabled className="flex items-center gap-1.5 text-[13px] font-medium text-[#9aab9f] border border-[#E2E8E4] bg-[#F7F8F6] px-4 py-2 rounded-xl cursor-not-allowed">
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                <path d="M7 1v8M4 6l3 3 3-3M2 11h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-              Descargar PDF
-            </button>
-            <span className="absolute -top-7 left-1/2 -translate-x-1/2 bg-[#111d17] text-white text-[10px] font-semibold px-2 py-1 rounded-md whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-              Próximamente
-            </span>
-          </div>
-          <div className="relative group">
-            <button disabled className="flex items-center gap-1.5 text-[13px] font-medium text-[#9aab9f] border border-[#E2E8E4] bg-[#F7F8F6] px-4 py-2 rounded-xl cursor-not-allowed">
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                <circle cx="11" cy="3" r="1.5" stroke="currentColor" strokeWidth="1.3"/>
-                <circle cx="11" cy="11" r="1.5" stroke="currentColor" strokeWidth="1.3"/>
-                <circle cx="3" cy="7" r="1.5" stroke="currentColor" strokeWidth="1.3"/>
-                <path d="M4.3 6.3l5.4-2.6M4.3 7.7l5.4 2.6" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
-              </svg>
-              Compartir
-            </button>
-            <span className="absolute -top-7 left-1/2 -translate-x-1/2 bg-[#111d17] text-white text-[10px] font-semibold px-2 py-1 rounded-md whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-              Próximamente
-            </span>
-          </div>
+          <button
+            onClick={handleDownloadPDF}
+            disabled={pdfLoading}
+            className="flex items-center gap-1.5 text-[13px] font-medium px-4 py-2 rounded-xl border transition-colors text-[#0F6E56] border-[#9FE1CB] bg-[#E1F5EE] hover:bg-[#1D9E75] hover:text-white hover:border-[#1D9E75] cursor-pointer disabled:opacity-60 disabled:cursor-wait"
+          >
+            {pdfLoading ? (
+              <>
+                <svg className="animate-spin" width="14" height="14" viewBox="0 0 14 14" fill="none">
+                  <circle cx="7" cy="7" r="5" stroke="currentColor" strokeWidth="1.5" strokeOpacity="0.3"/>
+                  <path d="M7 2a5 5 0 0 1 5 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                </svg>
+                Generando…
+              </>
+            ) : (
+              <>
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                  <path d="M7 1v8M4 6l3 3 3-3M2 11h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                Descargar PDF
+              </>
+            )}
+          </button>
         </div>
       </header>
 
       <main className="flex-1 px-4 py-10">
-        <div className="w-full max-w-[800px] mx-auto flex flex-col gap-10">
+        <div id="propuesta-print" className="w-full max-w-[800px] mx-auto flex flex-col gap-10">
 
           {/* 1 · Cover */}
           <div className="rounded-2xl overflow-hidden" style={{ background: 'linear-gradient(135deg, #0a1a12 0%, #111d17 55%, #0c1f15 100%)' }}>
@@ -175,25 +237,22 @@ function PropuestaContent() {
                     <p className="text-[10px] text-white/40 tracking-[0.12em] uppercase">Inteligencia inmobiliaria</p>
                   </div>
                 </div>
-                <span className="text-[10px] font-bold tracking-[0.14em] uppercase bg-[#1D9E75]/20 border border-[#1D9E75]/40 text-[#9FE1CB] px-3 py-1 rounded-full">
-                  Confidencial
-                </span>
+                <span className="text-[10px] font-bold tracking-[0.14em] uppercase bg-[#1D9E75]/20 border border-[#1D9E75]/40 text-[#9FE1CB] px-3 py-1 rounded-full">Confidencial</span>
               </div>
               <p className="text-[11px] font-bold text-[#9FE1CB] tracking-[0.14em] uppercase mb-2">Propuesta de Inversión Estructurada</p>
               <h1 className="text-[34px] font-black text-white leading-tight mb-2">{proyecto}</h1>
-              <p className="text-[14px] text-white/50">Monterrey, Nuevo León · {today}</p>
+              <p className="text-[14px] text-white/50">{form ? `${form.ciudad}${form.colonia ? ` · ${form.colonia}` : ''}` : d.mercado.zona} · {today}</p>
             </div>
             <div className="grid grid-cols-4 divide-x divide-white/10">
               {[
-                { label: 'TIR Proyectada', value: '22.4%', sub: 'anual', green: true },
-                { label: 'Inversión Total', value: '$45.2 M', sub: 'MXN', green: false },
-                { label: 'Utilidad Bruta', value: '$12.8 M', sub: 'MXN', green: false },
-                { label: 'Score Resiliencia', value: '78/100', sub: 'Proyecto viable', green: true },
+                { label: 'TIR Proyectada', value: `${f.tir}%`, green: true },
+                { label: 'Inversión Total', value: fmtM(f.inversionTotal), green: false },
+                { label: 'Utilidad Bruta', value: fmtM(f.utilidadBruta), green: false },
+                { label: 'Score Resiliencia', value: `${d.score.total}/100`, green: true },
               ].map((m, i) => (
                 <div key={i} className="px-6 py-5">
                   <p className="text-[10px] text-white/40 uppercase tracking-wide mb-1">{m.label}</p>
                   <p className={`text-[24px] font-black leading-none ${m.green ? 'text-[#4ade80]' : 'text-white'}`}>{m.value}</p>
-                  <p className="text-[11px] text-white/30 mt-1">{m.sub}</p>
                 </div>
               ))}
             </div>
@@ -204,36 +263,49 @@ function PropuestaContent() {
             <SectionTitle>Resumen Ejecutivo</SectionTitle>
             <Card className="p-6">
               <div className="grid grid-cols-4 gap-4 mb-6">
-                <MetricCard label="TIR Anual" value="22.4%" sub="caso base" dark />
-                <MetricCard label="Inversión Total" value="$45.2 M" sub="MXN" />
-                <MetricCard label="Utilidad Proyectada" value="$12.8 M" sub="MXN bruto" />
-                <MetricCard label="Score Resiliencia" value="78" sub="/ 100 · Viable" />
+                {[
+                  { label: 'TIR Anual', value: `${f.tir}%`, sub: 'caso base', dark: true },
+                  { label: 'Inversión Total', value: fmtM(f.inversionTotal), sub: 'MXN', dark: false },
+                  { label: 'Utilidad Proyectada', value: fmtM(f.utilidadBruta), sub: 'MXN bruto', dark: false },
+                  { label: 'Score Resiliencia', value: `${d.score.total}`, sub: '/ 100 · Viable', dark: false },
+                ].map((m, i) => (
+                  <div key={i} className={`rounded-2xl p-5 border ${m.dark ? 'bg-[#111d17] border-[#1D9E75]/30' : 'bg-white border-[#E2E8E4]'}`}>
+                    <p className={`text-[10px] font-semibold tracking-[0.14em] uppercase mb-2 ${m.dark ? 'text-[#9FE1CB]' : 'text-[#9aab9f]'}`}>{m.label}</p>
+                    <p className={`text-[24px] font-black leading-none ${m.dark ? 'text-[#4ade80]' : 'text-[#111d17]'}`}>{m.value}</p>
+                    <p className={`text-[11px] mt-1 ${m.dark ? 'text-white/40' : 'text-[#9aab9f]'}`}>{m.sub}</p>
+                  </div>
+                ))}
               </div>
               <div className="bg-[#F7F8F6] rounded-xl px-5 py-4 border border-[#E2E8E4]">
                 <p className="text-[14px] text-[#5a7065] leading-relaxed">
-                  El proyecto <strong className="text-[#111d17]">{proyecto}</strong> consiste en el desarrollo de un edificio residencial vertical de 48 departamentos en Valle Oriente, San Pedro Garza García, sobre un terreno de 1,200 m² con normativa Habitacional Plurifamiliar (CUS 2.4, 12 niveles). Con una inversión total de <strong className="text-[#111d17]">$45.2 MDP</strong> y precio de venta estimado de $38,500/m², el proyecto genera una <strong className="text-[#0F6E56]">TIR del 22.4% anual</strong> y una utilidad bruta de $12.8 MDP en un horizonte de 18 meses. El Score de Resiliencia de <strong className="text-[#0F6E56]">78/100</strong> confirma viabilidad ante desviaciones moderadas en costos, absorción y precio de mercado.
+                  El proyecto <strong className="text-[#111d17]">{proyecto}</strong>{form ? ` ubicado en ${form.ciudad}${form.colonia ? `, ${form.colonia}` : ''}` : ''} tiene una tipología recomendada de <strong className="text-[#111d17]">{d.recomendacion.tipologia}</strong>.
+                  Con una inversión total de <strong className="text-[#111d17]">{fmt(f.inversionTotal)}</strong> y precio de venta estimado de {fmt(f.precioVentaM2)}/m², el proyecto genera una{' '}
+                  <strong className="text-[#0F6E56]">TIR del {f.tir}% anual</strong> y una utilidad bruta de {fmt(f.utilidadBruta)}.
+                  El Score de Resiliencia de <strong className="text-[#0F6E56]">{d.score.total}/100</strong> confirma viabilidad ante desviaciones moderadas en costos, absorción y precio de mercado.
                 </p>
               </div>
             </Card>
           </div>
 
           {/* 3 · El Terreno */}
-          <div>
-            <SectionTitle>El Terreno</SectionTitle>
-            <Card className="p-0 overflow-hidden">
-              <table className="w-full">
-                <tbody>
-                  <TableRow label="Dirección" value="Av. Vasconcelos 300 Pte., Valle Oriente" sub="San Pedro Garza García, N.L." />
-                  <TableRow label="Superficie total" value="1,200 m²" />
-                  <TableRow label="Uso de suelo actual" value="Habitacional Plurifamiliar" />
-                  <TableRow label="Municipio" value="San Pedro Garza García" />
-                  <TableRow label="Precio de adquisición" value="$8,500,000 MXN" />
-                  <TableRow label="Precio por m²" value="$7,083 / m²" />
-                  <TableRow label="Estado del predio" value="Baldío limpio · Sin construcción existente" />
-                </tbody>
-              </table>
-            </Card>
-          </div>
+          {form && (
+            <div>
+              <SectionTitle>El Terreno</SectionTitle>
+              <Card className="p-0 overflow-hidden">
+                <table className="w-full">
+                  <tbody>
+                    <TableRow label="Dirección" value={form.direccion || '—'} sub={`${form.colonia ? form.colonia + ', ' : ''}${form.ciudad}`} />
+                    <TableRow label="Superficie total" value={form.superficie ? `${Number(form.superficie).toLocaleString('es-MX')} m²` : '—'} />
+                    <TableRow label="Uso de suelo actual" value={USOS_LABEL[form.usoSuelo] || form.usoSuelo || '—'} />
+                    <TableRow label="Estado del predio" value={ESTADO_LABEL[form.estadoTerreno] || form.estadoTerreno || '—'} />
+                    <TableRow label="Municipio" value={d.fichaLegal.municipio} />
+                    <TableRow label="Precio de adquisición" value={fmt(f.costoTerreno)} />
+                    <TableRow label="Precio por m²" value={`${fmt(f.costoTerrenoM2)} / m²`} />
+                  </tbody>
+                </table>
+              </Card>
+            </div>
+          )}
 
           {/* 4 · Recomendación Estratégica */}
           <div>
@@ -248,28 +320,11 @@ function PropuestaContent() {
                 </div>
                 <div>
                   <p className="text-[11px] font-bold text-[#1D9E75] tracking-[0.12em] uppercase mb-1">Tipología recomendada</p>
-                  <h3 className="text-[22px] font-bold text-[#111d17] mb-1">Residencial Vertical · 48 departamentos</h3>
-                  <p className="text-[13px] text-[#5a7065]">Torre de 12 niveles · Valle Oriente · NSE A/B</p>
+                  <h3 className="text-[22px] font-bold text-[#111d17] mb-1">{d.recomendacion.tipologia}</h3>
+                  <p className="text-[13px] text-[#5a7065]">{d.mercado.zona}</p>
                 </div>
               </div>
-              <p className="text-[14px] text-[#5a7065] leading-relaxed mb-5">
-                La normativa del predio (CUS 2.4, 12 niveles) y la demanda activa en Valle Oriente respaldan el desarrollo de un edificio residencial vertical orientado al segmento A/B de 28–45 años. La configuración de 48 unidades de 2 y 3 recámaras en rangos de 85–120 m² optimiza el área vendible al 85% del CUS y se alinea con la velocidad de absorción histórica de la zona (8 unidades/mes).
-              </p>
-              <div className="grid grid-cols-3 gap-3">
-                {[
-                  { label: 'Número de unidades', value: '48 departamentos' },
-                  { label: 'Área construida total', value: '2,880 m²' },
-                  { label: 'Área vendible neta', value: '1,734 m²' },
-                  { label: 'Mix de productos', value: '60% 2 rec. · 40% 3 rec.' },
-                  { label: 'Perfil comprador', value: 'NSE A/B · 28–45 años' },
-                  { label: 'Amenidades', value: 'Rooftop, gimnasio, lobby' },
-                ].map(d => (
-                  <div key={d.label} className="bg-[#F7F8F6] rounded-xl p-3 border border-[#E2E8E4]">
-                    <p className="text-[10px] text-[#9aab9f] uppercase tracking-wide mb-1">{d.label}</p>
-                    <p className="text-[13px] font-semibold text-[#111d17]">{d.value}</p>
-                  </div>
-                ))}
-              </div>
+              <p className="text-[14px] text-[#5a7065] leading-relaxed">{d.recomendacion.descripcion}</p>
             </Card>
           </div>
 
@@ -279,18 +334,17 @@ function PropuestaContent() {
             <Card className="p-0 overflow-hidden">
               <table className="w-full">
                 <tbody>
-                  <TableRow label="Costo del terreno" value="$8,500,000" sub="$7,083 / m² · 1,200 m²" />
-                  <TableRow label="Costo de construcción / m²" value="$16,500 / m²" sub="Acabados premium · clase A/B" />
-                  <TableRow label="Costo total de construcción" value="$23,760,000" sub="1,440 m² construidos" />
-                  <TableRow label="Indirectos y administración" value="$3,240,000" sub="8% sobre costo de obra" />
-                  <TableRow label="Honorarios y diseño" value="$1,800,000" sub="4.5% sobre costo de obra" />
-                  <TableRow label="Permisos y licencias" value="$712,000" sub="Municipio San Pedro Garza García" />
-                  <TableRow label="Imprevistos (5%)" value="$1,188,000" sub="Reserva de contingencia" />
-                  <TableRow label="Inversión Total" value="$45,200,000" highlight />
-                  <TableRow label="Precio de venta estimado / m²" value="$38,500 / m²" sub="Mercado Valle Oriente · NSE A/B" />
-                  <TableRow label="Ingresos proyectados (100%)" value="$66,759,000" sub="1,734 m² vendibles" />
-                  <TableRow label="Utilidad bruta" value="$12,800,000" />
-                  <TableRow label="Margen bruto sobre inversión" value="28.3%" highlight />
+                  <TableRow label="Costo del terreno" value={fmt(f.costoTerreno)} sub={`${fmt(f.costoTerrenoM2)} / m²`} />
+                  <TableRow label="Construcción por m²" value={`${fmt(f.construccionM2)} / m²`} />
+                  <TableRow label="Costo total de construcción" value={fmt(f.costoTotalConstruccion)} />
+                  <TableRow label="Indirectos y administración" value={fmt(f.indirectos)} sub="8% sobre costo de obra" />
+                  <TableRow label="Honorarios y diseño" value={fmt(f.honorarios)} sub="4.5% sobre costo de obra" />
+                  <TableRow label="Imprevistos (5%)" value={fmt(f.imprevistos)} sub="Reserva de contingencia" />
+                  <TableRow label="Inversión Total" value={fmt(f.inversionTotal)} highlight />
+                  <TableRow label="Precio de venta estimado / m²" value={`${fmt(f.precioVentaM2)} / m²`} sub={`Mercado ${d.mercado.zona}`} />
+                  <TableRow label="Ingresos proyectados (100%)" value={fmt(f.ingresosProyectados)} />
+                  <TableRow label="Utilidad bruta" value={fmt(f.utilidadBruta)} />
+                  <TableRow label="Margen bruto sobre inversión" value={`${f.margenBruto}%`} highlight />
                 </tbody>
               </table>
             </Card>
@@ -302,29 +356,28 @@ function PropuestaContent() {
             <Card className="p-6">
               <div className="flex items-center gap-3 mb-5">
                 <span className="inline-flex items-center gap-1.5 text-[12px] font-bold px-3 py-1.5 rounded-full bg-[#E1F5EE] text-[#0F6E56] border border-[#9FE1CB]">
-                  <span className="w-2 h-2 rounded-full bg-[#1D9E75]" />
-                  Demanda Alta
+                  <span className="w-2 h-2 rounded-full bg-[#1D9E75]" />Demanda {d.mercado.demanda}
                 </span>
-                <span className="text-[12px] text-[#5a7065]">Valle Oriente · San Pedro Garza García</span>
+                <span className="text-[12px] text-[#5a7065]">{d.mercado.zona}</span>
               </div>
               <div className="grid grid-cols-2 gap-x-10 mb-5">
                 {[
-                  { label: 'Velocidad de absorción', value: '8 unidades / mes', green: true },
-                  { label: 'Proyectos activos radio 500 m', value: '4 proyectos' },
-                  { label: 'Precio promedio zona', value: '$9,200 / m²' },
-                  { label: 'Perfil comprador NSE', value: 'A / B · 28–45 años' },
-                  { label: 'Plusvalía últimos 3 años', value: '+18%', green: true },
-                  { label: 'Inventario promedio activo', value: '14 meses' },
-                ].map(d => (
-                  <div key={d.label} className="flex items-center justify-between py-2.5 border-b border-[#F0F4F2] last:border-0">
-                    <p className="text-[13px] text-[#5a7065]">{d.label}</p>
-                    <p className={`text-[13px] font-semibold ${d.green ? 'text-[#0F6E56]' : 'text-[#111d17]'}`}>{d.value}</p>
+                  { label: 'Velocidad de absorción', value: d.mercado.absorcion, green: true },
+                  { label: 'Proyectos activos radio 500 m', value: d.mercado.proyectosActivos },
+                  { label: 'Precio promedio zona', value: d.mercado.precioPromedioZona },
+                  { label: 'Perfil comprador NSE', value: d.mercado.perfilNSE },
+                  { label: 'Plusvalía últimos 3 años', value: d.mercado.plusvalia, green: true },
+                  { label: 'Inventario promedio activo', value: d.mercado.inventario },
+                ].map((item, i) => (
+                  <div key={i} className="flex items-center justify-between py-2.5 border-b border-[#F0F4F2] last:border-0">
+                    <p className="text-[13px] text-[#5a7065]">{item.label}</p>
+                    <p className={`text-[13px] font-semibold ${item.green ? 'text-[#0F6E56]' : 'text-[#111d17]'}`}>{item.value}</p>
                   </div>
                 ))}
               </div>
               <div className="bg-[#F0FBF6] border border-[#D4EFE3] rounded-xl px-4 py-3">
-                <p className="text-[10px] font-bold text-[#1D9E75] uppercase tracking-wide mb-1">Precio recomendado de venta</p>
-                <p className="text-[15px] font-bold text-[#111d17]">$36,000 – $42,000 / m² <span className="text-[13px] font-normal text-[#5a7065]">según nivel y orientación</span></p>
+                <p className="text-[10px] font-bold text-[#1D9E75] uppercase tracking-wide mb-1">Producto recomendado</p>
+                <p className="text-[15px] font-bold text-[#111d17]">{d.mercado.productoRecomendado}</p>
               </div>
             </Card>
           </div>
@@ -334,59 +387,39 @@ function PropuestaContent() {
             <SectionTitle>Mitigación y Resiliencia</SectionTitle>
             <Card className="p-6">
               <div className="flex items-start gap-8 mb-6 pb-6 border-b border-[#F0F4F2]">
-                <div className="shrink-0">
-                  <ScoreArc score={78} />
-                </div>
+                <div className="shrink-0"><ScoreArc score={d.score.total} /></div>
                 <div className="flex-1">
-                  <p className="text-[14px] font-bold text-[#111d17] mb-2">Score de Resiliencia: 78/100</p>
-                  <p className="text-[13px] text-[#5a7065] leading-relaxed mb-4">
-                    El proyecto soporta desviaciones adversas simultáneas en costos (+28%) y absorción (−38%) antes de comprometer la TIR mínima requerida del 12%. La principal vulnerabilidad es una caída sostenida en precio de venta superior al 22%.
-                  </p>
+                  <p className="text-[14px] font-bold text-[#111d17] mb-2">Score de Resiliencia: {d.score.total}/100</p>
+                  <p className="text-[13px] text-[#5a7065] leading-relaxed mb-4">{d.puntoQuiebre.resumen}</p>
                   <div className="grid grid-cols-3 gap-3">
                     {[
-                      { label: 'Solidez financiera', v: 82, color: '#1D9E75' },
-                      { label: 'Riesgo regulatorio', v: 75, color: '#1D9E75' },
-                      { label: 'Exposición mercado', v: 71, color: '#D97706' },
-                    ].map(d => (
-                      <div key={d.label} className="bg-[#F7F8F6] rounded-xl p-3 border border-[#E2E8E4]">
-                        <p className="text-[10px] text-[#9aab9f] mb-2">{d.label}</p>
-                        <div className="h-1.5 bg-[#E2E8E4] rounded-full overflow-hidden mb-1">
-                          <div className="h-full rounded-full transition-all duration-700" style={{ width: `${d.v}%`, backgroundColor: d.color }} />
+                      { label: 'Solidez financiera', v: d.score.solidezFinanciera },
+                      { label: 'Riesgo regulatorio', v: d.score.riesgoRegulatorio },
+                      { label: 'Exposición mercado', v: d.score.exposicionMercado },
+                    ].map(item => {
+                      const color = item.v >= 70 ? '#1D9E75' : '#D97706'
+                      return (
+                        <div key={item.label} className="bg-[#F7F8F6] rounded-xl p-3 border border-[#E2E8E4]">
+                          <p className="text-[10px] text-[#9aab9f] mb-2">{item.label}</p>
+                          <div className="h-1.5 bg-[#E2E8E4] rounded-full overflow-hidden mb-1">
+                            <div className="h-full rounded-full transition-all duration-700" style={{ width: `${item.v}%`, backgroundColor: color }} />
+                          </div>
+                          <p className="text-[12px] font-bold" style={{ color }}>{item.v}/100</p>
                         </div>
-                        <p className="text-[12px] font-bold" style={{ color: d.color }}>{d.v}/100</p>
-                      </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 </div>
               </div>
 
               <p className="text-[10px] font-bold text-[#9aab9f] tracking-[0.12em] uppercase mb-2">Stress Test — Escenarios Adversos</p>
-              <div>
-                <StressRow
-                  title="Shock de Costos +15%"
-                  scenario="Costo total sube de $45.2 M a $49.8 M por incremento en materiales y mano de obra."
-                  impact="TIR: 22.4% → 17.8% · Margen: 28.3% → 20.1% · Proyecto sigue viable"
-                  status="amber"
-                />
-                <StressRow
-                  title="Freno de Ventas −50%"
-                  scenario="Absorción cae de 8 a 4 unidades/mes. Plazo se extiende 6 meses adicionales."
-                  impact="TIR: 22.4% → 14.1% · Margen: 28.3% → 22.4% · Viable con ajuste de plazo"
-                  status="amber"
-                />
-                <StressRow
-                  title="Ajuste de Mercado −10% en Precio"
-                  scenario="Precio de venta cae de $38,500 a $34,650/m². Ingresos bajan $6.7 M."
-                  impact="TIR: 22.4% → 9.8% · Margen: 28.3% → 12.6% · Al límite — revisar supuestos"
-                  status="red"
-                />
-              </div>
+              <div>{d.stressTest.map((s, i) => <StressRow key={i} {...s} />)}</div>
 
               <div className="mt-5 grid grid-cols-3 gap-3">
                 {[
-                  { label: 'Desviación máx. costos', value: '+28.4%', color: '#1D9E75' },
-                  { label: 'Absorción mínima viable', value: '38%', color: '#D97706' },
-                  { label: 'Precio venta mínimo', value: '$29,800/m²', color: '#D97706' },
+                  { label: 'Desviación máx. costos', value: d.puntoQuiebre.desviacionMaxCostos, color: '#1D9E75' },
+                  { label: 'Absorción mínima viable', value: d.puntoQuiebre.absorcionMinViable, color: '#D97706' },
+                  { label: 'Precio venta mínimo', value: d.puntoQuiebre.precioVentaMinimo, color: '#D97706' },
                 ].map(b => (
                   <div key={b.label} className="bg-[#F7F8F6] border border-[#E2E8E4] rounded-xl p-4 text-center">
                     <p className="text-[10px] text-[#9aab9f] uppercase tracking-wide mb-2">{b.label}</p>
@@ -397,77 +430,19 @@ function PropuestaContent() {
             </Card>
           </div>
 
-          {/* 8 · Supuestos y Trazabilidad */}
-          <div>
-            <SectionTitle>Supuestos y Trazabilidad</SectionTitle>
-            <Card className="p-0 overflow-hidden">
-              <table className="w-full">
-                <thead>
-                  <tr className="bg-[#F7F8F6] border-b border-[#E2E8E4]">
-                    <th className="px-6 py-3 text-left text-[10px] font-bold text-[#9aab9f] uppercase tracking-wide">Supuesto</th>
-                    <th className="px-6 py-3 text-right text-[10px] font-bold text-[#9aab9f] uppercase tracking-wide">Valor</th>
-                    <th className="px-6 py-3 text-right text-[10px] font-bold text-[#9aab9f] uppercase tracking-wide">Fuente</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {[
-                    ['Costo de construcción / m²', '$16,500 MXN', 'CMIC Q1 2026'],
-                    ['Precio de venta / m²', '$38,500 MXN', 'Comparables Lamudi / Inmuebles24'],
-                    ['Eficiencia área vendible', '85% del CUS', 'Estándar industria vertical NSE A/B'],
-                    ['Velocidad de absorción', '8 unidades / mes', 'Reporte Softec 2025 · AMM'],
-                    ['Tasa de descuento (WACC)', '12% anual', 'Benchmark BMV + spread proyecto'],
-                    ['Indirectos y permisos', '8% sobre obra', 'Histórico San Pedro 2023–2025'],
-                    ['Imprevistos', '5% sobre obra', 'Reserva contingencia estándar SHCP'],
-                    ['Plusvalía zona 3 años', '+18%', 'BBVA Research Inmobiliario 2025'],
-                    ['Cajones por departamento', '1.2', 'Reglamento Construcción San Pedro 2024'],
-                    ['Horizonte del proyecto', '18 meses', 'Benchmarking proyectos similares'],
-                  ].map(([label, value, source], i) => (
-                    <tr key={i} className="border-b border-[#F0F4F2] last:border-0 hover:bg-[#FAFBFA]">
-                      <td className="px-6 py-3 text-[13px] text-[#5a7065]">{label}</td>
-                      <td className="px-6 py-3 text-[13px] font-semibold text-[#111d17] text-right">{value}</td>
-                      <td className="px-6 py-3 text-[11px] text-[#9aab9f] text-right">{source}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </Card>
-          </div>
-
-          {/* 9 · Próximos Pasos */}
+          {/* 8 · Próximos Pasos */}
           <div>
             <SectionTitle>Próximos Pasos</SectionTitle>
             <Card className="p-6">
               <div className="flex flex-col gap-4">
                 {[
-                  {
-                    n: '01',
-                    title: 'Completar debida diligencia',
-                    desc: 'Obtener escrituras notariales, constancia de uso de suelo, estudio de suelo y factibilidad de servicios. Plazo estimado: 3–4 semanas.',
-                    color: '#1D9E75',
-                  },
-                  {
-                    n: '02',
-                    title: 'Estructurar esquema de capital',
-                    desc: 'Definir la mezcla equity / crédito puente (propuesta: 40% / 60%). Contactar instituciones financieras para carta de intención de crédito.',
-                    color: '#1D9E75',
-                  },
-                  {
-                    n: '03',
-                    title: 'Formalizar adquisición del terreno',
-                    desc: 'Firma de promesa de compraventa con condicionantes de debida diligencia. Depósito en garantía: 5% del precio de adquisición.',
-                    color: '#D97706',
-                  },
-                  {
-                    n: '04',
-                    title: 'Iniciar diseño arquitectónico y permisos',
-                    desc: 'Contratar despacho de arquitectura para proyecto ejecutivo. Gestionar licencia de construcción ante municipio. Plazo estimado: 2–3 meses.',
-                    color: '#D97706',
-                  },
+                  { n: '01', title: 'Completar debida diligencia', desc: 'Obtener escrituras notariales, constancia de uso de suelo, estudio de suelo y factibilidad de servicios. Plazo estimado: 3–4 semanas.', color: '#1D9E75' },
+                  { n: '02', title: 'Estructurar esquema de capital', desc: 'Definir la mezcla equity / crédito puente (propuesta: 40% / 60%). Contactar instituciones financieras para carta de intención de crédito.', color: '#1D9E75' },
+                  { n: '03', title: 'Formalizar adquisición del terreno', desc: 'Firma de promesa de compraventa con condicionantes de debida diligencia. Depósito en garantía: 5% del precio de adquisición.', color: '#D97706' },
+                  { n: '04', title: 'Iniciar diseño arquitectónico y permisos', desc: 'Contratar despacho de arquitectura para proyecto ejecutivo. Gestionar licencia de construcción ante municipio. Plazo estimado: 2–3 meses.', color: '#D97706' },
                 ].map(s => (
                   <div key={s.n} className="flex items-start gap-4">
-                    <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 font-black text-[13px] text-white" style={{ backgroundColor: s.color }}>
-                      {s.n}
-                    </div>
+                    <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 font-black text-[13px] text-white" style={{ backgroundColor: s.color }}>{s.n}</div>
                     <div className="flex-1 pt-0.5">
                       <p className="text-[14px] font-bold text-[#111d17] mb-1">{s.title}</p>
                       <p className="text-[13px] text-[#5a7065] leading-relaxed">{s.desc}</p>
@@ -478,7 +453,7 @@ function PropuestaContent() {
             </Card>
           </div>
 
-          {/* 10 · Footer */}
+          {/* 9 · Footer */}
           <div className="rounded-2xl overflow-hidden border border-[#E2E8E4]">
             <div className="bg-[#111d17] px-8 py-6 flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -490,7 +465,7 @@ function PropuestaContent() {
                 </div>
                 <div>
                   <p className="text-[14px] font-bold text-white">SMT Developer</p>
-                  <p className="text-[11px] text-white/40">Inteligencia inmobiliaria · Monterrey, N.L.</p>
+                  <p className="text-[11px] text-white/40">Inteligencia inmobiliaria</p>
                 </div>
               </div>
               <div className="text-right">
@@ -500,7 +475,7 @@ function PropuestaContent() {
             </div>
             <div className="bg-white px-8 py-4">
               <p className="text-[11px] text-[#9aab9f] leading-relaxed">
-                <strong className="text-[#5a7065]">Aviso de confidencialidad:</strong> Este documento ha sido generado por SMT Developer con base en información de mercado disponible al {today} y constituye una proyección con fines informativos para inversionistas calificados. Las cifras presentadas son estimaciones y no garantizan rendimientos futuros. Se recomienda complementar este análisis con una debida diligencia completa antes de tomar decisiones de inversión. Distribución restringida — uso exclusivo del destinatario.
+                <strong className="text-[#5a7065]">Aviso de confidencialidad:</strong> Este documento ha sido generado por SMT Developer con base en información de mercado disponible al {today} y constituye una proyección con fines informativos para inversionistas calificados. Las cifras presentadas son estimaciones y no garantizan rendimientos futuros.
               </p>
             </div>
           </div>
@@ -513,11 +488,7 @@ function PropuestaContent() {
 
 export default function PropuestaPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen bg-[#F7F8F6] flex items-center justify-center">
-        <p className="text-[#9aab9f]">Generando propuesta…</p>
-      </div>
-    }>
+    <Suspense fallback={<div className="min-h-screen bg-[#F7F8F6] flex items-center justify-center"><p className="text-[#9aab9f]">Generando propuesta…</p></div>}>
       <PropuestaContent />
     </Suspense>
   )

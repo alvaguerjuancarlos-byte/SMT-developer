@@ -1,6 +1,7 @@
 'use client'
 
-import { createContext, useContext, useState, ReactNode } from 'react'
+import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
+import { supabase } from '@/lib/supabase'
 
 export type TerrainData = {
   nombre: string
@@ -79,6 +80,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1)
   const [terrain, setTerrain] = useState<TerrainData>(defaultTerrain)
   const [prospectionSaved, setProspectionSaved] = useState(false)
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session) supabase.auth.signInAnonymously()
+    })
+  }, [])
 
   return (
     <AppContext.Provider value={{ currentStep, setCurrentStep, terrain, setTerrain, prospectionSaved, setProspectionSaved }}>

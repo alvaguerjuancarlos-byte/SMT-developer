@@ -25,3 +25,36 @@ body {
 input[type="range"] {
   accent-color: #085041;
 }
+
+/* ─── Print / PDF ─────────────────────────────────────────────────────────── */
+@media print {
+  /* Force background colours (needed for dark gradient sections) */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  @page {
+    size: A4 portrait;
+    margin: 0;
+  }
+
+  /* Hide navigation header on propuesta pages */
+  header {
+    display: none !important;
+  }
+
+  /* Remove scroll-only padding from main */
+  main {
+    padding: 6mm 8mm !important;
+  }
+
+  /* Keep cards together — avoid splitting a card across pages */
+  .rounded-2xl {
+    break-inside: avoid;
+  }
+
+  body {
+    background: #F7F8F6 !important;
+  }
+}

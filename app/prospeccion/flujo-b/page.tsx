@@ -4,9 +4,54 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 
 const CIUDADES = [
-  'Monterrey', 'San Pedro Garza García', 'Guadalupe', 'San Nicolás de los Garza',
-  'Escobedo', 'Apodaca', 'Santa Catarina', 'García',
-  'Ciudad de México', 'Guadalajara', 'Querétaro', 'León', 'Tijuana', 'Mérida',
+  'Acapulco', 'Acuña', 'Agua Prieta', 'Aguascalientes', 'Ahome', 'Allende',
+  'Altamira', 'Apatzingán', 'Apodaca', 'Atlacomulco', 'Atizapán de Zaragoza',
+  'Bacalar', 'Bahía de Banderas',
+  'Cadereyta Jiménez', 'Campeche', 'Cancún', 'Cárdenas', 'Celaya', 'Chalco',
+  'Chetumal', 'Chihuahua', 'Chilpancingo', 'Chimalhuacán', 'Cholula',
+  'Ciudad de México', 'Ciudad del Carmen', 'Ciudad Juárez', 'Ciudad Obregón',
+  'Ciudad Valles', 'Ciudad Victoria', 'Coatzacoalcos', 'Coacalco', 'Colima',
+  'Córdoba', 'Corregidora', 'Cozumel', 'Cuauhtémoc', 'Cuautitlán',
+  'Cuautitlán Izcalli', 'Cuautla', 'Cuernavaca', 'Culiacán',
+  'Delicias', 'Durango',
+  'Ecatepec', 'El Marqués', 'Ensenada', 'Escobedo',
+  'Fresnillo',
+  'García', 'Gómez Palacio', 'Guadalajara', 'Guadalupe', 'Guanajuato',
+  'Guasave', 'Guaymas',
+  'Hermosillo', 'Hidalgo del Parral', 'Huatulco',
+  'Irapuato', 'Ixtapaluca',
+  'Jiutepec', 'Juárez',
+  'La Paz', 'Lázaro Cárdenas', 'León', 'Linares', 'Loreto', 'Los Cabos', 'Los Mochis',
+  'Manzanillo', 'Matamoros', 'Mazatlán', 'Mérida', 'Metepec', 'Mexicali',
+  'Monclova', 'Montemorelos', 'Monterrey', 'Morelia',
+  'Naucalpan', 'Navojoa', 'Nezahualcóyotl', 'Nicolás Romero', 'Nogales',
+  'Nuevo Laredo',
+  'Oaxaca de Juárez', 'Orizaba',
+  'Pachuca', 'Piedras Negras', 'Playa del Carmen', 'Poza Rica', 'Progreso',
+  'Puebla', 'Puerto Escondido', 'Puerto Peñasco', 'Puerto Vallarta',
+  'Querétaro',
+  'Reynosa', 'Rioverde', 'Rosarito',
+  'Salamanca', 'Saltillo', 'San Cristóbal de las Casas', 'San Juan del Río',
+  'San Luis Potosí', 'San Luis Río Colorado', 'San Miguel de Allende',
+  'San Nicolás de los Garza', 'San Pedro Garza García', 'Santa Catarina', 'Silao',
+  'Tampico', 'Tapachula', 'Tecámac', 'Tehuacán', 'Temixco', 'Tepic', 'Texcoco',
+  'Tijuana', 'Tizayuca', 'Tlajomulco de Zúñiga', 'Tlalnepantla', 'Tlaquepaque',
+  'Tlaxcala', 'Toluca', 'Tonalá', 'Torreón', 'Tultitlán', 'Tulancingo', 'Tulum',
+  'Tuxtla Gutiérrez',
+  'Uruapan',
+  'Valladolid', 'Veracruz', 'Villahermosa',
+  'Xalapa',
+  'Zacatecas', 'Zamora', 'Zapopan', 'Zihuatanejo', 'Zinacantepec',
+].sort((a, b) => a.localeCompare(b, 'es'))
+
+const ESTADOS_MX = [
+  'Aguascalientes', 'Baja California', 'Baja California Sur', 'Campeche',
+  'Chiapas', 'Chihuahua', 'Ciudad de México', 'Coahuila de Zaragoza', 'Colima',
+  'Durango', 'Guanajuato', 'Guerrero', 'Hidalgo', 'Jalisco', 'México',
+  'Michoacán de Ocampo', 'Morelos', 'Nayarit', 'Nuevo León', 'Oaxaca',
+  'Puebla', 'Querétaro', 'Quintana Roo', 'San Luis Potosí', 'Sinaloa',
+  'Sonora', 'Tabasco', 'Tamaulipas', 'Tlaxcala', 'Veracruz de Ignacio de la Llave',
+  'Yucatán', 'Zacatecas',
 ]
 
 const TIPOS_DESARROLLO = [
@@ -43,11 +88,24 @@ const PRIORIDADES = [
   { id: 'plusvalia', label: 'Zona con plusvalía', icon: '🔺' },
 ]
 
+interface ZonaGeo {
+  lat: number
+  lng: number
+  nombre: string
+  municipio: string
+  estado?: string
+}
+
 interface FormData {
   nombreProyecto: string
+  estado: string
   ciudad: string
   zona: string
+  codigoPostal: string
+  zonaGeo: ZonaGeo | null
+  zonaConfirmada: boolean
   tipoDev: string
+  tipoOtroTexto: string
   superficie: string
   presupuesto: string
   prioridades: string[]
@@ -56,9 +114,14 @@ interface FormData {
 
 const INITIAL: FormData = {
   nombreProyecto: '',
+  estado: '',
   ciudad: '',
   zona: '',
+  codigoPostal: '',
+  zonaGeo: null,
+  zonaConfirmada: false,
   tipoDev: '',
+  tipoOtroTexto: '',
   superficie: '',
   presupuesto: '',
   prioridades: [],
@@ -132,37 +195,243 @@ function Step1({ data, setData }: { data: FormData; setData: (d: FormData) => vo
 }
 
 function Step2({ data, setData }: { data: FormData; setData: (d: FormData) => void }) {
+  const [subStep, setSubStep] = useState<1 | 2 | 3>(1)
+  const [cpInput, setCpInput] = useState('')
+  const [verifying, setVerifying] = useState(false)
+  const [verifyError, setVerifyError] = useState('')
+
+  const geocodeCP = async (cp: string) => {
+    setVerifying(true)
+    setVerifyError('')
+    try {
+      const params = new URLSearchParams({ cp, ciudad: data.ciudad, estado: data.estado })
+      const res = await fetch(`/api/geocode?${params}`)
+      const json = await res.json()
+      if (!json.found) {
+        setVerifyError('No se encontró ese código postal en México. Verifica e intenta de nuevo.')
+        return
+      }
+      const zonaGeo: ZonaGeo = {
+        lat: json.lat,
+        lng: json.lng,
+        nombre: json.colonia || data.zona || json.municipio,
+        municipio: json.municipio || data.ciudad,
+        estado: json.estado,
+      }
+      setData({
+        ...data,
+        codigoPostal: cp,
+        zonaGeo,
+        zonaConfirmada: false,
+        ciudad: data.ciudad || json.municipio,
+        estado: data.estado || json.estado,
+      })
+      setSubStep(3)
+    } catch {
+      setVerifyError('Error de conexión. Verifica tu red e intenta de nuevo.')
+    } finally {
+      setVerifying(false)
+    }
+  }
+
+  const handleCPChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value.replace(/\D/g, '').slice(0, 5)
+    setCpInput(val)
+    setVerifyError('')
+    if (val.length === 5) geocodeCP(val)
+  }
+
+  const mapSrc = data.zonaGeo
+    ? `https://www.openstreetmap.org/export/embed.html?bbox=${data.zonaGeo.lng - 0.012},${data.zonaGeo.lat - 0.008},${data.zonaGeo.lng + 0.012},${data.zonaGeo.lat + 0.008}&layer=mapnik&marker=${data.zonaGeo.lat},${data.zonaGeo.lng}`
+    : null
+
+  /* ── SUB-PASO 1: zona y ciudad ── */
+  if (subStep === 1) {
+    const canContinue = data.estado.trim() !== '' && data.ciudad.trim() !== ''
+    return (
+      <div>
+        <p className="text-[12px] font-semibold text-[#1D9E75] tracking-[0.12em] uppercase mb-2">Scout IA · Flujo B</p>
+        <h2 className="text-[24px] font-semibold text-[#111d17] mb-2">¿En qué zona quieres buscar?</h2>
+        <p className="text-[14px] text-[#5a7065] mb-6">Indica el estado, la ciudad y la colonia o zona objetivo.</p>
+
+        <div className="mb-4">
+          <label className="block text-[12px] text-[#5a7065] mb-2">Estado</label>
+          <input
+            type="text"
+            list="estados-list-b"
+            value={data.estado}
+            onChange={e => setData({ ...data, estado: e.target.value })}
+            placeholder="Selecciona un estado…"
+            className="w-full border border-[#E2E8E4] rounded-xl px-4 py-3 text-[14px] text-[#111d17] bg-white focus:outline-none focus:border-[#1D9E75] focus:ring-2 focus:ring-[#1D9E75]/20 placeholder:text-[#c5d0cb]"
+          />
+          <datalist id="estados-list-b">
+            {ESTADOS_MX.map(e => <option key={e} value={e} />)}
+          </datalist>
+        </div>
+
+        <div className="mb-4">
+          <label className="block text-[12px] text-[#5a7065] mb-2">Ciudad o municipio</label>
+          <input
+            type="text"
+            list="ciudades-list-b"
+            value={data.ciudad}
+            onChange={e => setData({ ...data, ciudad: e.target.value })}
+            placeholder="Escribe o selecciona una ciudad…"
+            className="w-full border border-[#E2E8E4] rounded-xl px-4 py-3 text-[14px] text-[#111d17] bg-white focus:outline-none focus:border-[#1D9E75] focus:ring-2 focus:ring-[#1D9E75]/20 placeholder:text-[#c5d0cb]"
+          />
+          <datalist id="ciudades-list-b">
+            {CIUDADES.map(c => <option key={c} value={c} />)}
+          </datalist>
+        </div>
+
+        <div className="mb-6">
+          <label className="block text-[12px] text-[#5a7065] mb-2">
+            Colonia o zona <span className="text-[#9aab9f]">(opcional)</span>
+          </label>
+          <input
+            type="text"
+            value={data.zona}
+            onChange={e => setData({ ...data, zona: e.target.value })}
+            placeholder="Ej. Valle Oriente, Cumbres, San Jerónimo…"
+            className="w-full border border-[#E2E8E4] rounded-xl px-4 py-3 text-[14px] text-[#111d17] bg-white focus:outline-none focus:border-[#1D9E75] focus:ring-2 focus:ring-[#1D9E75]/20 placeholder:text-[#c5d0cb]"
+          />
+          <p className="text-[11px] text-[#9aab9f] mt-2">Si la dejas vacía, el Scout buscará en toda la ciudad.</p>
+        </div>
+
+        <button
+          onClick={() => setSubStep(2)}
+          disabled={!canContinue}
+          className={`w-full flex items-center justify-center gap-2 py-3.5 rounded-xl text-[14px] font-semibold transition-colors ${
+            canContinue ? 'bg-[#1D9E75] text-white hover:bg-[#0F6E56]' : 'bg-[#E2E8E4] text-[#9aab9f] cursor-not-allowed'
+          }`}
+        >
+          Confirmar con código postal
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path d="M6 4L10 8L6 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+          </svg>
+        </button>
+      </div>
+    )
+  }
+
+  /* ── SUB-PASO 2: ingresar código postal ── */
+  if (subStep === 2) {
+    return (
+      <div>
+        <p className="text-[12px] font-semibold text-[#1D9E75] tracking-[0.12em] uppercase mb-2">Scout IA · Flujo B</p>
+        <h2 className="text-[24px] font-semibold text-[#111d17] mb-2">Confirma con el código postal</h2>
+        <p className="text-[14px] text-[#5a7065] mb-2">
+          El código postal permite al Scout usar coordenadas GPS exactas para la búsqueda.
+        </p>
+
+        {/* Resumen de lo elegido */}
+        <div className="flex items-center gap-2 mb-6">
+          <button onClick={() => setSubStep(1)} className="text-[11px] text-[#5a9078] hover:text-[#0F6E56] underline underline-offset-2">
+            ← {data.estado && `${data.estado} · `}{data.ciudad}{data.zona ? ` · ${data.zona}` : ''}
+          </button>
+        </div>
+
+        <div className="mb-6">
+          <label className="block text-[12px] text-[#5a7065] mb-2">Código postal</label>
+          <div className="relative">
+            <input
+              type="text"
+              inputMode="numeric"
+              maxLength={5}
+              value={cpInput}
+              onChange={handleCPChange}
+              placeholder="Ej. 64630"
+              autoFocus
+              className={`w-full border rounded-xl px-4 py-3 text-[18px] tracking-[0.2em] font-mono text-[#111d17] bg-white focus:outline-none focus:ring-2 placeholder:text-[#c5d0cb] placeholder:tracking-normal placeholder:font-sans placeholder:text-[14px] pr-12 ${
+                verifyError
+                  ? 'border-red-400 focus:border-red-400 focus:ring-red-100'
+                  : 'border-[#E2E8E4] focus:border-[#1D9E75] focus:ring-[#1D9E75]/20'
+              }`}
+            />
+            <div className="absolute right-4 top-1/2 -translate-y-1/2">
+              {verifying && (
+                <svg className="animate-spin w-5 h-5 text-[#1D9E75]" viewBox="0 0 24 24" fill="none">
+                  <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeOpacity="0.25"/>
+                  <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round"/>
+                </svg>
+              )}
+            </div>
+          </div>
+          {verifyError && <p className="text-[11px] text-red-500 mt-2">{verifyError}</p>}
+          {verifying && <p className="text-[11px] text-[#1D9E75] mt-2">Buscando en Google Maps…</p>}
+          {!verifyError && !verifying && (
+            <p className="text-[11px] text-[#9aab9f] mt-2">Al completar 5 dígitos verificamos automáticamente y mostramos el mapa.</p>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  /* ── SUB-PASO 3: confirmar en el mapa ── */
   return (
     <div>
       <p className="text-[12px] font-semibold text-[#1D9E75] tracking-[0.12em] uppercase mb-2">Scout IA · Flujo B</p>
-      <h2 className="text-[24px] font-semibold text-[#111d17] mb-2">¿En qué ciudad quieres buscar?</h2>
-      <p className="text-[14px] text-[#5a7065] mb-6">El Scout enfocará su búsqueda en el mercado que elijas.</p>
+      <h2 className="text-[24px] font-semibold text-[#111d17] mb-2">Confirma en el mapa</h2>
+      <p className="text-[14px] text-[#5a7065] mb-4">
+        Verifica que el pin esté en la zona correcta. El Scout buscará terrenos en este radio.
+      </p>
 
-      <div className="mb-4">
-        <label className="block text-[12px] text-[#5a7065] mb-2">Ciudad</label>
-        <select
-          value={data.ciudad}
-          onChange={e => setData({ ...data, ciudad: e.target.value })}
-          className="w-full border border-[#E2E8E4] rounded-xl px-4 py-3 text-[14px] text-[#111d17] bg-white focus:outline-none focus:border-[#1D9E75] focus:ring-2 focus:ring-[#1D9E75]/20 appearance-none cursor-pointer"
-        >
-          <option value="">Selecciona una ciudad…</option>
-          {CIUDADES.map(c => <option key={c} value={c}>{c}</option>)}
-        </select>
-      </div>
-
-      <div>
-        <label className="block text-[12px] text-[#5a7065] mb-2">
-          Zona o colonia preferida <span className="text-[#9aab9f]">(opcional)</span>
-        </label>
-        <input
-          type="text"
-          placeholder="Ej. Valle Oriente, Cumbres, San Jerónimo…"
-          value={data.zona}
-          onChange={e => setData({ ...data, zona: e.target.value })}
-          className="w-full border border-[#E2E8E4] rounded-xl px-4 py-3 text-[14px] text-[#111d17] bg-white focus:outline-none focus:border-[#1D9E75] focus:ring-2 focus:ring-[#1D9E75]/20 placeholder:text-[#c5d0cb]"
+      {/* Mapa OpenStreetMap */}
+      <div className="rounded-2xl overflow-hidden border border-[#E2E8E4] mb-4 relative" style={{ height: 210 }}>
+        <iframe
+          src={mapSrc!}
+          className="w-full h-full border-0"
+          loading="lazy"
+          title="Mapa de la zona"
         />
-        <p className="text-[11px] text-[#9aab9f] mt-2">Si dejas esto vacío, el Scout buscará en toda la ciudad.</p>
+        <div className="absolute top-3 left-3 bg-white/90 backdrop-blur-sm rounded-lg px-3 py-1.5 shadow-sm pointer-events-none">
+          <p className="text-[11px] font-bold text-[#111d17]">CP {data.codigoPostal}</p>
+          <p className="text-[10px] text-[#5a7065]">{data.zonaGeo?.nombre}</p>
+        </div>
       </div>
+
+      {/* Info */}
+      {data.zonaGeo && (
+        <div className="rounded-xl border border-[#E2E8E4] bg-[#FAFBF9] px-4 py-3 mb-5">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              {(data.estado || data.zonaGeo.estado) && (
+                <p className="text-[10px] font-semibold text-[#1D9E75] uppercase tracking-wide mb-1">
+                  {data.estado || data.zonaGeo.estado}
+                </p>
+              )}
+              <p className="text-[13px] font-semibold text-[#111d17]">
+                {data.ciudad || data.zonaGeo.municipio}
+                {(data.zona || data.zonaGeo.nombre) && (data.zona || data.zonaGeo.nombre) !== (data.ciudad || data.zonaGeo.municipio)
+                  ? ` · ${data.zona || data.zonaGeo.nombre}`
+                  : ''}
+              </p>
+              <p className="text-[10px] text-[#9aab9f] font-mono mt-1">
+                {data.zonaGeo.lat.toFixed(5)}, {data.zonaGeo.lng.toFixed(5)}
+              </p>
+            </div>
+            <button
+              onClick={() => { setCpInput(''); setSubStep(2); setData({ ...data, codigoPostal: '', zonaGeo: null, zonaConfirmada: false }) }}
+              className="text-[11px] text-[#5a9078] hover:text-[#0F6E56] underline underline-offset-2 shrink-0"
+            >
+              Cambiar CP
+            </button>
+          </div>
+        </div>
+      )}
+
+      <button
+        onClick={() => setData({ ...data, zonaConfirmada: true })}
+        className="w-full bg-[#1D9E75] text-white rounded-xl py-3.5 text-[14px] font-semibold hover:bg-[#0F6E56] transition-colors mb-3"
+      >
+        Sí, buscar terrenos aquí
+      </button>
+      <button
+        onClick={() => { setSubStep(1); setData({ ...data, codigoPostal: '', zonaGeo: null, zonaConfirmada: false }); setCpInput('') }}
+        className="w-full border border-[#E2E8E4] text-[#5a7065] rounded-xl py-3 text-[13px] hover:border-[#9FE1CB] hover:text-[#111d17] transition-colors"
+      >
+        Cambiar zona
+      </button>
     </div>
   )
 }
@@ -176,7 +445,7 @@ function Step3({ data, setData }: { data: FormData; setData: (d: FormData) => vo
 
       <div className="grid grid-cols-2 gap-3">
         {TIPOS_DESARROLLO.map(t => (
-          <ChipOption key={t.id} selected={data.tipoDev === t.id} onClick={() => setData({ ...data, tipoDev: t.id })}>
+          <ChipOption key={t.id} selected={data.tipoDev === t.id} onClick={() => setData({ ...data, tipoDev: t.id, tipoOtroTexto: '' })}>
             <div className="flex items-start gap-3">
               <span className="text-2xl leading-none mt-0.5">{t.icon}</span>
               <div>
@@ -186,7 +455,26 @@ function Step3({ data, setData }: { data: FormData; setData: (d: FormData) => vo
             </div>
           </ChipOption>
         ))}
+        <ChipOption selected={data.tipoDev === 'otro'} onClick={() => setData({ ...data, tipoDev: 'otro' })}>
+          <div className="flex items-start gap-3">
+            <span className="text-2xl leading-none mt-0.5">✏️</span>
+            <div>
+              <p className="text-[13px] font-semibold text-[#111d17] leading-snug">Otro</p>
+              <p className="text-[11px] text-[#7a9089] mt-0.5">Describe la vocación del proyecto</p>
+            </div>
+          </div>
+        </ChipOption>
       </div>
+      {data.tipoDev === 'otro' && (
+        <input
+          autoFocus
+          type="text"
+          value={data.tipoOtroTexto}
+          onChange={e => setData({ ...data, tipoOtroTexto: e.target.value })}
+          placeholder="Describe la vocación del proyecto…"
+          className="mt-3 w-full text-[13px] bg-white border border-[#1D9E75] rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-[#1D9E75]/20 placeholder:text-[#c0cdc7]"
+        />
+      )}
     </div>
   )
 }
@@ -280,7 +568,8 @@ function Step5({ data, setData }: { data: FormData; setData: (d: FormData) => vo
 }
 
 function Step6({ data }: { data: FormData }) {
-  const tipo = TIPOS_DESARROLLO.find(t => t.id === data.tipoDev)
+  const tipo = data.tipoDev === 'otro' ? null : TIPOS_DESARROLLO.find(t => t.id === data.tipoDev)
+  const tipoLabel = data.tipoDev === 'otro' ? `✏️ ${data.tipoOtroTexto || 'Otro'}` : (tipo ? `${tipo.icon} ${tipo.label}` : '—')
   const superficie = RANGOS_SUPERFICIE.find(r => r.id === data.superficie)
   const presupuesto = RANGOS_PRESUPUESTO.find(r => r.id === data.presupuesto)
   const prioridades = PRIORIDADES.filter(p => data.prioridades.includes(p.id))
@@ -315,13 +604,19 @@ function Step6({ data }: { data: FormData }) {
 
         <div className="grid grid-cols-2 gap-3">
           <div className="bg-white rounded-xl p-3 border border-[#D4EFE3]">
-            <p className="text-[10px] text-[#7aaa90] uppercase tracking-wide mb-1">Ciudad</p>
+            <p className="text-[10px] text-[#7aaa90] uppercase tracking-wide mb-1">Ubicación</p>
+            {data.estado && <p className="text-[10px] font-semibold text-[#1D9E75] mb-0.5">{data.estado}</p>}
             <p className="text-[13px] font-semibold text-[#111d17]">{data.ciudad || '—'}</p>
             {data.zona && <p className="text-[11px] text-[#5a7065] mt-0.5">{data.zona}</p>}
+            {data.codigoPostal && (
+              <p className="text-[10px] mt-1 font-medium text-[#1D9E75]">
+                CP {data.codigoPostal}{data.zonaConfirmada ? ' · GPS confirmado' : ''}
+              </p>
+            )}
           </div>
           <div className="bg-white rounded-xl p-3 border border-[#D4EFE3]">
             <p className="text-[10px] text-[#7aaa90] uppercase tracking-wide mb-1">Tipo de desarrollo</p>
-            <p className="text-[13px] font-semibold text-[#111d17]">{tipo ? `${tipo.icon} ${tipo.label}` : '—'}</p>
+            <p className="text-[13px] font-semibold text-[#111d17]">{tipoLabel}</p>
           </div>
           <div className="bg-white rounded-xl p-3 border border-[#D4EFE3]">
             <p className="text-[10px] text-[#7aaa90] uppercase tracking-wide mb-1">Superficie</p>
@@ -369,8 +664,11 @@ export default function FlujoB() {
 
   const canAdvance = () => {
     if (step === 1) return data.nombreProyecto.trim() !== ''
-    if (step === 2) return data.ciudad !== ''
-    if (step === 3) return data.tipoDev !== ''
+    if (step === 2) return data.zonaConfirmada && data.ciudad !== ''
+    if (step === 3) {
+      const otroOk = data.tipoDev !== 'otro' || data.tipoOtroTexto.trim() !== ''
+      return data.tipoDev !== '' && otroOk
+    }
     if (step === 4) return data.superficie !== '' && data.presupuesto !== ''
     if (step === 5) return data.prioridades.length > 0
     return true
@@ -383,8 +681,12 @@ export default function FlujoB() {
 
   const handleNext = () => {
     if (!canAdvance()) return
-    if (step < TOTAL_STEPS) setStep(s => s + 1)
-    else router.push(`/prospeccion/flujo-b/buscando?proyecto=${encodeURIComponent(data.nombreProyecto)}`)
+    if (step < TOTAL_STEPS) {
+      setStep(s => s + 1)
+    } else {
+      localStorage.setItem('smt_flujo_b_data', JSON.stringify(data))
+      router.push(`/prospeccion/flujo-b/buscando?proyecto=${encodeURIComponent(data.nombreProyecto)}`)
+    }
   }
 
   return (

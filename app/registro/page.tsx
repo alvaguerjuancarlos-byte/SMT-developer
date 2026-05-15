@@ -46,6 +46,29 @@ export default function RegistroPage() {
         empresa,
         email,
       })
+
+      const pendingRaw = localStorage.getItem('smt_pending_save')
+      if (pendingRaw) {
+        try {
+          const pending = JSON.parse(pendingRaw)
+          const dataKey = pending.flujo === 'B' ? 'smt_scout_data' : 'smt_analisis_data'
+          const datosRaw = localStorage.getItem(dataKey)
+          if (datosRaw) {
+            const datos = JSON.parse(datosRaw)
+            await supabase.from('proyectos').insert({
+              usuario_id: data.user.id,
+              nombre: pending.nombre,
+              datos,
+              flujo: pending.flujo,
+              status: 'analisis',
+            })
+          }
+          localStorage.removeItem('smt_pending_save')
+          const path = pending.flujo === 'B' ? '/analisis/flujo-b' : '/analisis'
+          router.push(`${path}?proyecto=${encodeURIComponent(pending.nombre)}`)
+          return
+        } catch { /* si falla, ir al dashboard igual */ }
+      }
     }
 
     router.push('/dashboard')

@@ -16,7 +16,7 @@ export default function LoginPage() {
     setError('')
     setLoading(true)
 
-    const { error: authError } = await supabase.auth.signInWithPassword({ email, password })
+    const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password })
 
     if (authError) {
       setError(authError.message === 'Invalid login credentials'
@@ -24,6 +24,29 @@ export default function LoginPage() {
         : authError.message)
       setLoading(false)
       return
+    }
+
+    const pendingRaw = localStorage.getItem('smt_pending_save')
+    if (pendingRaw && data.user) {
+      try {
+        const pending = JSON.parse(pendingRaw)
+        const dataKey = pending.flujo === 'B' ? 'smt_scout_data' : 'smt_analisis_data'
+        const datosRaw = localStorage.getItem(dataKey)
+        if (datosRaw) {
+          const datos = JSON.parse(datosRaw)
+          await supabase.from('proyectos').insert({
+            usuario_id: data.user.id,
+            nombre: pending.nombre,
+            datos,
+            flujo: pending.flujo,
+            status: 'analisis',
+          })
+        }
+        localStorage.removeItem('smt_pending_save')
+        const path = pending.flujo === 'B' ? '/analisis/flujo-b' : '/analisis'
+        router.push(`${path}?proyecto=${encodeURIComponent(pending.nombre)}`)
+        return
+      } catch { /* si falla, ir al dashboard igual */ }
     }
 
     router.push('/dashboard')

@@ -30,16 +30,27 @@ export default function FlowSelector() {
           <span className="text-[15px] font-medium text-[#1a1a1a] tracking-wide">SMT Developer</span>
           <span className="block text-[10px] text-[#6b7c74] tracking-[0.12em] uppercase">Inteligencia inmobiliaria</span>
         </div>
-        <div className="ml-auto flex items-center gap-2 text-[12px] text-[#9aab9f]">
-          <span className="text-[#1D9E75] font-medium">Nueva oportunidad</span>
-          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-            <path d="M4 2L8 6L4 10" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
-          </svg>
-          <span>Análisis</span>
-          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-            <path d="M4 2L8 6L4 10" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
-          </svg>
-          <span>Propuesta</span>
+        <div className="ml-auto flex items-center gap-4">
+          <div className="flex items-center gap-2 text-[12px] text-[#9aab9f]">
+            <span className="text-[#1D9E75] font-medium">Nueva oportunidad</span>
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+              <path d="M4 2L8 6L4 10" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+            </svg>
+            <span>Análisis</span>
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+              <path d="M4 2L8 6L4 10" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+            </svg>
+            <span>Propuesta</span>
+          </div>
+          <button onClick={() => router.push('/dashboard')} className="flex items-center gap-1.5 text-[13px] text-[#5a7065] hover:text-[#111d17] border border-[#E2E8E4] hover:border-[#C8D5CF] px-3 py-1.5 rounded-xl transition-colors">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <rect x="1" y="1" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.3"/>
+              <rect x="8" y="1" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.3"/>
+              <rect x="1" y="8" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.3"/>
+              <rect x="8" y="8" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.3"/>
+            </svg>
+            Mis Proyectos
+          </button>
         </div>
       </header>
 
