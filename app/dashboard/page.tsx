@@ -69,8 +69,12 @@ export default function DashboardPage() {
 
   const handleDelete = async (id: string) => {
     if (!confirm('¿Eliminar este proyecto?')) return
+    // Guardar en localStorage para que no reaparezca aunque Supabase falle
+    const borrados: string[] = JSON.parse(localStorage.getItem('smt_borrados') || '[]')
+    localStorage.setItem('smt_borrados', JSON.stringify([...borrados, id]))
     setProyectos(prev => prev.filter(p => p.id !== id))
-    await fetch('/api/delete-proyecto', {
+    // Borrar del servidor
+    fetch('/api/delete-proyecto', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id }),
