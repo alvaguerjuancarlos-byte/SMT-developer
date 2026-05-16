@@ -66,7 +66,19 @@ export default function DashboardPage() {
 
   const handleDelete = async (id: string) => {
     if (!confirm('¿Eliminar este proyecto?')) return
-    await supabase.from('proyectos').delete().eq('id', id)
+    const { data: deleted, error } = await supabase
+      .from('proyectos')
+      .delete()
+      .eq('id', id)
+      .select('id')
+    if (error) {
+      alert('Error: ' + JSON.stringify(error))
+      return
+    }
+    if (!deleted || deleted.length === 0) {
+      alert('Supabase no borró nada (sin permiso)')
+      return
+    }
     const { data } = await supabase
       .from('proyectos')
       .select('id, nombre, created_at, status, flujo, datos')
