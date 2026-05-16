@@ -66,8 +66,13 @@ export default function DashboardPage() {
 
   const handleDelete = async (id: string) => {
     if (!confirm('¿Eliminar este proyecto?')) return
-    const { error } = await supabase.from('proyectos').delete().eq('id', id)
-    if (!error) setProyectos(prev => prev.filter(p => p.id !== id))
+    await supabase.from('proyectos').delete().eq('id', id)
+    const { data } = await supabase
+      .from('proyectos')
+      .select('id, nombre, created_at, status, flujo, datos')
+      .order('created_at', { ascending: false })
+      .limit(50)
+    setProyectos((data as Proyecto[]) || [])
   }
 
   if (loading) {
