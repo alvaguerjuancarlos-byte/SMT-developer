@@ -17,15 +17,13 @@ export default function DashboardPage() {
   const router = useRouter()
   const [proyectos, setProyectos] = useState<Proyecto[]>([])
   const [loading,   setLoading]   = useState(true)
-  const [userId,    setUserId]    = useState('')
 
-  const loadProyectos = async (uid: string) => {
+  const loadProyectos = async () => {
     const { data } = await supabase
       .from('proyectos')
       .select('id, nombre, created_at, status, flujo, datos')
-      .eq('usuario_id', uid)
       .order('created_at', { ascending: false })
-      .limit(20)
+      .limit(50)
     setProyectos((data as Proyecto[]) || [])
     setLoading(false)
   }
@@ -33,27 +31,16 @@ export default function DashboardPage() {
   useEffect(() => {
     let mounted = true
 
-    // Intenta con sesión existente
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (session?.user && mounted) {
-        setUserId(session.user.id)
-        loadProyectos(session.user.id)
-      } else {
-        // Espera el auto-login de providers.tsx (onAuthStateChange lo captura)
-        setTimeout(() => {
-          if (mounted && loading) setLoading(false)
-        }, 4000)
+        loadProyectos()
+      } else if (!session && mounted) {
+        setLoading(false)
       }
     })
 
-    // Escucha el evento SIGNED_IN que dispara el auto-login
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_IN' && session?.user && mounted) {
-        setUserId(session.user.id)
-        setLoading(true)
-        loadProyectos(session.user.id)
-      }
-    })
+    // Fallback por si onAuthStateChange tarda
+    setTimeout(() => { if (mounted) setLoading(false) }, 5000)
 
     return () => {
       mounted = false
