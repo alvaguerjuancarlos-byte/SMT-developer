@@ -69,10 +69,12 @@ export default function DashboardPage() {
 
   const handleDelete = async (id: string) => {
     if (!confirm('¿Eliminar este proyecto?')) return
-    const borrados: string[] = JSON.parse(localStorage.getItem('smt_borrados') || '[]')
-    localStorage.setItem('smt_borrados', JSON.stringify([...borrados, id]))
     setProyectos(prev => prev.filter(p => p.id !== id))
-    await supabase.from('proyectos').update({ status: 'eliminado' }).eq('id', id)
+    await fetch('/api/delete-proyecto', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id }),
+    })
   }
 
   if (loading) {
