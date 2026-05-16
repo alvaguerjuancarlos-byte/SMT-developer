@@ -13,55 +13,59 @@ interface Proyecto {
   datos?: Record<string, unknown>
 }
 
-interface UserProfile {
-  nombre: string
-  empresa: string
-}
-
 export default function DashboardPage() {
   const router = useRouter()
-  const [userName,  setUserName]  = useState('')
-  const [userId,    setUserId]    = useState('')
   const [proyectos, setProyectos] = useState<Proyecto[]>([])
   const [loading,   setLoading]   = useState(true)
+  const [userId,    setUserId]    = useState('')
 
-  useEffect(() => {
-    const init = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { router.push('/login'); return }
-
-      setUserId(user.id)
-
-      const { data: profile } = await supabase
-        .from('usuarios')
-        .select('nombre, empresa')
-        .eq('id', user.id)
-        .single()
-
-      setUserName((profile as UserProfile | null)?.nombre || user.email || 'Invitado')
-
-      const { data: proyData } = await supabase
-        .from('proyectos')
-        .select('id, nombre, created_at, status, flujo, datos')
-        .eq('usuario_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(20)
-
-      setProyectos((proyData as Proyecto[]) || [])
-      setLoading(false)
-    }
-    init()
-  }, [router])
-
-  const handleLogout = async () => {
-    await supabase.auth.signOut()
-    router.push('/login')
+  const loadProyectos = async (uid: string) => {
+    const { data } = await supabase
+      .from('proyectos')
+      .select('id, nombre, created_at, status, flujo, datos')
+      .eq('usuario_id', uid)
+      .order('created_at', { ascending: false })
+      .limit(20)
+    setProyectos((data as Proyecto[]) || [])
+    setLoading(false)
   }
 
+  useEffect(() => {
+    let mounted = true
+
+    // Intenta con sesión existente
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user && mounted) {
+        setUserId(session.user.id)
+        loadProyectos(session.user.id)
+      } else {
+        // Espera el auto-login de providers.tsx (onAuthStateChange lo captura)
+        setTimeout(() => {
+          if (mounted && loading) setLoading(false)
+        }, 4000)
+      }
+    })
+
+    // Escucha el evento SIGNED_IN que dispara el auto-login
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' && session?.user && mounted) {
+        setUserId(session.user.id)
+        setLoading(true)
+        loadProyectos(session.user.id)
+      }
+    })
+
+    return () => {
+      mounted = false
+      subscription.unsubscribe()
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const statusCfg = (status: string) => {
-    if (status === 'propuesta')  return { label: 'Propuesta lista',  badge: 'bg-[#E1F5EE] text-[#0F6E56]' }
-    if (status === 'analisis')   return { label: 'En análisis',      badge: 'bg-[#FEF3C7] text-[#92600A]' }
-    if (status === 'prospectando') return { label: 'Prospectando',   badge: 'bg-[#EEF2FF] text-[#3730A3]' }
+    if (status === 'propuesta')    return { label: 'Propuesta lista',  badge: 'bg-[#E1F5EE] text-[#0F6E56]' }
+    if (status === 'analisis')     return { label: 'En análisis',      badge: 'bg-[#FEF3C7] text-[#92600A]' }
+    if (status === 'prospectando') return { label: 'Prospectando',     badge: 'bg-[#EEF2FF] text-[#3730A3]' }
     return { label: 'Borrador', badge: 'bg-[#F3F4F6] text-[#6B7280]' }
   }
 
@@ -73,8 +77,6 @@ export default function DashboardPage() {
     const { error } = await supabase.from('proyectos').delete().eq('id', id)
     if (!error) setProyectos(prev => prev.filter(p => p.id !== id))
   }
-
-  const firstName = userName.split(' ')[0]
 
   if (loading) {
     return (
@@ -99,21 +101,15 @@ export default function DashboardPage() {
           <span className="text-[15px] font-medium text-[#1a1a1a] tracking-wide">SMT Developer</span>
           <span className="block text-[10px] text-[#6b7c74] tracking-[0.12em] uppercase">Inteligencia inmobiliaria</span>
         </div>
-        <div className="ml-auto flex items-center gap-4">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-full bg-[#E1F5EE] flex items-center justify-center">
-              <span className="text-[12px] font-bold text-[#0F6E56]">{firstName.charAt(0).toUpperCase()}</span>
-            </div>
-            <span className="text-[13px] font-medium text-[#111d17]">{userName}</span>
-          </div>
+        <div className="ml-auto">
           <button
-            onClick={handleLogout}
+            onClick={() => router.push('/prospeccion')}
             className="flex items-center gap-1.5 text-[13px] text-[#9aab9f] hover:text-[#111d17] border border-[#E2E8E4] px-3 py-1.5 rounded-xl transition-colors"
           >
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-              <path d="M5 2H3a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h2M9 10l3-3-3-3M12 7H5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M9 2L2 7L9 12" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
-            Cerrar sesión
+            Nuevo análisis
           </button>
         </div>
       </header>
@@ -138,7 +134,7 @@ export default function DashboardPage() {
             </button>
           </div>
 
-          {/* Mis Proyectos */}
+          {/* Lista de proyectos */}
           <div>
             {proyectos.length === 0 ? (
               <div className="bg-white rounded-2xl border border-[#E2E8E4] shadow-sm px-8 py-14 flex flex-col items-center gap-3 text-center">

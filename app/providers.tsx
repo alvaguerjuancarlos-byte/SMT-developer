@@ -81,7 +81,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [terrain, setTerrain] = useState<TerrainData>(defaultTerrain)
   const [prospectionSaved, setProspectionSaved] = useState(false)
 
-  useEffect(() => {}, [])
+  useEffect(() => {
+    const ensureAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        const email = process.env.NEXT_PUBLIC_SHARED_EMAIL
+        const password = process.env.NEXT_PUBLIC_SHARED_PASSWORD
+        if (email && password) {
+          await supabase.auth.signInWithPassword({ email, password })
+        }
+      }
+    }
+    ensureAuth()
+  }, [])
 
   return (
     <AppContext.Provider value={{ currentStep, setCurrentStep, terrain, setTerrain, prospectionSaved, setProspectionSaved }}>
