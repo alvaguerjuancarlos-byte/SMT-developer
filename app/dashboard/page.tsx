@@ -25,6 +25,7 @@ export default function DashboardPage() {
       const { data } = await supabase
         .from('proyectos')
         .select('id, nombre, created_at, status, flujo, datos')
+        .neq('status', 'eliminado')
         .order('created_at', { ascending: false })
         .limit(50)
       if (mounted) {
@@ -66,25 +67,8 @@ export default function DashboardPage() {
 
   const handleDelete = async (id: string) => {
     if (!confirm('¿Eliminar este proyecto?')) return
-    const { data: deleted, error } = await supabase
-      .from('proyectos')
-      .delete()
-      .eq('id', id)
-      .select('id')
-    if (error) {
-      alert('Error: ' + JSON.stringify(error))
-      return
-    }
-    if (!deleted || deleted.length === 0) {
-      alert('Supabase no borró nada (sin permiso)')
-      return
-    }
-    const { data } = await supabase
-      .from('proyectos')
-      .select('id, nombre, created_at, status, flujo, datos')
-      .order('created_at', { ascending: false })
-      .limit(50)
-    setProyectos((data as Proyecto[]) || [])
+    await supabase.from('proyectos').update({ status: 'eliminado' }).eq('id', id)
+    setProyectos(prev => prev.filter(p => p.id !== id))
   }
 
   if (loading) {
