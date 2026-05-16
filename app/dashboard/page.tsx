@@ -29,7 +29,9 @@ export default function DashboardPage() {
         .order('created_at', { ascending: false })
         .limit(50)
       if (mounted) {
-        setProyectos((data as Proyecto[]) || [])
+        const borrados: string[] = JSON.parse(localStorage.getItem('smt_borrados') || '[]')
+        const lista = ((data as Proyecto[]) || []).filter(p => !borrados.includes(p.id))
+        setProyectos(lista)
         setLoading(false)
       }
     }
@@ -67,8 +69,10 @@ export default function DashboardPage() {
 
   const handleDelete = async (id: string) => {
     if (!confirm('¿Eliminar este proyecto?')) return
-    await supabase.from('proyectos').update({ status: 'eliminado' }).eq('id', id)
+    const borrados: string[] = JSON.parse(localStorage.getItem('smt_borrados') || '[]')
+    localStorage.setItem('smt_borrados', JSON.stringify([...borrados, id]))
     setProyectos(prev => prev.filter(p => p.id !== id))
+    await supabase.from('proyectos').update({ status: 'eliminado' }).eq('id', id)
   }
 
   if (loading) {
