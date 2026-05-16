@@ -18,35 +18,40 @@ export default function DashboardPage() {
   const [proyectos, setProyectos] = useState<Proyecto[]>([])
   const [loading,   setLoading]   = useState(true)
 
-  const loadProyectos = async () => {
-    const { data } = await supabase
-      .from('proyectos')
-      .select('id, nombre, created_at, status, flujo, datos')
-      .order('created_at', { ascending: false })
-      .limit(50)
-    setProyectos((data as Proyecto[]) || [])
-    setLoading(false)
-  }
-
   useEffect(() => {
     let mounted = true
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (session?.user && mounted) {
-        loadProyectos()
-      } else if (!session && mounted) {
+    const load = async () => {
+      const { data } = await supabase
+        .from('proyectos')
+        .select('id, nombre, created_at, status, flujo, datos')
+        .order('created_at', { ascending: false })
+        .limit(50)
+      if (mounted) {
+        setProyectos((data as Proyecto[]) || [])
         setLoading(false)
       }
+    }
+
+    // Intenta con sesión existente de inmediato
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user && mounted) load()
     })
 
-    // Fallback por si onAuthStateChange tarda
-    setTimeout(() => { if (mounted) setLoading(false) }, 5000)
+    // También escucha el auto-login de providers (SIGNED_IN)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
+      if (session?.user && mounted) load()
+      else if (!session && mounted) setLoading(false)
+    })
+
+    // Fallback máximo 6 segundos
+    const timer = setTimeout(() => { if (mounted) setLoading(false) }, 6000)
 
     return () => {
       mounted = false
       subscription.unsubscribe()
+      clearTimeout(timer)
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const statusCfg = (status: string) => {
