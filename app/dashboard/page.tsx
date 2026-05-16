@@ -28,7 +28,7 @@ export default function DashboardPage() {
   useEffect(() => {
     const init = async () => {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user || user.is_anonymous) { router.push('/login'); return }
+      if (!user) { router.push('/login'); return }
 
       setUserId(user.id)
 

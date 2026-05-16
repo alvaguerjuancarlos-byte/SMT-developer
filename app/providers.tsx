@@ -81,11 +81,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [terrain, setTerrain] = useState<TerrainData>(defaultTerrain)
   const [prospectionSaved, setProspectionSaved] = useState(false)
 
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session) supabase.auth.signInAnonymously()
-    })
-  }, [])
+  useEffect(() => {}, [])
 
   return (
     <AppContext.Provider value={{ currentStep, setCurrentStep, terrain, setTerrain, prospectionSaved, setProspectionSaved }}>
