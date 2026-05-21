@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
+import { saveProyecto } from '@/lib/saveProyecto'
 
 function loadGoogleMaps(): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -41,6 +41,18 @@ function AgentSpinner({ color = '#1D9E75' }: { color?: string }) {
       <circle cx="12" cy="12" r="10" stroke={color} strokeWidth="2" strokeOpacity="0.2"/>
       <path d="M12 2a10 10 0 0 1 10 10" stroke={color} strokeWidth="2" strokeLinecap="round"/>
     </svg>
+  )
+}
+
+function BigSpinner({ color, glow, size = 96 }: { color: string; glow: string; size?: number }) {
+  return (
+    <div className="relative flex items-center justify-center" style={{ width: size, height: size }}>
+      <div className="absolute inset-0 rounded-full opacity-20" style={{ backgroundColor: glow }} />
+      <svg className="animate-spin absolute inset-0" width={size} height={size} viewBox="0 0 96 96" fill="none">
+        <circle cx="48" cy="48" r="42" stroke={color} strokeWidth="7" strokeOpacity="0.15"/>
+        <path d="M48 6a42 42 0 0 1 42 42" stroke={color} strokeWidth="7" strokeLinecap="round"/>
+      </svg>
+    </div>
   )
 }
 
@@ -274,6 +286,7 @@ function BuscandoContent() {
   const [highlightedId, setHighlightedId] = useState<number | null>(null)
   const [candidates, setCandidates] = useState<Candidate[]>([])
   const [error, setError] = useState<string | null>(null)
+  const [saveError, setSaveError] = useState<string | null>(null)
 
   useEffect(() => {
     const formDataRaw = localStorage.getItem('smt_flujo_b_data')
@@ -303,23 +316,23 @@ function BuscandoContent() {
         setStage(3)
         setStatusText('Agente de Mercado analizando demanda y competencia...')
 
-        // Guardar proyecto en Supabase cuando el scout completa
-        const { data: { user } } = await supabase.auth.getUser()
-        if (user && proyecto) {
-          const { data: inserted } = await supabase
-            .from('proyectos')
-            .insert({ usuario_id: user.id, nombre: proyecto, datos: scoutPayload, flujo: 'B', status: 'analisis' })
-            .select('id')
-            .single()
-          if (inserted?.id) {
-            localStorage.setItem('smt_scout_proyecto_id', inserted.id)
-          }
+        if (proyecto) {
+          saveProyecto({ nombre: proyecto, datos: scoutPayload, flujo: 'B' }).then(r => {
+            if (r.ok && r.id) {
+              localStorage.setItem('smt_proyecto_id', r.id)
+            } else {
+              console.error('[BuscandoPage] saveProyecto failed:', r.error)
+              setSaveError(r.error || 'Error desconocido al guardar')
+            }
+          })
+        } else {
+          console.warn('[BuscandoPage] proyecto vacío — no se guardará en Mis Proyectos')
         }
 
         setTimeout(() => {
           setStage(4)
           setStatusText('Análisis completado — 3 candidatos encontrados')
-        }, 2000)
+        }, 4000)
       })
       .catch(err => {
         console.error(err)
@@ -388,24 +401,27 @@ function BuscandoContent() {
               </div>
 
               {stage === 1 && (
-                <div className="flex flex-col items-center justify-center py-16">
-                  <div className="relative w-20 h-20 mb-6">
-                    <div className="absolute inset-0 rounded-full bg-[#E1F5EE] animate-ping opacity-60" />
-                    <div className="relative w-20 h-20 rounded-full bg-[#E1F5EE] flex items-center justify-center">
-                      <svg width="36" height="36" viewBox="0 0 24 24" fill="none">
-                        <circle cx="11" cy="11" r="7" stroke="#1D9E75" strokeWidth="1.8"/>
-                        <path d="M16.5 16.5L21 21" stroke="#1D9E75" strokeWidth="1.8" strokeLinecap="round"/>
-                        <path d="M8 11H14M11 8V14" stroke="#1D9E75" strokeWidth="1.8" strokeLinecap="round"/>
-                      </svg>
-                    </div>
+                <div className="flex flex-col items-center justify-center py-16 gap-6">
+                  <BigSpinner color="#1D9E75" glow="#1D9E75" size={120} />
+                  <div className="text-center">
+                    <p className="text-[15px] font-semibold text-[#111d17] mb-1">Escaneando el mercado</p>
+                    <p className="text-[13px] text-[#7a9089]">El Scout está analizando disponibilidad, precios y zonas…</p>
                   </div>
-                  <p className="text-[15px] font-semibold text-[#111d17] mb-1">Escaneando el mercado</p>
-                  <p className="text-[13px] text-[#7a9089]">El Scout está analizando disponibilidad, precios y zonas…</p>
+                </div>
+              )}
+
+              {stage === 3 && (
+                <div className="flex flex-col items-center gap-4 bg-white border border-[#E5DEFF] rounded-2xl px-5 py-8 shadow-sm mb-4">
+                  <BigSpinner color="#8B5CF6" glow="#8B5CF6" size={120} />
+                  <div className="text-center">
+                    <p className="text-[14px] font-semibold text-[#111d17]">Agente de Mercado trabajando</p>
+                    <p className="text-[12px] text-[#7a9089]">Analizando demanda, comparables y tendencias de la zona…</p>
+                  </div>
                 </div>
               )}
 
               {stage >= 2 && candidates.length > 0 && (
-                <div className="flex flex-col gap-4 mb-8">
+                <div className="flex flex-col gap-4 mb-4">
                   {candidates.map((c, i) => (
                     <CandidateCard key={c.id} c={c} stage={stage} index={i} highlighted={highlightedId === c.id} />
                   ))}
@@ -413,21 +429,11 @@ function BuscandoContent() {
               )}
 
               {stage === 2 && (
-                <div className="flex items-center gap-3 bg-white border border-[#E2E8E4] rounded-2xl px-5 py-4 shadow-sm mb-4">
-                  <div className="w-9 h-9 rounded-xl bg-[#E6F1FB] flex items-center justify-center shrink-0"><AgentSpinner color="#378ADD" /></div>
-                  <div>
-                    <p className="text-[13px] font-semibold text-[#111d17]">Agente Legal trabajando</p>
+                <div className="flex flex-col items-center gap-4 bg-white border border-[#D6E8F8] rounded-2xl px-5 py-8 shadow-sm mb-4">
+                  <BigSpinner color="#378ADD" glow="#378ADD" size={120} />
+                  <div className="text-center">
+                    <p className="text-[14px] font-semibold text-[#111d17]">Agente Legal trabajando</p>
                     <p className="text-[12px] text-[#7a9089]">Verificando uso de suelo, normativa urbana y restricciones…</p>
-                  </div>
-                </div>
-              )}
-
-              {stage === 3 && (
-                <div className="flex items-center gap-3 bg-white border border-[#E2E8E4] rounded-2xl px-5 py-4 shadow-sm mb-4">
-                  <div className="w-9 h-9 rounded-xl bg-[#F3EEFF] flex items-center justify-center shrink-0"><AgentSpinner color="#8B5CF6" /></div>
-                  <div>
-                    <p className="text-[13px] font-semibold text-[#111d17]">Agente de Mercado trabajando</p>
-                    <p className="text-[12px] text-[#7a9089]">Analizando demanda, comparables y tendencias de la zona…</p>
                   </div>
                 </div>
               )}
@@ -444,26 +450,34 @@ function BuscandoContent() {
               )}
 
               {stage === 4 && (
-                <div className="bg-[#F0FBF6] border border-[#1D9E75]/30 rounded-2xl p-6 text-center">
-                  <div className="w-12 h-12 rounded-2xl bg-[#1D9E75] flex items-center justify-center mx-auto mb-3">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                      <path d="M5 13l4 4L19 7" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
+                <>
+                  <div className="bg-[#F0FBF6] border border-[#1D9E75]/30 rounded-2xl p-6 text-center">
+                    <div className="w-12 h-12 rounded-2xl bg-[#1D9E75] flex items-center justify-center mx-auto mb-3">
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                        <path d="M5 13l4 4L19 7" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    </div>
+                    <p className="text-[16px] font-bold text-[#0F6E56] mb-1">Análisis multi-agente completado</p>
+                    <p className="text-[13px] text-[#5a9078] mb-5">
+                      Scout, Legal y Mercado han procesado los 3 candidatos. El reporte completo está listo.
+                    </p>
+                    <button
+                      onClick={() => router.push(`/analisis/flujo-b${proyecto ? `?proyecto=${encodeURIComponent(proyecto)}` : ''}`)}
+                      className="inline-flex items-center gap-2 bg-[#1D9E75] text-white px-8 py-3.5 rounded-xl text-[15px] font-semibold hover:bg-[#0F6E56] transition-colors cursor-pointer"
+                    >
+                      Ver Análisis Completo
+                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                        <path d="M6 4l4 4-4 4" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
+                      </svg>
+                    </button>
                   </div>
-                  <p className="text-[16px] font-bold text-[#0F6E56] mb-1">Análisis multi-agente completado</p>
-                  <p className="text-[13px] text-[#5a9078] mb-5">
-                    Scout, Legal y Mercado han procesado los 3 candidatos. El reporte completo está listo.
-                  </p>
-                  <button
-                    onClick={() => router.push(`/analisis/flujo-b${proyecto ? `?proyecto=${encodeURIComponent(proyecto)}` : ''}`)}
-                    className="inline-flex items-center gap-2 bg-[#1D9E75] text-white px-8 py-3.5 rounded-xl text-[15px] font-semibold hover:bg-[#0F6E56] transition-colors cursor-pointer"
-                  >
-                    Ver Análisis Completo
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                      <path d="M6 4l4 4-4 4" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
-                    </svg>
-                  </button>
-                </div>
+                  {saveError && (
+                    <div className="mt-3 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+                      <p className="text-[12px] font-semibold text-red-700 mb-0.5">Error al guardar en Mis Proyectos</p>
+                      <p className="text-[11px] text-red-600 font-mono break-all">{saveError}</p>
+                    </div>
+                  )}
+                </>
               )}
             </>
           )}

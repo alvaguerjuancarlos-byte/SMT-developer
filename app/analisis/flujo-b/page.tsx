@@ -2,17 +2,27 @@
 
 import { useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
 
-// ─── Types ──────────────────────────────────────────────────────────────────
+// ─── Types ───────────────────────────────────────────────────────────────────
+
+interface Factibilidad { status: 'Disponible' | 'Con condicionante' | 'No disponible'; nota: string }
+interface AlertaLegal { tipo: string; descripcion: string; impacto: string; status: 'green' | 'amber' | 'red' }
+interface Comparable { nombre: string; precioM2: number; avanceObra: string; absorcion: string }
+interface SegmentoUnidad { tipo: string; participacion: string; precioM2: number; absorcionMensual: string }
 
 interface CandidateLegal {
-  usoSuelo: string; cos: string; cus: string; altura: string
-  cajones: string; restriccion: string; municipio: string
+  usoSueloActual?: string; usoSueloPermitido?: string; usoSuelo?: string
+  compatible?: boolean
+  cos: string; cus: string; altura: string; cajones: string; restriccion: string; municipio: string
+  factibilidades?: { agua: Factibilidad; drenaje: Factibilidad; cfe: Factibilidad }
+  nivelRiesgo?: 'Bajo' | 'Medio' | 'Alto'
+  alertasLegales?: AlertaLegal[]
 }
 interface CandidateMercado {
   label: string; precioZona: string; absorcion: string
   competencia: string; perfilNSE: string; plusvalia: string; producto: string
+  comparables?: Comparable[]
+  segmentacion?: SegmentoUnidad[]
 }
 interface Candidate {
   id: number; nombre: string; zona: string; ubicacion?: string
@@ -21,11 +31,28 @@ interface Candidate {
   score?: number; tir?: string; pros?: string[]; contras?: string[]
   recomendado?: boolean; legal: CandidateLegal; mercado: CandidateMercado
 }
-interface StressItem {
-  titulo: string; escenario: string; impacto: string; status: 'green' | 'amber' | 'red'
+interface StressItem { titulo: string; escenario: string; impacto: string; status: 'green' | 'amber' | 'red' }
+
+interface EstructuraCapital {
+  equity: number; deuda: number; montoEquity: number; montoDeuda: number
+  tipoDeuda: string; tasaDeuda: string; costoFinanciero: number
+  preventa: { unidadesMinimas: number; porcentajeMinimo: string; montoMinimo: number; condicion: string }
+  tasaDescuento: string; isrEstimado: number; utilidadNeta: number; descripcion: string
 }
+interface FlujoMes { mes: number; fase: string; egresos: number; ingresos: number; acumulado: number; nota: string }
+interface PuntoQuiebre { desviacionMaxCostos: string; absorcionMinViable: string; precioVentaMinimo: string; resumen: string }
+
+interface ScoreDimCandidate { candidatoId: number; score: number; razon: string }
+interface ScoreDim { nombre: string; peso: string; scores: ScoreDimCandidate[]; interpretacion: string }
+interface MetodologiaScore { descripcion: string; dimensiones: ScoreDim[] }
+
 interface Recomendacion {
   candidatoId: number; scoreResiliencia: number; texto: string; stressTest: StressItem[]
+  financiero?: Record<string, string>
+  estructuraCapital?: EstructuraCapital
+  flujoMensual?: FlujoMes[]
+  puntoQuiebre?: PuntoQuiebre
+  metodologiaScore?: MetodologiaScore
 }
 interface Fuente { nombre: string; tipo: string }
 interface Fuentes { scout?: Fuente[]; legal?: Fuente[]; mercado?: Fuente[] }
@@ -37,19 +64,17 @@ interface ScoutData {
   fuentes?: Fuentes
 }
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function parseNum(s: string): number {
   return parseFloat((s || '').replace(/[^0-9.]/g, '')) || 0
 }
-
 function demandaRank(label: string): number {
   const l = (label || '').toLowerCase()
   if (l.includes('alta') || l.includes('high')) return 3
   if (l.includes('media') || l.includes('med')) return 2
   return 1
 }
-
 function computeBest(cs: Candidate[]): Record<string, boolean>[] {
   if (!cs.length) return []
   const prices    = cs.map(c => parseNum(c.precio))
@@ -61,12 +86,10 @@ function computeBest(cs: Candidate[]): Record<string, boolean>[] {
   const absorcs   = cs.map(c => parseNum(c.mercado?.absorcion || '0'))
   const plusvalias= cs.map(c => parseNum(c.mercado?.plusvalia || '0'))
   const tirs      = cs.map(c => parseNum(c.tir || '0'))
-
   const minP = Math.min(...prices), maxS = Math.max(...surfs), minPm2 = Math.min(...pm2)
   const maxCus = Math.max(...cus), maxAlt = Math.max(...alturas)
   const maxDem = Math.max(...demandas), maxAbs = Math.max(...absorcs)
   const maxPlusv = Math.max(...plusvalias), maxTir = Math.max(...tirs)
-
   return cs.map((c, i) => ({
     precio:     prices[i]    === minP    && minP > 0,
     superficie: surfs[i]     === maxS    && maxS > 0,
@@ -80,10 +103,11 @@ function computeBest(cs: Candidate[]): Record<string, boolean>[] {
     tir:        tirs[i]      === maxTir  && maxTir > 0,
   }))
 }
+function fmt(n: number) { return '$' + n.toLocaleString('es-MX') }
 
 const ID_LABELS = ['A', 'B', 'C']
 
-// ─── Fallback data (when no scout session found) ──────────────────────────────
+// ─── Fallback ─────────────────────────────────────────────────────────────────
 
 const FALLBACK: ScoutData = {
   candidatos: [
@@ -211,12 +235,11 @@ function AnalisisflujoB() {
   const recCand = candidates.find(c => c.recomendado || c.id === rec?.candidatoId) || candidates[0]
   const proyecto = proyectoParam || scoutData.proyecto || 'Proyecto Scout'
 
-  // Build metrics rows per candidate
   const metricsPerCand = candidates.map(c => ({
     precio:     c.precio,
     superficie: c.superficie,
     preciom2:   c.preciom2,
-    usoSuelo:   c.legal?.usoSuelo || c.uso,
+    usoSuelo:   c.legal?.usoSueloPermitido || c.legal?.usoSuelo || c.uso,
     cosCus:     c.legal ? `${c.legal.cos} / ${c.legal.cus}` : '—',
     altura:     c.legal?.altura || '—',
     demanda:    (c.mercado?.label || '').replace(/^Demanda\s+/i, ''),
@@ -227,11 +250,26 @@ function AnalisisflujoB() {
 
   const bestFlags = computeBest(candidates)
   const stressTests = rec?.stressTest || FALLBACK.recomendacion!.stressTest
+  const ec = rec?.estructuraCapital
+  const flujo = rec?.flujoMensual
+  const pq = rec?.puntoQuiebre
+  const ms = rec?.metodologiaScore
+
+  const factibilidadDot = (status: string) =>
+    status === 'Disponible' ? '#1D9E75' : status === 'Con condicionante' ? '#D97706' : '#DC2626'
+  const riesgoCfg = (r?: string) =>
+    r === 'Bajo' ? { bg: 'bg-[#E1F5EE]', text: 'text-[#0F6E56]' }
+    : r === 'Medio' ? { bg: 'bg-[#FEF3C7]', text: 'text-[#92600A]' }
+    : { bg: 'bg-[#FEE2E2]', text: 'text-[#991B1B]' }
+  const alertaColor = (s: string) =>
+    s === 'green' ? { dot: '#1D9E75', bg: '#E1F5EE', text: '#0F6E56' }
+    : s === 'amber' ? { dot: '#D97706', bg: '#FEF3C7', text: '#92600A' }
+    : { dot: '#DC2626', bg: '#FEE2E2', text: '#991B1B' }
 
   return (
     <div className="min-h-screen bg-[#F7F8F6] flex flex-col">
 
-      {/* Sticky header */}
+      {/* Header */}
       <header className="px-8 py-4 flex items-center gap-3 border-b border-[#E2E8E4] bg-white sticky top-0 z-20">
         <div className="w-8 h-8 rounded-lg bg-[#1D9E75] flex items-center justify-center shrink-0">
           <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
@@ -324,9 +362,7 @@ function AnalisisflujoB() {
                         const isBest = bestFlags[ci]?.[row.key] ?? false
                         return (
                           <td key={c.id} className="px-5 py-3.5 text-center">
-                            <span className={`inline-block text-[13px] font-semibold px-2.5 py-1 rounded-lg ${
-                              isBest ? 'bg-[#E1F5EE] text-[#0F6E56]' : 'text-[#111d17]'
-                            }`}>
+                            <span className={`inline-block text-[13px] font-semibold px-2.5 py-1 rounded-lg ${isBest ? 'bg-[#E1F5EE] text-[#0F6E56]' : 'text-[#111d17]'}`}>
                               {val}
                             </span>
                           </td>
@@ -353,9 +389,7 @@ function AnalisisflujoB() {
                         <div className="w-8 h-8 rounded-lg bg-[#111d17] flex items-center justify-center text-white font-black text-[13px] shrink-0">
                           {ID_LABELS[i]}
                         </div>
-                        <span className={`text-[11px] font-black px-2.5 py-1 rounded-full ${scoreBg}`}>
-                          {score}/100
-                        </span>
+                        <span className={`text-[11px] font-black px-2.5 py-1 rounded-full ${scoreBg}`}>{score}/100</span>
                       </div>
                       <p className="text-[14px] font-bold text-[#111d17] mt-2 leading-tight">{c.nombre}</p>
                       <p className="text-[11px] text-[#9aab9f] mt-0.5 leading-snug">{c.ubicacion || c.zona}</p>
@@ -382,8 +416,8 @@ function AnalisisflujoB() {
                         <div>
                           <p className="text-[9px] font-bold text-[#D97706] uppercase tracking-[0.12em] mb-2">Riesgos</p>
                           <ul className="flex flex-col gap-1.5">
-                            {(c.contras || []).map((con, ci) => (
-                              <li key={ci} className="flex items-start gap-2">
+                            {(c.contras || []).map((con, ci2) => (
+                              <li key={ci2} className="flex items-start gap-2">
                                 <span className="w-4 h-4 rounded-full bg-[#FEF3C7] flex items-center justify-center shrink-0 mt-0.5">
                                   <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
                                     <path d="M4 2.5V4.5M4 5.5V5.6" stroke="#D97706" strokeWidth="1.3" strokeLinecap="round"/>
@@ -402,7 +436,201 @@ function AnalisisflujoB() {
             </div>
           </div>
 
-          {/* 4 · Recomendación Mastermind */}
+          {/* 4 · Análisis Legal por Candidato */}
+          {candidates.some(c => c.legal?.factibilidades || c.legal?.nivelRiesgo || c.legal?.alertasLegales?.length) && (
+            <div>
+              <SectionTitle>Análisis Legal · 3 Candidatos</SectionTitle>
+              <div className="grid grid-cols-3 gap-4">
+                {candidates.map((c, i) => {
+                  const rc = riesgoCfg(c.legal?.nivelRiesgo)
+                  return (
+                    <div key={c.id} className="bg-white rounded-2xl border border-[#E2E8E4] shadow-sm overflow-hidden flex flex-col">
+                      {/* Card header */}
+                      <div className="px-5 py-4 border-b border-[#F0F4F2]">
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <span className="w-7 h-7 rounded-lg bg-[#111d17] flex items-center justify-center text-white font-black text-[11px] shrink-0">{ID_LABELS[i]}</span>
+                            <span className="text-[12px] font-bold text-[#111d17] truncate">{c.nombre}</span>
+                          </div>
+                          {c.legal?.nivelRiesgo && (
+                            <span className={`text-[9px] font-black px-2 py-0.5 rounded-full shrink-0 ${rc.bg} ${rc.text}`}>
+                              Riesgo {c.legal.nivelRiesgo}
+                            </span>
+                          )}
+                        </div>
+                        {/* Uso de suelo */}
+                        {(c.legal?.usoSueloActual || c.legal?.usoSueloPermitido) && (
+                          <div className="mt-2 flex flex-col gap-1 text-[11px]">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[#9aab9f]">Actual</span>
+                              <span className="font-medium text-[#5a7065] truncate ml-2 max-w-[120px]">{c.legal.usoSueloActual}</span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <span className="text-[#9aab9f]">Permitido</span>
+                              <span className="font-medium text-[#111d17] truncate ml-2 max-w-[120px]">{c.legal.usoSueloPermitido}</span>
+                            </div>
+                            {c.legal?.compatible !== undefined && (
+                              <div className={`mt-1.5 text-[10px] font-bold px-2 py-1 rounded-lg text-center ${c.legal.compatible ? 'bg-[#E1F5EE] text-[#0F6E56]' : 'bg-[#FEE2E2] text-[#991B1B]'}`}>
+                                {c.legal.compatible ? '✓ Compatible — uso directo' : '✗ Requiere cambio de uso'}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Factibilidades */}
+                      {c.legal?.factibilidades && (
+                        <div className="px-5 py-3 border-b border-[#F0F4F2]">
+                          <p className="text-[9px] font-bold text-[#9aab9f] uppercase tracking-[0.12em] mb-2">Factibilidades</p>
+                          {(['agua', 'drenaje', 'cfe'] as const).map(svc => {
+                            const f = c.legal.factibilidades![svc]
+                            return (
+                              <div key={svc} className="flex items-start justify-between py-1 gap-2">
+                                <span className="text-[11px] text-[#5a7065] shrink-0">{svc === 'cfe' ? 'CFE' : svc.charAt(0).toUpperCase() + svc.slice(1)}</span>
+                                <div className="flex flex-col items-end">
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: factibilidadDot(f.status) }} />
+                                    <span className="text-[10px] font-semibold text-[#111d17]">{f.status}</span>
+                                  </div>
+                                  {f.nota && <span className="text-[9px] text-[#9aab9f] text-right leading-snug mt-0.5">{f.nota}</span>}
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      )}
+
+                      {/* Alertas */}
+                      {c.legal?.alertasLegales && c.legal.alertasLegales.length > 0 && (
+                        <div className="px-5 py-3 flex-1">
+                          <p className="text-[9px] font-bold text-[#9aab9f] uppercase tracking-[0.12em] mb-2">Alertas Legales</p>
+                          {c.legal.alertasLegales.map((a, ai) => {
+                            const ac = alertaColor(a.status)
+                            return (
+                              <div key={ai} className="mb-2 last:mb-0 rounded-lg p-2" style={{ background: ac.bg + '50' }}>
+                                <div className="flex items-center gap-1.5 mb-1">
+                                  <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: ac.dot }} />
+                                  <span className="text-[10px] font-bold" style={{ color: ac.text }}>{a.tipo}</span>
+                                </div>
+                                <p className="text-[10px] text-[#5a7065] leading-snug">{a.descripcion}</p>
+                                {a.impacto && <p className="text-[9px] text-[#9aab9f] mt-1">{a.impacto}</p>}
+                              </div>
+                            )
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* 5 · Comparables y Segmentación */}
+          {candidates.some(c => c.mercado?.comparables?.length || c.mercado?.segmentacion?.length) && (
+            <div>
+              <SectionTitle>Comparables y Segmentación por Zona</SectionTitle>
+              <div className="grid grid-cols-3 gap-4">
+                {candidates.map((c, i) => (
+                  <div key={c.id} className="bg-white rounded-2xl border border-[#E2E8E4] shadow-sm overflow-hidden">
+                    <div className="px-5 py-3 border-b border-[#F0F4F2] bg-[#FAFBFA] flex items-center gap-2">
+                      <span className="w-6 h-6 rounded-md bg-[#111d17] flex items-center justify-center text-white font-black text-[10px] shrink-0">{ID_LABELS[i]}</span>
+                      <span className="text-[12px] font-bold text-[#111d17] truncate">{c.zona}</span>
+                    </div>
+
+                    {/* Comparables */}
+                    {c.mercado?.comparables && c.mercado.comparables.length > 0 && (
+                      <div className="px-5 py-3 border-b border-[#F0F4F2]">
+                        <p className="text-[9px] font-bold text-[#9aab9f] uppercase tracking-[0.12em] mb-2">Competencia Activa</p>
+                        {c.mercado.comparables.map((comp, ci) => (
+                          <div key={ci} className="mb-2.5 last:mb-0">
+                            <p className="text-[11px] font-semibold text-[#111d17] leading-snug">{comp.nombre}</p>
+                            <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                              <span className="text-[10px] text-[#1D9E75] font-semibold">${comp.precioM2.toLocaleString('es-MX')}/m²</span>
+                              <span className="text-[#E2E8E4] text-[10px]">·</span>
+                              <span className="text-[10px] text-[#9aab9f]">{comp.avanceObra}</span>
+                              <span className="text-[#E2E8E4] text-[10px]">·</span>
+                              <span className="text-[10px] text-[#9aab9f]">{comp.absorcion}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Segmentación */}
+                    {c.mercado?.segmentacion && c.mercado.segmentacion.length > 0 && (
+                      <div className="px-5 py-3">
+                        <p className="text-[9px] font-bold text-[#9aab9f] uppercase tracking-[0.12em] mb-2">Segmentación de Demanda</p>
+                        {c.mercado.segmentacion.map((seg, si) => {
+                          const pct = parseFloat(seg.participacion) || 0
+                          return (
+                            <div key={si} className="mb-2.5 last:mb-0">
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="text-[10px] text-[#5a7065] truncate flex-1 mr-2">{seg.tipo}</span>
+                                <span className="text-[10px] font-bold text-[#111d17] shrink-0">{seg.participacion}</span>
+                              </div>
+                              <div className="h-1.5 rounded-full bg-[#F0F4F2] overflow-hidden">
+                                <div className="h-full rounded-full bg-[#1D9E75] transition-all duration-700" style={{ width: `${pct}%` }} />
+                              </div>
+                              <div className="flex items-center gap-1.5 mt-0.5">
+                                <span className="text-[9px] text-[#9aab9f]">${seg.precioM2.toLocaleString('es-MX')}/m²</span>
+                                <span className="text-[#E2E8E4] text-[9px]">·</span>
+                                <span className="text-[9px] text-[#9aab9f]">{seg.absorcionMensual}</span>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 6 · Metodología del Score Comparativa */}
+          {ms && (
+            <div>
+              <SectionTitle>Metodología del Score · Comparativa</SectionTitle>
+              <div className="bg-white rounded-2xl border border-[#E2E8E4] shadow-sm overflow-hidden">
+                <div className="px-6 py-4 border-b border-[#F0F4F2] bg-[#FAFBFA]">
+                  <p className="text-[13px] text-[#5a7065] leading-relaxed">{ms.descripcion}</p>
+                </div>
+                <div className="divide-y divide-[#F0F4F2]">
+                  {ms.dimensiones.map((dim, di) => (
+                    <div key={di} className="px-6 py-5">
+                      <div className="flex items-center gap-2 mb-4">
+                        <span className="text-[13px] font-bold text-[#111d17]">{dim.nombre}</span>
+                        <span className="text-[10px] bg-[#F0F4F2] text-[#9aab9f] px-2 py-0.5 rounded-full font-bold">{dim.peso}</span>
+                      </div>
+                      <div className="grid grid-cols-3 gap-3 mb-3">
+                        {dim.scores.map(s => {
+                          const cand = candidates.find(c => c.id === s.candidatoId)
+                          const ci = cand ? candidates.indexOf(cand) : 0
+                          const sc = s.score >= 80 ? { color: '#1D9E75', bg: '#E1F5EE' } : s.score >= 70 ? { color: '#D97706', bg: '#FEF3C7' } : { color: '#DC2626', bg: '#FEE2E2' }
+                          return (
+                            <div key={s.candidatoId} className="rounded-xl p-3 border border-[#F0F4F2]" style={{ background: sc.bg + '60' }}>
+                              <div className="flex items-center justify-between mb-1.5">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="w-5 h-5 rounded-md bg-[#111d17] flex items-center justify-center text-white font-black text-[9px]">{ID_LABELS[ci]}</span>
+                                  <span className="text-[10px] text-[#9aab9f] font-medium">{cand?.nombre?.split(' ').slice(1).join(' ') || `Candidato ${ID_LABELS[ci]}`}</span>
+                                </div>
+                                <span className="text-[16px] font-black leading-none" style={{ color: sc.color }}>{s.score}</span>
+                              </div>
+                              <p className="text-[10px] text-[#5a7065] leading-snug">{s.razon}</p>
+                            </div>
+                          )
+                        })}
+                      </div>
+                      <p className="text-[12px] text-[#5a7065] italic leading-relaxed">{dim.interpretacion}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 7 · Recomendación Mastermind */}
           {recCand && (
             <div>
               <SectionTitle>Recomendación Mastermind</SectionTitle>
@@ -418,24 +646,22 @@ function AnalisisflujoB() {
                           Candidato Recomendado
                         </span>
                         <span className="text-[10px] font-bold text-[#4ade80]/60 uppercase tracking-wide">
-                          Score Resiliencia {rec?.scoreResiliencia ?? recCand.score ?? 81}/100
+                          Score {rec?.scoreResiliencia ?? recCand.score ?? 81}/100
                         </span>
                       </div>
                       <h3 className="text-[22px] font-black text-white mb-1">{recCand.nombre} — Candidato {ID_LABELS[candidates.indexOf(recCand)] || 'A'}</h3>
                       <p className="text-[13px] text-white/50 mb-4">{recCand.ubicacion || recCand.zona}</p>
-                      <p className="text-[13px] text-white/70 leading-relaxed">
-                        {rec?.texto || FALLBACK.recomendacion!.texto}
-                      </p>
+                      <p className="text-[13px] text-white/70 leading-relaxed">{rec?.texto || FALLBACK.recomendacion!.texto}</p>
                     </div>
                   </div>
                   <div className="mt-6 grid grid-cols-4 gap-4 pt-6 border-t border-white/10">
                     {[
-                      { label: 'TIR Estimada',    value: recCand.tir || '—',                   green: true  },
-                      { label: 'Score Global',     value: `${recCand.score ?? 81}/100`,         green: true  },
-                      { label: 'Absorción',        value: recCand.mercado?.absorcion || '—',    green: false },
-                      { label: 'Plusvalía 3 a.',   value: recCand.mercado?.plusvalia || '—',    green: true  },
-                    ].map((m, i) => (
-                      <div key={i} className="text-center">
+                      { label: 'TIR Estimada',   value: recCand.tir || '—',                green: true  },
+                      { label: 'Score Global',    value: `${recCand.score ?? 81}/100`,      green: true  },
+                      { label: 'Absorción',       value: recCand.mercado?.absorcion || '—', green: false },
+                      { label: 'Plusvalía 3 a.',  value: recCand.mercado?.plusvalia || '—', green: true  },
+                    ].map((m, mi) => (
+                      <div key={mi} className="text-center">
                         <p className="text-[10px] text-white/40 uppercase tracking-wide mb-1">{m.label}</p>
                         <p className={`text-[22px] font-black leading-none ${m.green ? 'text-[#4ade80]' : 'text-white'}`}>{m.value}</p>
                       </div>
@@ -446,7 +672,119 @@ function AnalisisflujoB() {
             </div>
           )}
 
-          {/* 5 · Stress Test */}
+          {/* 8 · Estructura de Capital */}
+          {ec && (
+            <div>
+              <SectionTitle>Estructura de Capital · Candidato Recomendado</SectionTitle>
+              <div className="bg-white rounded-2xl border border-[#E2E8E4] shadow-sm overflow-hidden">
+                <div className="px-6 pt-6 pb-5">
+                  {/* Equity / Deuda bar */}
+                  <div className="mb-5">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[12px] font-bold text-[#111d17]">Mezcla Financiera</span>
+                      <div className="flex items-center gap-3">
+                        <span className="text-[11px] text-[#1D9E75] font-bold">Equity {ec.equity}%</span>
+                        <span className="text-[11px] text-[#378ADD] font-bold">Deuda {ec.deuda}%</span>
+                      </div>
+                    </div>
+                    <div className="h-3 rounded-full overflow-hidden flex">
+                      <div className="h-full bg-[#1D9E75] rounded-l-full transition-all duration-700" style={{ width: `${ec.equity}%` }} />
+                      <div className="h-full bg-[#378ADD] rounded-r-full transition-all duration-700" style={{ width: `${ec.deuda}%` }} />
+                    </div>
+                    <div className="flex items-center justify-between mt-1.5 text-[11px] text-[#9aab9f]">
+                      <span>{fmt(ec.montoEquity)} MXN</span>
+                      <span>{fmt(ec.montoDeuda)} MXN</span>
+                    </div>
+                  </div>
+                  {/* Grid de métricas */}
+                  <div className="grid grid-cols-2 gap-x-8 gap-y-3 mb-5">
+                    {[
+                      { label: 'Tipo de deuda',       value: ec.tipoDeuda },
+                      { label: 'Tasa de deuda',        value: ec.tasaDeuda },
+                      { label: 'Costo financiero',     value: fmt(ec.costoFinanciero) + ' MXN' },
+                      { label: 'Tasa de descuento',    value: ec.tasaDescuento },
+                      { label: 'ISR estimado',         value: fmt(ec.isrEstimado) + ' MXN' },
+                      { label: 'Utilidad neta',        value: fmt(ec.utilidadNeta) + ' MXN' },
+                    ].map((item, ii) => (
+                      <div key={ii} className="flex items-center justify-between py-1.5 border-b border-[#F0F4F2] last:border-0">
+                        <span className="text-[12px] text-[#9aab9f]">{item.label}</span>
+                        <span className="text-[12px] font-semibold text-[#111d17]">{item.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                  {/* Preventa mínima */}
+                  <div className="bg-[#EEF2FF] rounded-xl p-4">
+                    <p className="text-[10px] font-bold text-[#3730A3] uppercase tracking-[0.12em] mb-1">Preventa Mínima Requerida</p>
+                    <div className="flex items-baseline gap-2 mb-1">
+                      <span className="text-[22px] font-black text-[#3730A3]">{ec.preventa.unidadesMinimas}</span>
+                      <span className="text-[12px] text-[#3730A3]/70">unidades · {ec.preventa.porcentajeMinimo} del proyecto</span>
+                    </div>
+                    <p className="text-[11px] text-[#3730A3]/70">{fmt(ec.preventa.montoMinimo)} MXN — {ec.preventa.condicion}</p>
+                  </div>
+                  {ec.descripcion && (
+                    <p className="text-[12px] text-[#9aab9f] mt-4 leading-relaxed">{ec.descripcion}</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 9 · Flujo de Caja */}
+          {flujo && flujo.length > 0 && (
+            <div>
+              <SectionTitle>Flujo de Caja Proyectado · Candidato Recomendado</SectionTitle>
+              <div className="bg-white rounded-2xl border border-[#E2E8E4] shadow-sm overflow-hidden">
+                <table className="w-full text-[12px]">
+                  <thead>
+                    <tr className="border-b border-[#E2E8E4] bg-[#FAFBFA]">
+                      <th className="px-5 py-3 text-left text-[10px] font-bold text-[#9aab9f] uppercase tracking-wide">Mes</th>
+                      <th className="px-5 py-3 text-left text-[10px] font-bold text-[#9aab9f] uppercase tracking-wide">Fase</th>
+                      <th className="px-5 py-3 text-right text-[10px] font-bold text-[#9aab9f] uppercase tracking-wide">Egresos</th>
+                      <th className="px-5 py-3 text-right text-[10px] font-bold text-[#9aab9f] uppercase tracking-wide">Ingresos</th>
+                      <th className="px-5 py-3 text-right text-[10px] font-bold text-[#9aab9f] uppercase tracking-wide">Acumulado</th>
+                      <th className="px-5 py-3 text-left text-[10px] font-bold text-[#9aab9f] uppercase tracking-wide">Nota</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {flujo.map((f, fi) => (
+                      <tr key={fi} className={`border-b border-[#F0F4F2] last:border-0 ${fi % 2 === 1 ? 'bg-[#FAFBFA]' : ''}`}>
+                        <td className="px-5 py-3 font-bold text-[#111d17]">M{f.mes}</td>
+                        <td className="px-5 py-3 text-[#5a7065]">{f.fase}</td>
+                        <td className="px-5 py-3 text-right text-[#DC2626] font-semibold">{fmt(f.egresos)}</td>
+                        <td className="px-5 py-3 text-right text-[#1D9E75] font-semibold">{fmt(f.ingresos)}</td>
+                        <td className={`px-5 py-3 text-right font-bold ${f.acumulado >= 0 ? 'text-[#1D9E75]' : 'text-[#DC2626]'}`}>{fmt(f.acumulado)}</td>
+                        <td className="px-5 py-3 text-[#9aab9f] text-[11px]">{f.nota}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* 10 · Punto de Quiebre */}
+          {pq && (
+            <div>
+              <SectionTitle>Punto de Quiebre · Candidato Recomendado</SectionTitle>
+              <div className="bg-white rounded-2xl border border-[#E2E8E4] shadow-sm p-6">
+                <div className="grid grid-cols-3 gap-4 mb-4">
+                  {[
+                    { label: 'Desviación máx. de costos', value: pq.desviacionMaxCostos, color: '#D97706' },
+                    { label: 'Absorción mínima viable',   value: pq.absorcionMinViable,  color: '#D97706' },
+                    { label: 'Precio de venta mínimo',    value: pq.precioVentaMinimo,   color: '#DC2626' },
+                  ].map((item, ii) => (
+                    <div key={ii} className="bg-[#FEF3C7] border border-[#FDE68A] rounded-xl p-4 text-center">
+                      <p className="text-[9px] font-bold text-[#92600A] uppercase tracking-[0.12em] mb-2">{item.label}</p>
+                      <p className="text-[24px] font-black" style={{ color: item.color }}>{item.value}</p>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-[13px] text-[#5a7065] leading-relaxed">{pq.resumen}</p>
+              </div>
+            </div>
+          )}
+
+          {/* 11 · Stress Test */}
           <div>
             <SectionTitle>Stress Test · Terreno Recomendado</SectionTitle>
             <div className="grid grid-cols-3 gap-4">
@@ -471,7 +809,7 @@ function AnalisisflujoB() {
             </div>
           </div>
 
-          {/* 6 · Fuentes de información */}
+          {/* 12 · Fuentes */}
           {scoutData.fuentes && (
             <div>
               <SectionTitle>Fuentes de Información Consultadas</SectionTitle>
@@ -494,8 +832,8 @@ function AnalisisflujoB() {
                         <p className="text-[12px] font-bold" style={{ color }}>{label}</p>
                       </div>
                       <ul className="divide-y divide-[#F0F4F2]">
-                        {items.map((f, i) => (
-                          <li key={i} className="px-5 py-3">
+                        {items.map((f, fi) => (
+                          <li key={fi} className="px-5 py-3">
                             <p className="text-[12px] font-semibold text-[#111d17] leading-snug">{f.nombre}</p>
                             <p className="text-[10px] text-[#9aab9f] mt-0.5 uppercase tracking-wide">{f.tipo}</p>
                           </li>
@@ -508,29 +846,14 @@ function AnalisisflujoB() {
             </div>
           )}
 
-          {/* 7 · CTA */}
+          {/* 13 · CTA */}
           <div className="bg-white rounded-2xl border border-[#E2E8E4] shadow-sm p-6 flex items-center justify-between">
             <div>
               <p className="text-[15px] font-bold text-[#0F6E56] mb-1">Análisis completo · Listo para presentar</p>
               <p className="text-[13px] text-[#5a7065]">Genera la propuesta comparativa con los tres candidatos para inversionistas.</p>
             </div>
             <button
-              onClick={async () => {
-                const { data: { user } } = await supabase.auth.getUser()
-                if (user) {
-                  const proyectoId = localStorage.getItem('smt_scout_proyecto_id')
-                  if (proyectoId) {
-                    await supabase.from('proyectos').update({ status: 'propuesta' }).eq('id', proyectoId)
-                  } else {
-                    const raw = localStorage.getItem('smt_scout_data')
-                    if (raw) {
-                      const datos = JSON.parse(raw)
-                      await supabase.from('proyectos').insert(
-                        { usuario_id: user.id, nombre: proyecto, datos, flujo: 'B', status: 'propuesta' }
-                      )
-                    }
-                  }
-                }
+              onClick={() => {
                 router.push(`/propuesta/flujo-b?proyecto=${encodeURIComponent(proyecto)}`)
               }}
               className="flex items-center gap-2 bg-[#1D9E75] text-white px-6 py-3.5 rounded-xl text-[14px] font-semibold hover:bg-[#0F6E56] transition-colors cursor-pointer shrink-0 ml-6"

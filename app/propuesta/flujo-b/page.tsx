@@ -2,7 +2,7 @@
 
 import { useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { downloadPDF } from '@/lib/downloadPDF'
+import { downloadPDF, autoSavePDF } from '@/lib/downloadPDF'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -207,7 +207,10 @@ function PropuestaFlujoBContent() {
 
   const [scoutData, setScoutData] = useState<ScoutData>(FALLBACK)
   const [aiGenerated, setAiGenerated] = useState(false)
-  const handleDownloadPDF = () => downloadPDF()
+  const handleDownloadPDF = () => {
+    const proyectoId = localStorage.getItem('smt_proyecto_id') || undefined
+    downloadPDF(`propuesta-${proyecto.replace(/\s+/g, '-').toLowerCase()}.pdf`, proyectoId)
+  }
 
   useEffect(() => {
     const raw = localStorage.getItem('smt_scout_data')
@@ -220,6 +223,17 @@ function PropuestaFlujoBContent() {
         }
       } catch { /* keep fallback */ }
     }
+  }, [])
+
+  // Auto-guardar PDF en Mis Proyectos cuando carga la propuesta
+  useEffect(() => {
+    const proyectoId = localStorage.getItem('smt_proyecto_id') || undefined
+    if (!proyectoId) return
+    const filename = `propuesta-${(proyectoParam || 'proyecto').replace(/\s+/g, '-').toLowerCase()}.pdf`
+    const timer = setTimeout(() => {
+      autoSavePDF(filename, proyectoId).catch(err => console.warn('[propuesta-b] autoSave:', err))
+    }, 3500)
+    return () => clearTimeout(timer)
   }, [])
 
   const candidates = scoutData.candidatos
@@ -297,7 +311,7 @@ function PropuestaFlujoBContent() {
       </header>
 
       <main className="flex-1 px-4 py-10">
-        <div className="w-full max-w-[800px] mx-auto flex flex-col gap-10">
+        <div id="propuesta-print" className="w-full max-w-[800px] mx-auto flex flex-col gap-10">
 
           {/* 1 · Cover */}
           <div className="rounded-2xl overflow-hidden" style={{ background: 'linear-gradient(135deg, #0a1a12 0%, #111d17 55%, #0c1f15 100%)' }}>

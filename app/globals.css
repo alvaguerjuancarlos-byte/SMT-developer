@@ -39,8 +39,9 @@ input[type="range"] {
     margin: 0;
   }
 
-  /* Hide navigation header on propuesta pages */
-  header {
+  /* Hide UI chrome — only the propuesta content should print */
+  header,
+  .no-print {
     display: none !important;
   }
 
@@ -56,5 +57,12 @@ input[type="range"] {
 
   body {
     background: #F7F8F6 !important;
+  }
+
+  /* When printing the propuesta, hide everything else on the page */
+  body.printing-propuesta > *:not(#__next),
+  body.printing-propuesta header,
+  body.printing-propuesta .no-print {
+    display: none !important;
   }
 }

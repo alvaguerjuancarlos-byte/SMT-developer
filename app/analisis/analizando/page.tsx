@@ -2,7 +2,7 @@
 
 import { useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
+import { saveProyecto } from '@/lib/saveProyecto'
 
 type Stage = 1 | 2 | 3 | 4
 
@@ -12,6 +12,18 @@ function AgentSpinner({ color = '#1D9E75' }: { color?: string }) {
       <circle cx="12" cy="12" r="10" stroke={color} strokeWidth="2" strokeOpacity="0.2"/>
       <path d="M12 2a10 10 0 0 1 10 10" stroke={color} strokeWidth="2" strokeLinecap="round"/>
     </svg>
+  )
+}
+
+function BigSpinner({ color, glow, size = 120 }: { color: string; glow: string; size?: number }) {
+  return (
+    <div className="relative flex items-center justify-center" style={{ width: size, height: size }}>
+      <div className="absolute inset-0 rounded-full opacity-20" style={{ backgroundColor: glow }} />
+      <svg className="animate-spin absolute inset-0" width={size} height={size} viewBox="0 0 96 96" fill="none">
+        <circle cx="48" cy="48" r="42" stroke={color} strokeWidth="7" strokeOpacity="0.15"/>
+        <path d="M48 6a42 42 0 0 1 42 42" stroke={color} strokeWidth="7" strokeLinecap="round"/>
+      </svg>
+    </div>
   )
 }
 
@@ -73,8 +85,8 @@ function AnalizandoContent() {
     }
     const formData = JSON.parse(formDataRaw)
 
-    const t1 = setTimeout(() => setStage(2), 2500)
-    const t2 = setTimeout(() => setStage(3), 5000)
+    const t1 = setTimeout(() => setStage(2), 3000)
+    const t2 = setTimeout(() => setStage(3), 6000)
 
     fetch('/api/analizar', {
       method: 'POST',
@@ -88,6 +100,9 @@ function AnalizandoContent() {
       .then(async data => {
         if (data.error) throw new Error(data.error)
         localStorage.setItem('smt_analisis_data', JSON.stringify({ ...data, proyecto }))
+        saveProyecto({ nombre: proyecto, datos: data, flujo: 'A' }).then(r => {
+          if (r.ok && r.id) localStorage.setItem('smt_proyecto_id', r.id)
+        })
         setStage(4)
         setTimeout(() => {
           router.push(`/analisis?proyecto=${encodeURIComponent(proyecto)}`)
@@ -182,40 +197,30 @@ function AnalizandoContent() {
               </div>
 
               {stage === 1 && (
-                <div className="flex flex-col items-center justify-center py-8">
-                  <div className="relative w-20 h-20 mb-6">
-                    <div className="absolute inset-0 rounded-full bg-[#E1F5EE] animate-ping opacity-60" />
-                    <div className="relative w-20 h-20 rounded-full bg-[#E1F5EE] flex items-center justify-center">
-                      <svg width="36" height="36" viewBox="0 0 24 24" fill="none">
-                        <rect x="3" y="3" width="18" height="18" rx="2" stroke="#1D9E75" strokeWidth="1.8"/>
-                        <path d="M3 9h18M9 21V9" stroke="#1D9E75" strokeWidth="1.8" strokeLinecap="round"/>
-                      </svg>
-                    </div>
+                <div className="flex flex-col items-center gap-6 py-8">
+                  <BigSpinner color="#378ADD" glow="#378ADD" />
+                  <div className="text-center">
+                    <p className="text-[15px] font-semibold text-[#111d17] mb-1">Revisando normativa urbana</p>
+                    <p className="text-[13px] text-[#7a9089]">Verificando uso de suelo, COS, CUS y restricciones municipales…</p>
                   </div>
-                  <p className="text-[15px] font-semibold text-[#111d17] mb-1">Revisando normativa urbana</p>
-                  <p className="text-[13px] text-[#7a9089]">Verificando uso de suelo, COS, CUS y restricciones municipales…</p>
                 </div>
               )}
 
               {stage === 2 && (
-                <div className="bg-white border border-[#E2E8E4] rounded-2xl px-5 py-4 shadow-sm flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-[#F3EEFF] flex items-center justify-center shrink-0">
-                    <AgentSpinner color="#8B5CF6" />
-                  </div>
-                  <div>
-                    <p className="text-[13px] font-semibold text-[#111d17]">Modelando estructura financiera</p>
+                <div className="flex flex-col items-center gap-6 bg-white border border-[#E5DEFF] rounded-2xl px-5 py-10 shadow-sm">
+                  <BigSpinner color="#8B5CF6" glow="#8B5CF6" />
+                  <div className="text-center">
+                    <p className="text-[14px] font-semibold text-[#111d17]">Modelando estructura financiera</p>
                     <p className="text-[12px] text-[#7a9089]">Calculando costos, ingresos, TIR y score de resiliencia…</p>
                   </div>
                 </div>
               )}
 
               {stage === 3 && (
-                <div className="bg-white border border-[#E2E8E4] rounded-2xl px-5 py-4 shadow-sm flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-[#E1F5EE] flex items-center justify-center shrink-0">
-                    <AgentSpinner color="#1D9E75" />
-                  </div>
-                  <div>
-                    <p className="text-[13px] font-semibold text-[#111d17]">Generando recomendación Mastermind</p>
+                <div className="flex flex-col items-center gap-6 bg-white border border-[#D4EFE3] rounded-2xl px-5 py-10 shadow-sm">
+                  <BigSpinner color="#1D9E75" glow="#1D9E75" />
+                  <div className="text-center">
+                    <p className="text-[14px] font-semibold text-[#111d17]">Generando recomendación Mastermind</p>
                     <p className="text-[12px] text-[#7a9089]">Consolidando análisis de mercado y stress test…</p>
                   </div>
                 </div>

@@ -1,27 +1,35 @@
-export async function downloadPDF(filename = 'propuesta-smt.pdf') {
+async function buildPDF(filename: string) {
   const { toCanvas } = await import('html-to-image')
   const { jsPDF } = await import('jspdf')
 
-  const element = document.getElementById('propuesta-print')
-  if (!element) return
+  const source = document.getElementById('propuesta-print')
+  if (!source) return null
 
-  const prevStyle = element.getAttribute('style') || ''
+  // Work on a hidden clone so the user's view is never disturbed
+  const clone = source.cloneNode(true) as HTMLElement
+  clone.style.cssText =
+    'position:absolute;top:-9999px;left:-9999px;width:900px;max-width:none;margin:0;'
+  document.body.appendChild(clone)
 
-  // mx-auto resolves to a computed margin-left (e.g. 254px) that html-to-image
-  // inlines into the SVG clone, shifting the content right inside the canvas.
-  // Zeroing margin and removing max-width before capture fixes the left offset.
-  element.setAttribute(
-    'style',
-    `${prevStyle}; width: 900px !important; max-width: none !important; margin: 0 !important;`,
-  )
-
-  // Allow layout to reflow at the new width
-  await new Promise(r => setTimeout(r, 150))
+  const proto = CSSStyleSheet.prototype
+  const originalDescriptor = Object.getOwnPropertyDescriptor(proto, 'cssRules')
+  if (originalDescriptor?.get) {
+    const originalGet = originalDescriptor.get
+    Object.defineProperty(proto, 'cssRules', {
+      get() {
+        try { return originalGet.call(this) } catch { return [] }
+      },
+      configurable: true,
+    })
+  }
 
   try {
-    const canvas = await toCanvas(element, {
+    await new Promise(r => setTimeout(r, 150))
+
+    const canvas = await toCanvas(clone, {
       pixelRatio: 2,
       backgroundColor: '#F7F8F6',
+      skipFonts: true,
     })
 
     const A4_W_MM = 210
@@ -34,8 +42,50 @@ export async function downloadPDF(filename = 'propuesta-smt.pdf') {
     })
 
     pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, A4_W_MM, imgH_MM)
-    pdf.save(filename)
+    return { pdf, filename }
+  } catch (err) {
+    console.warn('[buildPDF] generation failed:', err)
+    return null
   } finally {
-    element.setAttribute('style', prevStyle)
+    document.body.removeChild(clone)
+    if (originalDescriptor) {
+      Object.defineProperty(proto, 'cssRules', originalDescriptor)
+    }
   }
+}
+
+function uploadPDF(pdf: import('jspdf').jsPDF, proyectoId: string) {
+  const base64 = pdf.output('datauristring')
+  const pdfBase64 = base64.split(',')[1]
+  return fetch('/api/upload-pdf', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ proyectoId, pdfBase64 }),
+  })
+    .then(res => res.json())
+    .then(data => {
+      if (data.ok) {
+        localStorage.setItem(`smt_pdf_saved_${proyectoId}`, 'true')
+        window.dispatchEvent(new CustomEvent('pdf-uploaded', { detail: { proyectoId, pdfUrl: data.pdfUrl } }))
+      }
+      return data
+    })
+    .catch(err => console.warn('[uploadPDF] Failed:', err))
+}
+
+/** Descarga el PDF localmente y lo sube a Mis Proyectos */
+export async function downloadPDF(filename = 'propuesta-smt.pdf', proyectoId?: string) {
+  const result = await buildPDF(filename)
+  if (!result) return
+  result.pdf.save(filename)
+  if (proyectoId) uploadPDF(result.pdf, proyectoId)
+}
+
+/** Solo sube el PDF a Mis Proyectos sin descargarlo localmente */
+export async function autoSavePDF(filename = 'propuesta-smt.pdf', proyectoId?: string) {
+  if (!proyectoId) return
+  if (localStorage.getItem(`smt_pdf_saved_${proyectoId}`)) return
+  const result = await buildPDF(filename)
+  if (!result) return
+  uploadPDF(result.pdf, proyectoId)
 }

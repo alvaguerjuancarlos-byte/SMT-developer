@@ -2,21 +2,41 @@
 
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Suspense, useEffect, useState } from 'react'
-import { downloadPDF } from '@/lib/downloadPDF'
+import { downloadPDF, autoSavePDF } from '@/lib/downloadPDF'
 
 interface StressItem { titulo: string; escenario: string; impacto: string; status: 'green' | 'amber' | 'red' }
+interface Factibilidad { status: 'Disponible' | 'Con condicionante' | 'No disponible'; nota: string }
+interface AlertaLegal { tipo: string; descripcion: string; impacto: string; status: 'green' | 'amber' | 'red' }
+interface Comparable { nombre: string; direccion: string; fechaReferencia: string; precioM2: number; avanceObra: string; unidades: number; tipologia: string }
+interface SegmentoUnidad { tipo: string; absorcionMensual: string; precioM2: number; participacion: string; perfilComprador: string }
+interface PricingFase { fase: string; precioM2: number; descuento: string; meta: string }
 
 interface AnalisisData {
   proyecto?: string
   recomendacion: { tipologia: string; descripcion: string }
-  fichaLegal: { usoSuelo: string; cos: string; cus: string; altura: string; cajones: string; municipio: string; restriccion: string }
+  fichaLegal: {
+    usoSueloActual?: string; usoSueloPermitido?: string; usoSuelo?: string
+    compatible?: boolean; densidadAutorizada?: string
+    cos: string; cus: string; altura: string; cajones: string
+    retiros?: string; municipio: string; restriccion: string
+    factibilidades?: { agua: Factibilidad; drenaje: Factibilidad; cfe: Factibilidad }
+    regimenCondominio?: string; restriccionesAmbientales?: string
+    nivelRiesgo?: 'Bajo' | 'Medio' | 'Alto'; alertasLegales?: AlertaLegal[]
+  }
   financiero: {
     costoTerreno: number; costoTerrenoM2: number; construccionM2: number
     costoTotalConstruccion: number; indirectos: number; honorarios: number
     imprevistos: number; inversionTotal: number; precioVentaM2: number
     ingresosProyectados: number; utilidadBruta: number; margenBruto: number; tir: number
   }
-  mercado: { demanda: string; zona: string; absorcion: string; proyectosActivos: string; precioPromedioZona: string; perfilNSE: string; plusvalia: string; inventario: string; productoRecomendado: string }
+  mercado: {
+    demanda: string; zona: string; absorcion: string; proyectosActivos: string
+    precioPromedioZona: string; perfilNSE: string; plusvalia: string; inventario: string
+    productoRecomendado: string
+    comparables?: Comparable[]
+    segmentacion?: SegmentoUnidad[]
+    pricingFases?: PricingFase[]
+  }
   score: { total: number; solidezFinanciera: number; riesgoRegulatorio: number; exposicionMercado: number }
   stressTest: StressItem[]
   puntoQuiebre: { desviacionMaxCostos: string; absorcionMinViable: string; precioVentaMinimo: string; resumen: string }
@@ -137,7 +157,8 @@ function PropuestaContent() {
   const handleDownloadPDF = async () => {
     setPdfLoading(true)
     try {
-      await downloadPDF(`propuesta-${proyecto.replace(/\s+/g, '-').toLowerCase()}.pdf`)
+      const proyectoId = localStorage.getItem('smt_proyecto_id') || undefined
+      await downloadPDF(`propuesta-${proyecto.replace(/\s+/g, '-').toLowerCase()}.pdf`, proyectoId)
     } finally {
       setPdfLoading(false)
     }
@@ -154,11 +175,22 @@ function PropuestaContent() {
     }
   }, [])
 
+  // Auto-guardar PDF en Mis Proyectos cuando carga la propuesta
+  useEffect(() => {
+    const proyectoId = localStorage.getItem('smt_proyecto_id') || undefined
+    if (!proyectoId) return
+    const filename = `propuesta-${proyecto.replace(/\s+/g, '-').toLowerCase()}.pdf`
+    const timer = setTimeout(() => {
+      autoSavePDF(filename, proyectoId).catch(err => console.warn('[propuesta-a] autoSave:', err))
+    }, 3500)
+    return () => clearTimeout(timer)
+  }, [proyecto])
+
   const f = d.financiero
 
   return (
     <div className="min-h-screen bg-[#F7F8F6] flex flex-col">
-      <header className="px-8 py-4 flex items-center gap-3 border-b border-[#E2E8E4] bg-white sticky top-0 z-20">
+      <header className="no-print px-8 py-4 flex items-center gap-3 border-b border-[#E2E8E4] bg-white sticky top-0 z-20">
         <div className="w-8 h-8 rounded-lg bg-[#1D9E75] flex items-center justify-center shrink-0">
           <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
             <path d="M9 2L16 6V12L9 16L2 12V6L9 2Z" stroke="white" strokeWidth="1.5" fill="none"/>
@@ -307,7 +339,133 @@ function PropuestaContent() {
             </div>
           )}
 
-          {/* 4 · Recomendación Estratégica */}
+          {/* 4 · Marco Legal y Normativo */}
+          <div>
+            <SectionTitle>Marco Legal y Normativo</SectionTitle>
+            <Card className="p-6">
+              {/* Uso de suelo actual vs. permitido */}
+              {(d.fichaLegal.usoSueloActual || d.fichaLegal.usoSueloPermitido) && (
+                <div className="mb-5">
+                  <p className="text-[11px] font-bold text-[#9aab9f] uppercase tracking-wide mb-3">Uso de suelo</p>
+                  <div className="grid grid-cols-2 gap-3 mb-2">
+                    <div className="bg-[#F7F8F6] border border-[#E2E8E4] rounded-xl px-4 py-3">
+                      <p className="text-[10px] text-[#9aab9f] uppercase tracking-wide mb-1">Actual</p>
+                      <p className="text-[13px] font-semibold text-[#111d17]">{d.fichaLegal.usoSueloActual || '—'}</p>
+                    </div>
+                    <div className={`border rounded-xl px-4 py-3 ${d.fichaLegal.compatible === false ? 'bg-[#FFF5F5] border-[#FECACA]' : 'bg-[#F0FBF6] border-[#9FE1CB]'}`}>
+                      <p className="text-[10px] text-[#9aab9f] uppercase tracking-wide mb-1">Permitido (PDU)</p>
+                      <p className="text-[13px] font-semibold text-[#111d17]">{d.fichaLegal.usoSueloPermitido || d.fichaLegal.usoSuelo || '—'}</p>
+                      {d.fichaLegal.compatible === false && <span className="text-[10px] font-bold text-[#991B1B]">Requiere cambio de uso</span>}
+                    </div>
+                  </div>
+                  {d.fichaLegal.densidadAutorizada && (
+                    <p className="text-[12px] text-[#5a7065] px-1">Densidad autorizada: <strong className="text-[#111d17]">{d.fichaLegal.densidadAutorizada}</strong></p>
+                  )}
+                </div>
+              )}
+
+              {/* Parámetros normativos */}
+              <p className="text-[11px] font-bold text-[#9aab9f] uppercase tracking-wide mb-3">Parámetros normativos</p>
+              <div className="grid grid-cols-3 gap-3 mb-5">
+                {[
+                  { label: 'COS', value: d.fichaLegal.cos },
+                  { label: 'CUS', value: d.fichaLegal.cus },
+                  { label: 'Altura máx.', value: d.fichaLegal.altura },
+                  { label: 'Cajones', value: d.fichaLegal.cajones },
+                  ...(d.fichaLegal.retiros ? [{ label: 'Retiros', value: d.fichaLegal.retiros }] : []),
+                  { label: 'Municipio', value: d.fichaLegal.municipio },
+                ].map((item, i) => (
+                  <div key={i} className="bg-[#F7F8F6] border border-[#E2E8E4] rounded-xl px-3 py-2.5">
+                    <p className="text-[10px] text-[#9aab9f] uppercase tracking-wide mb-0.5">{item.label}</p>
+                    <p className="text-[13px] font-semibold text-[#111d17]">{item.value}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* Factibilidades */}
+              {d.fichaLegal.factibilidades && (
+                <div className="mb-5">
+                  <p className="text-[11px] font-bold text-[#9aab9f] uppercase tracking-wide mb-3">Factibilidades de servicios</p>
+                  <div className="grid grid-cols-3 gap-3">
+                    {(['agua', 'drenaje', 'cfe'] as const).map(srv => {
+                      const fac = d.fichaLegal.factibilidades![srv]
+                      const c = fac.status === 'Disponible'
+                        ? { bg: 'bg-[#F0FBF6]', border: 'border-[#9FE1CB]', dot: '#1D9E75', text: 'text-[#0F6E56]' }
+                        : fac.status === 'Con condicionante'
+                        ? { bg: 'bg-[#FFFBEB]', border: 'border-[#F5D97A]', dot: '#D97706', text: 'text-[#92600A]' }
+                        : { bg: 'bg-[#FFF5F5]', border: 'border-[#FECACA]', dot: '#DC2626', text: 'text-[#991B1B]' }
+                      const label = { agua: 'Agua potable', drenaje: 'Drenaje', cfe: 'CFE' }
+                      return (
+                        <div key={srv} className={`${c.bg} border ${c.border} rounded-xl p-3`}>
+                          <div className="flex items-center gap-1.5 mb-1">
+                            <span className="w-2 h-2 rounded-full" style={{ backgroundColor: c.dot }} />
+                            <p className="text-[11px] font-bold text-[#111d17]">{label[srv]}</p>
+                          </div>
+                          <p className={`text-[10px] font-semibold ${c.text}`}>{fac.status}</p>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Régimen de condominio */}
+              {d.fichaLegal.regimenCondominio && (
+                <div className="mb-4 bg-[#F7F8F6] border border-[#E2E8E4] rounded-xl px-4 py-3">
+                  <p className="text-[10px] font-bold text-[#9aab9f] uppercase tracking-wide mb-1">Régimen de condominio</p>
+                  <p className="text-[12px] text-[#111d17]">{d.fichaLegal.regimenCondominio}</p>
+                </div>
+              )}
+
+              {/* Restricción + ambiental */}
+              <div className="flex items-start gap-2 bg-[#FFFBEB] border border-[#F5D97A] rounded-xl px-4 py-3 mb-3">
+                <svg width="13" height="13" viewBox="0 0 14 14" fill="none" className="mt-0.5 shrink-0">
+                  <path d="M7 2L12.5 11.5H1.5L7 2Z" stroke="#D97706" strokeWidth="1.4" strokeLinejoin="round"/>
+                  <path d="M7 6v3" stroke="#D97706" strokeWidth="1.4" strokeLinecap="round"/>
+                  <circle cx="7" cy="10" r="0.5" fill="#D97706"/>
+                </svg>
+                <p className="text-[12px] text-[#92600A]"><strong>Restricción principal:</strong> {d.fichaLegal.restriccion}</p>
+              </div>
+
+              {/* Alertas legales */}
+              {d.fichaLegal.alertasLegales && d.fichaLegal.alertasLegales.length > 0 && (
+                <div>
+                  <p className="text-[11px] font-bold text-[#9aab9f] uppercase tracking-wide mb-2">
+                    Alertas legales
+                    {d.fichaLegal.nivelRiesgo && (
+                      <span className={`ml-2 px-2 py-0.5 rounded-full text-[10px] font-bold ${d.fichaLegal.nivelRiesgo === 'Alto' ? 'bg-[#FEE2E2] text-[#991B1B]' : d.fichaLegal.nivelRiesgo === 'Medio' ? 'bg-[#FEF3C7] text-[#92600A]' : 'bg-[#E1F5EE] text-[#0F6E56]'}`}>
+                        Riesgo {d.fichaLegal.nivelRiesgo}
+                      </span>
+                    )}
+                  </p>
+                  <div className="flex flex-col gap-2">
+                    {d.fichaLegal.alertasLegales.map((a, i) => {
+                      const ac = a.status === 'red'
+                        ? { bg: 'bg-[#FFF5F5]', border: 'border-[#FECACA]', dot: '#DC2626', badge: 'bg-[#FEE2E2] text-[#991B1B]', label: 'Crítico' }
+                        : a.status === 'amber'
+                        ? { bg: 'bg-[#FFFBEB]', border: 'border-[#F5D97A]', dot: '#D97706', badge: 'bg-[#FEF3C7] text-[#92600A]', label: 'Manejable' }
+                        : { bg: 'bg-[#F0FBF6]', border: 'border-[#9FE1CB]', dot: '#1D9E75', badge: 'bg-[#E1F5EE] text-[#0F6E56]', label: 'Sin impacto' }
+                      return (
+                        <div key={i} className={`${ac.bg} border ${ac.border} rounded-xl px-4 py-3`}>
+                          <div className="flex items-center justify-between mb-1">
+                            <div className="flex items-center gap-2">
+                              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: ac.dot }} />
+                              <p className="text-[13px] font-bold text-[#111d17]">{a.tipo}</p>
+                            </div>
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${ac.badge}`}>{ac.label}</span>
+                          </div>
+                          <p className="text-[12px] text-[#5a7065] mb-1">{a.descripcion}</p>
+                          <p className="text-[12px] font-semibold text-[#111d17]">{a.impacto}</p>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+            </Card>
+          </div>
+
+          {/* 6 · Recomendación Estratégica */}
           <div>
             <SectionTitle>Recomendación Estratégica</SectionTitle>
             <Card className="p-6">
@@ -328,7 +486,9 @@ function PropuestaContent() {
             </Card>
           </div>
 
-          {/* 5 · Estructura Financiera */}
+          {/* 7 · Estructura Financiera — wait, renumber later */}
+          {/* 5 was already renumbered; this comment is unused */}
+          {/* Estructura Financiera */}
           <div>
             <SectionTitle>Estructura Financiera</SectionTitle>
             <Card className="p-0 overflow-hidden">
@@ -350,7 +510,7 @@ function PropuestaContent() {
             </Card>
           </div>
 
-          {/* 6 · Análisis de Mercado */}
+          {/* 7 · Análisis de Mercado */}
           <div>
             <SectionTitle>Análisis de Mercado</SectionTitle>
             <Card className="p-6">
@@ -371,14 +531,79 @@ function PropuestaContent() {
                 ].map((item, i) => (
                   <div key={i} className="flex items-center justify-between py-2.5 border-b border-[#F0F4F2] last:border-0">
                     <p className="text-[13px] text-[#5a7065]">{item.label}</p>
-                    <p className={`text-[13px] font-semibold ${item.green ? 'text-[#0F6E56]' : 'text-[#111d17]'}`}>{item.value}</p>
+                    <p className={`text-[13px] font-semibold ${(item as { green?: boolean }).green ? 'text-[#0F6E56]' : 'text-[#111d17]'}`}>{item.value}</p>
                   </div>
                 ))}
               </div>
-              <div className="bg-[#F0FBF6] border border-[#D4EFE3] rounded-xl px-4 py-3">
+              <div className="bg-[#F0FBF6] border border-[#D4EFE3] rounded-xl px-4 py-3 mb-5">
                 <p className="text-[10px] font-bold text-[#1D9E75] uppercase tracking-wide mb-1">Producto recomendado</p>
                 <p className="text-[15px] font-bold text-[#111d17]">{d.mercado.productoRecomendado}</p>
               </div>
+
+              {/* Comparables */}
+              {d.mercado.comparables && d.mercado.comparables.length > 0 && (
+                <div className="mb-5">
+                  <p className="text-[11px] font-bold text-[#9aab9f] uppercase tracking-wide mb-3">Proyectos comparables</p>
+                  <div className="flex flex-col gap-2">
+                    {d.mercado.comparables.map((c, i) => (
+                      <div key={i} className="bg-[#F7F8F6] border border-[#E2E8E4] rounded-xl px-4 py-3">
+                        <div className="flex items-start justify-between gap-2 mb-1">
+                          <p className="text-[13px] font-semibold text-[#111d17]">{c.nombre}</p>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${c.avanceObra === 'Entregado' ? 'bg-[#E1F5EE] text-[#0F6E56]' : c.avanceObra === 'En obra' ? 'bg-[#FEF3C7] text-[#D97706]' : 'bg-[#EEF2FF] text-[#4F46E5]'}`}>{c.avanceObra}</span>
+                        </div>
+                        <p className="text-[11px] text-[#8a9e92] mb-1.5">{c.direccion} · {c.fechaReferencia}</p>
+                        <div className="flex gap-5">
+                          <span className="text-[11px] text-[#5a7065]">Precio: <strong className="text-[#111d17]">${c.precioM2.toLocaleString('es-MX')}/m²</strong></span>
+                          <span className="text-[11px] text-[#5a7065]">{c.tipologia}</span>
+                          <span className="text-[11px] text-[#5a7065]">{c.unidades} unidades</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Segmentación */}
+              {d.mercado.segmentacion && d.mercado.segmentacion.length > 0 && (
+                <div className="mb-5">
+                  <p className="text-[11px] font-bold text-[#9aab9f] uppercase tracking-wide mb-3">Segmentación por tipo de unidad</p>
+                  <div className="flex flex-col gap-2">
+                    {d.mercado.segmentacion.map((s, i) => (
+                      <div key={i} className="bg-[#F7F8F6] border border-[#E2E8E4] rounded-xl px-4 py-3">
+                        <div className="flex items-center justify-between mb-1.5">
+                          <p className="text-[13px] font-semibold text-[#111d17]">{s.tipo}</p>
+                          <span className="text-[12px] font-bold text-[#0F6E56]">{s.participacion}</span>
+                        </div>
+                        <div className="h-1.5 bg-[#E2E8E4] rounded-full overflow-hidden mb-2">
+                          <div className="h-full bg-[#1D9E75] rounded-full" style={{ width: s.participacion }} />
+                        </div>
+                        <div className="flex gap-5">
+                          <span className="text-[11px] text-[#5a7065]">Precio: <strong className="text-[#111d17]">${s.precioM2.toLocaleString('es-MX')}/m²</strong></span>
+                          <span className="text-[11px] text-[#5a7065]">Absorción: <strong className="text-[#111d17]">{s.absorcionMensual}</strong></span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Pricing por fase */}
+              {d.mercado.pricingFases && d.mercado.pricingFases.length > 0 && (
+                <div>
+                  <p className="text-[11px] font-bold text-[#9aab9f] uppercase tracking-wide mb-3">Estrategia de pricing por fase</p>
+                  <div className="grid grid-cols-3 gap-3">
+                    {d.mercado.pricingFases.map((fase, i) => (
+                      <div key={i} className="bg-[#F7F8F6] border border-[#E2E8E4] rounded-xl p-3">
+                        <p className="text-[11px] font-bold text-[#5a7065] mb-1">{fase.fase}</p>
+                        <p className="text-[18px] font-black text-[#111d17] leading-none">${fase.precioM2.toLocaleString('es-MX')}</p>
+                        <p className="text-[10px] text-[#9aab9f] mb-2">/m²</p>
+                        <span className="text-[10px] font-bold bg-[#FEF3C7] text-[#92600A] px-2 py-0.5 rounded-full">{fase.descuento}</span>
+                        <p className="text-[10px] text-[#8a9e92] mt-2 leading-snug">{fase.meta}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </Card>
           </div>
 

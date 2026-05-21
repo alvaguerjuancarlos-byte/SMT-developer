@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
 
 interface Proyecto {
   id: string
@@ -11,69 +10,70 @@ interface Proyecto {
   status: string
   flujo: 'A' | 'B'
   datos?: Record<string, unknown>
+  pdf_url?: string
 }
 
 export default function DashboardPage() {
   const router = useRouter()
   const [proyectos, setProyectos] = useState<Proyecto[]>([])
-  const [loading,   setLoading]   = useState(true)
+  const [loading, setLoading] = useState(true)
+  const [toggling, setToggling] = useState<string | null>(null)
+
+  const load = async () => {
+    setLoading(true)
+    try {
+      const res = await fetch('/api/proyectos')
+      const data = await res.json()
+      setProyectos(Array.isArray(data) ? data : [])
+    } catch {
+      setProyectos([])
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => { load() }, [])
 
   useEffect(() => {
-    let mounted = true
-
-    const load = async () => {
-      const { data } = await supabase
-        .from('proyectos')
-        .select('id, nombre, created_at, status, flujo, datos')
-        .neq('status', 'eliminado')
-        .order('created_at', { ascending: false })
-        .limit(50)
-      if (mounted) {
-        const borrados: string[] = JSON.parse(localStorage.getItem('smt_borrados') || '[]')
-        const lista = ((data as Proyecto[]) || []).filter(p => !borrados.includes(p.id))
-        setProyectos(lista)
-        setLoading(false)
-      }
+    const handler = (e: Event) => {
+      const { proyectoId, pdfUrl } = (e as CustomEvent).detail
+      setProyectos(prev => prev.map(p => p.id === proyectoId ? { ...p, pdf_url: pdfUrl } : p))
     }
-
-    // Intenta con sesión existente de inmediato
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user && mounted) load()
-    })
-
-    // También escucha el auto-login de providers (SIGNED_IN)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
-      if (session?.user && mounted) load()
-      else if (!session && mounted) setLoading(false)
-    })
-
-    // Fallback máximo 6 segundos
-    const timer = setTimeout(() => { if (mounted) setLoading(false) }, 6000)
-
-    return () => {
-      mounted = false
-      subscription.unsubscribe()
-      clearTimeout(timer)
-    }
+    window.addEventListener('pdf-uploaded', handler)
+    return () => window.removeEventListener('pdf-uploaded', handler)
   }, [])
 
   const statusCfg = (status: string) => {
-    if (status === 'propuesta')    return { label: 'Propuesta lista',  badge: 'bg-[#E1F5EE] text-[#0F6E56]' }
-    if (status === 'analisis')     return { label: 'En análisis',      badge: 'bg-[#FEF3C7] text-[#92600A]' }
-    if (status === 'prospectando') return { label: 'Prospectando',     badge: 'bg-[#EEF2FF] text-[#3730A3]' }
-    return { label: 'Borrador', badge: 'bg-[#F3F4F6] text-[#6B7280]' }
+    if (status === 'aprobado') return {
+      label: 'Aprobado',
+      badge: 'bg-[#E1F5EE] text-[#0F6E56]',
+      dot: 'bg-[#1D9E75]',
+    }
+    return {
+      label: 'En revisión',
+      badge: 'bg-[#FEF3C7] text-[#92600A]',
+      dot: 'bg-[#D97706]',
+    }
   }
 
   const formatDate = (iso: string) =>
     new Date(iso).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })
 
+  const handleToggleStatus = async (p: Proyecto) => {
+    const newStatus = p.status === 'aprobado' ? 'en-revision' : 'aprobado'
+    setToggling(p.id)
+    setProyectos(prev => prev.map(x => x.id === p.id ? { ...x, status: newStatus } : x))
+    await fetch('/api/update-status', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: p.id, status: newStatus }),
+    })
+    setToggling(null)
+  }
+
   const handleDelete = async (id: string) => {
     if (!confirm('¿Eliminar este proyecto?')) return
-    // Guardar en localStorage para que no reaparezca aunque Supabase falle
-    const borrados: string[] = JSON.parse(localStorage.getItem('smt_borrados') || '[]')
-    localStorage.setItem('smt_borrados', JSON.stringify([...borrados, id]))
     setProyectos(prev => prev.filter(p => p.id !== id))
-    // Borrar del servidor
     fetch('/api/delete-proyecto', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -84,7 +84,7 @@ export default function DashboardPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-[#F7F8F6] flex items-center justify-center">
-        <p className="text-[#9aab9f] text-[14px]">Cargando…</p>
+        <p className="text-[#9aab9f] text-[14px]">Cargando proyectos…</p>
       </div>
     )
   }
@@ -124,7 +124,9 @@ export default function DashboardPage() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-[22px] font-black text-[#111d17] leading-tight">Mis Proyectos</h1>
-              <p className="text-[13px] text-[#9aab9f] mt-0.5">{proyectos.length} {proyectos.length === 1 ? 'proyecto guardado' : 'proyectos guardados'}</p>
+              <p className="text-[13px] text-[#9aab9f] mt-0.5">
+                {proyectos.length} {proyectos.length === 1 ? 'proyecto guardado' : 'proyectos guardados'}
+              </p>
             </div>
             <button
               onClick={() => router.push('/prospeccion')}
@@ -137,7 +139,7 @@ export default function DashboardPage() {
             </button>
           </div>
 
-          {/* Lista de proyectos */}
+          {/* Lista */}
           <div>
             {proyectos.length === 0 ? (
               <div className="bg-white rounded-2xl border border-[#E2E8E4] shadow-sm px-8 py-14 flex flex-col items-center gap-3 text-center">
@@ -155,33 +157,84 @@ export default function DashboardPage() {
             ) : (
               <div className="bg-white rounded-2xl border border-[#E2E8E4] shadow-sm overflow-hidden">
                 {proyectos.map((p, i) => {
-                  const { label, badge } = statusCfg(p.status)
+                  const { label, badge, dot } = statusCfg(p.status)
+                  const isToggling = toggling === p.id
                   return (
                     <div
                       key={p.id}
-                      className={`flex items-center gap-4 px-6 py-4 ${i !== proyectos.length - 1 ? 'border-b border-[#F0F4F2]' : ''} hover:bg-[#FAFBFA] transition-colors`}
+                      className={`flex items-center gap-4 px-6 py-4 ${
+                        i !== proyectos.length - 1 ? 'border-b border-[#F0F4F2]' : ''
+                      } hover:bg-[#FAFBFA] transition-colors`}
                     >
+                      {/* Flujo badge */}
                       <div className="w-9 h-9 rounded-xl bg-[#F7F8F6] border border-[#E2E8E4] flex items-center justify-center shrink-0">
-                        <span className="text-[10px] font-black text-[#9aab9f]">{p.flujo || '—'}</span>
+                        <span className="text-[10px] font-black text-[#9aab9f]">{p.flujo || 'A'}</span>
                       </div>
+
+                      {/* Info */}
                       <div className="flex-1 min-w-0">
                         <p className="text-[14px] font-semibold text-[#111d17] truncate">{p.nombre}</p>
                         <p className="text-[11px] text-[#9aab9f] mt-0.5">{formatDate(p.created_at)}</p>
                       </div>
-                      <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full shrink-0 ${badge}`}>{label}</span>
+
+                      {/* Status toggle button */}
+                      <button
+                        onClick={() => handleToggleStatus(p)}
+                        disabled={isToggling}
+                        title={p.status === 'aprobado' ? 'Marcar como En revisión' : 'Marcar como Aprobado'}
+                        className={`flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-full shrink-0 transition-all cursor-pointer hover:opacity-80 disabled:opacity-50 ${badge}`}
+                      >
+                        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${dot}`} />
+                        {isToggling ? '…' : label}
+                      </button>
+
+                      {/* Análisis */}
                       <button
                         onClick={() => {
                           if (p.datos) {
                             const key = p.flujo === 'B' ? 'smt_scout_data' : 'smt_analisis_data'
                             localStorage.setItem(key, JSON.stringify({ ...p.datos, proyecto: p.nombre }))
                           }
+                          localStorage.setItem('smt_proyecto_id', p.id)
                           const path = p.flujo === 'B' ? '/analisis/flujo-b' : '/analisis'
                           router.push(`${path}?proyecto=${encodeURIComponent(p.nombre)}`)
                         }}
                         className="shrink-0 text-[12px] font-semibold text-[#1D9E75] hover:text-[#0F6E56] border border-[#D4EFE3] hover:border-[#1D9E75] px-3 py-1.5 rounded-lg transition-colors"
                       >
-                        Ver
+                        Análisis
                       </button>
+
+                      {/* Propuesta PDF */}
+                      {p.pdf_url ? (
+                        <a
+                          href={p.pdf_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="shrink-0 text-[12px] font-semibold text-white bg-[#1D9E75] hover:bg-[#0F6E56] px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5"
+                        >
+                          <svg width="12" height="12" viewBox="0 0 14 14" fill="none">
+                            <path d="M7 1v8M4 6l3 3 3-3M2 11h10" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
+                          Propuesta
+                        </a>
+                      ) : (
+                        <button
+                          onClick={() => {
+                            if (p.datos) {
+                              const key = p.flujo === 'B' ? 'smt_scout_data' : 'smt_analisis_data'
+                              localStorage.setItem(key, JSON.stringify({ ...p.datos, proyecto: p.nombre }))
+                            }
+                            localStorage.setItem('smt_proyecto_id', p.id)
+                            const path = p.flujo === 'B' ? '/propuesta/flujo-b' : '/propuesta'
+                            router.push(`${path}?proyecto=${encodeURIComponent(p.nombre)}`)
+                          }}
+                          className="shrink-0 text-[12px] font-semibold text-[#9aab9f] hover:text-[#0F6E56] border border-[#E2E8E4] hover:border-[#1D9E75] px-3 py-1.5 rounded-lg transition-colors"
+                        >
+                          Propuesta
+                        </button>
+                      )}
+
+                      {/* Eliminar */}
                       <button
                         onClick={() => handleDelete(p.id)}
                         className="shrink-0 w-8 h-8 flex items-center justify-center rounded-lg text-[#9aab9f] hover:text-red-500 hover:bg-red-50 border border-transparent hover:border-red-200 transition-colors"

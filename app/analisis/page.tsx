@@ -2,7 +2,6 @@
 
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Suspense, useEffect, useRef, useState } from 'react'
-import { supabase } from '@/lib/supabase'
 
 interface StressItem {
   titulo: string
@@ -14,18 +13,56 @@ interface StressItem {
 interface Fuente { nombre: string; tipo: string }
 interface Fuentes { legal?: Fuente[]; mercado?: Fuente[] }
 
+interface Comparable { nombre: string; direccion: string; fechaReferencia: string; precioM2: number; avanceObra: string; unidades: number; tipologia: string }
+interface OfertaActiva { proyectosEnPreventa: number; proyectosEnObra: number; proyectosEntregados24m: number; unidadesDisponibles: number; rangoPrecios: string; saturacion: string }
+interface SegmentoUnidad { tipo: string; absorcionMensual: string; precioM2: number; participacion: string; perfilComprador: string }
+interface PricingFase { fase: string; precioM2: number; descuento: string; meta: string }
+
+interface Factibilidad { status: 'Disponible' | 'Con condicionante' | 'No disponible'; nota: string }
+interface AlertaLegal { tipo: string; descripcion: string; impacto: string; status: 'green' | 'amber' | 'red' }
+
+interface EstructuraCapital {
+  equity: number; deuda: number; montoEquity: number; montoDeuda: number
+  tipoDeuda: string; tasaDeuda: string; costoFinanciero: number
+  preventa: { unidadesMinimas: number; porcentajeMinimo: string; montoMinimo: number; condicion: string }
+  tasaDescuento: string; isrEstimado: number; utilidadNeta: number; descripcion: string
+}
+interface FlujoMes { mes: number; fase: string; egresos: number; ingresos: number; acumulado: number; nota: string }
+interface FactorScore { factor: string; contribucion: string }
+interface DimensionScore { nombre: string; peso: string; score: number; factores: FactorScore[]; interpretacion: string }
+interface MetodologiaScore { descripcion: string; dimensiones: DimensionScore[] }
+
 interface AnalisisData {
   proyecto?: string
   recomendacion: { tipologia: string; descripcion: string }
-  fichaLegal: { usoSuelo: string; cos: string; cus: string; altura: string; cajones: string; municipio: string; restriccion: string }
+  fichaLegal: {
+    usoSueloActual?: string; usoSueloPermitido?: string; usoSuelo?: string
+    compatible?: boolean; densidadAutorizada?: string
+    cos: string; cus: string; altura: string; cajones: string
+    retiros?: string; municipio: string; restriccion: string
+    factibilidades?: { agua: Factibilidad; drenaje: Factibilidad; cfe: Factibilidad }
+    regimenCondominio?: string; restriccionesAmbientales?: string
+    nivelRiesgo?: 'Bajo' | 'Medio' | 'Alto'; alertasLegales?: AlertaLegal[]
+  }
   financiero: {
     costoTerreno: number; costoTerrenoM2: number; construccionM2: number
     costoTotalConstruccion: number; indirectos: number; honorarios: number
     imprevistos: number; inversionTotal: number; precioVentaM2: number
     ingresosProyectados: number; utilidadBruta: number; margenBruto: number; tir: number
   }
-  mercado: { demanda: string; zona: string; absorcion: string; proyectosActivos: string; precioPromedioZona: string; perfilNSE: string; plusvalia: string; inventario: string; productoRecomendado: string }
+  mercado: {
+    demanda: string; zona: string; absorcion: string; proyectosActivos: string
+    precioPromedioZona: string; perfilNSE: string; plusvalia: string; inventario: string
+    productoRecomendado: string
+    comparables?: Comparable[]
+    ofertaActiva?: OfertaActiva
+    segmentacion?: SegmentoUnidad[]
+    pricingFases?: PricingFase[]
+  }
+  estructuraCapital?: EstructuraCapital
+  flujoMensual?: FlujoMes[]
   score: { total: number; solidezFinanciera: number; riesgoRegulatorio: number; exposicionMercado: number }
+  metodologiaScore?: MetodologiaScore
   stressTest: StressItem[]
   puntoQuiebre: { desviacionMaxCostos: string; absorcionMinViable: string; precioVentaMinimo: string; resumen: string }
   fuentes?: Fuentes
@@ -285,26 +322,146 @@ function AnalisisContent() {
           <div>
             <SectionTitle>Ficha Legal y Normativa</SectionTitle>
             <Card>
-              <div className="grid grid-cols-2 gap-x-8">
+              {/* Uso de suelo — actual vs. permitido */}
+              {(d.fichaLegal.usoSueloActual || d.fichaLegal.usoSueloPermitido) ? (
+                <div className="mb-5">
+                  <p className="text-[11px] font-bold text-[#5a7065] uppercase tracking-wide mb-3">Uso de suelo</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="bg-[#F7F8F6] border border-[#E2E8E4] rounded-xl px-4 py-3">
+                      <p className="text-[10px] text-[#9aab9f] uppercase tracking-wide mb-1">Actual</p>
+                      <p className="text-[13px] font-semibold text-[#111d17]">{d.fichaLegal.usoSueloActual || '—'}</p>
+                    </div>
+                    <div className={`border rounded-xl px-4 py-3 ${d.fichaLegal.compatible === false ? 'bg-[#FFF5F5] border-[#FECACA]' : 'bg-[#F0FBF6] border-[#9FE1CB]'}`}>
+                      <p className="text-[10px] text-[#9aab9f] uppercase tracking-wide mb-1">Permitido (PDU)</p>
+                      <p className="text-[13px] font-semibold text-[#111d17]">{d.fichaLegal.usoSueloPermitido || d.fichaLegal.usoSuelo || '—'}</p>
+                      {d.fichaLegal.compatible === false && (
+                        <span className="text-[10px] font-bold text-[#991B1B] mt-1 inline-block">Requiere cambio de uso</span>
+                      )}
+                    </div>
+                  </div>
+                  {d.fichaLegal.densidadAutorizada && (
+                    <div className="mt-2 bg-[#F7F8F6] border border-[#E2E8E4] rounded-xl px-4 py-2">
+                      <span className="text-[11px] text-[#5a7065]">Densidad autorizada: </span>
+                      <span className="text-[11px] font-semibold text-[#111d17]">{d.fichaLegal.densidadAutorizada}</span>
+                    </div>
+                  )}
+                </div>
+              ) : null}
+
+              {/* Parámetros normativos */}
+              <p className="text-[11px] font-bold text-[#5a7065] uppercase tracking-wide mb-3">Parámetros normativos</p>
+              <div className="grid grid-cols-2 gap-x-8 mb-5">
                 <div className="divide-y divide-[#F0F4F2]">
-                  <MetricRow label="Uso de suelo" value={d.fichaLegal.usoSuelo} />
                   <MetricRow label="COS permitido" value={d.fichaLegal.cos} />
                   <MetricRow label="CUS" value={d.fichaLegal.cus} />
+                  <MetricRow label="Altura máxima" value={d.fichaLegal.altura} />
                 </div>
                 <div className="divide-y divide-[#F0F4F2]">
-                  <MetricRow label="Altura máxima" value={d.fichaLegal.altura} />
                   <MetricRow label="Cajones por unidad" value={d.fichaLegal.cajones} />
+                  {d.fichaLegal.retiros && <MetricRow label="Retiros reglamentarios" value={d.fichaLegal.retiros} />}
                   <MetricRow label="Municipio" value={d.fichaLegal.municipio} />
                 </div>
               </div>
-              <div className="mt-4 flex items-start gap-2 bg-[#FFFBEB] border border-[#F5D97A] rounded-xl px-4 py-3">
+
+              {/* Factibilidades */}
+              {d.fichaLegal.factibilidades && (
+                <div className="mb-5">
+                  <p className="text-[11px] font-bold text-[#5a7065] uppercase tracking-wide mb-3">Factibilidades de servicios</p>
+                  <div className="grid grid-cols-3 gap-3">
+                    {(['agua', 'drenaje', 'cfe'] as const).map(srv => {
+                      const f = d.fichaLegal.factibilidades![srv]
+                      const colors = {
+                        'Disponible': { bg: 'bg-[#F0FBF6]', border: 'border-[#9FE1CB]', dot: '#1D9E75', text: 'text-[#0F6E56]' },
+                        'Con condicionante': { bg: 'bg-[#FFFBEB]', border: 'border-[#F5D97A]', dot: '#D97706', text: 'text-[#92600A]' },
+                        'No disponible': { bg: 'bg-[#FFF5F5]', border: 'border-[#FECACA]', dot: '#DC2626', text: 'text-[#991B1B]' },
+                      }
+                      const c = colors[f.status] || colors['Con condicionante']
+                      const label = { agua: 'Agua potable', drenaje: 'Drenaje', cfe: 'CFE / Electricidad' }
+                      return (
+                        <div key={srv} className={`${c.bg} border ${c.border} rounded-xl p-3`}>
+                          <div className="flex items-center gap-1.5 mb-1">
+                            <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: c.dot }} />
+                            <p className="text-[11px] font-bold text-[#111d17]">{label[srv]}</p>
+                          </div>
+                          <p className={`text-[10px] font-semibold ${c.text} mb-1`}>{f.status}</p>
+                          <p className="text-[10px] text-[#8a9e92] leading-snug">{f.nota}</p>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Régimen de condominio */}
+              {d.fichaLegal.regimenCondominio && (
+                <div className="mb-5 bg-[#F7F8F6] border border-[#E2E8E4] rounded-xl px-4 py-3">
+                  <p className="text-[11px] font-bold text-[#5a7065] uppercase tracking-wide mb-1">Régimen de condominio</p>
+                  <p className="text-[12px] text-[#111d17]">{d.fichaLegal.regimenCondominio}</p>
+                </div>
+              )}
+
+              {/* Restricciones ambientales */}
+              {d.fichaLegal.restriccionesAmbientales && (
+                <div className="mb-5">
+                  <div className="flex items-start gap-2 bg-[#F7F8F6] border border-[#E2E8E4] rounded-xl px-4 py-3">
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" className="mt-0.5 shrink-0">
+                      <circle cx="7" cy="7" r="5.5" stroke="#5a7065" strokeWidth="1.3"/>
+                      <path d="M7 4v4" stroke="#5a7065" strokeWidth="1.3" strokeLinecap="round"/>
+                      <circle cx="7" cy="9.5" r="0.5" fill="#5a7065"/>
+                    </svg>
+                    <div>
+                      <p className="text-[11px] font-bold text-[#5a7065] uppercase tracking-wide mb-0.5">Restricciones ambientales y de riesgo</p>
+                      <p className="text-[12px] text-[#111d17]">{d.fichaLegal.restriccionesAmbientales}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Restricción principal */}
+              <div className="flex items-start gap-2 bg-[#FFFBEB] border border-[#F5D97A] rounded-xl px-4 py-3 mb-4">
                 <svg width="14" height="14" viewBox="0 0 14 14" fill="none" className="mt-0.5 shrink-0">
                   <path d="M7 2L12.5 11.5H1.5L7 2Z" stroke="#D97706" strokeWidth="1.4" strokeLinejoin="round"/>
                   <path d="M7 6v3" stroke="#D97706" strokeWidth="1.4" strokeLinecap="round"/>
                   <circle cx="7" cy="10" r="0.5" fill="#D97706"/>
                 </svg>
-                <p className="text-[12px] text-[#92600A]"><strong>Restricción:</strong> {d.fichaLegal.restriccion}</p>
+                <p className="text-[12px] text-[#92600A]"><strong>Restricción principal:</strong> {d.fichaLegal.restriccion}</p>
               </div>
+
+              {/* Alertas legales */}
+              {d.fichaLegal.alertasLegales && d.fichaLegal.alertasLegales.length > 0 && (
+                <div>
+                  <p className="text-[11px] font-bold text-[#5a7065] uppercase tracking-wide mb-3">
+                    Alertas legales
+                    {d.fichaLegal.nivelRiesgo && (
+                      <span className={`ml-2 px-2 py-0.5 rounded-full text-[10px] font-bold ${d.fichaLegal.nivelRiesgo === 'Alto' ? 'bg-[#FEE2E2] text-[#991B1B]' : d.fichaLegal.nivelRiesgo === 'Medio' ? 'bg-[#FEF3C7] text-[#92600A]' : 'bg-[#E1F5EE] text-[#0F6E56]'}`}>
+                        Riesgo {d.fichaLegal.nivelRiesgo}
+                      </span>
+                    )}
+                  </p>
+                  <div className="flex flex-col gap-2">
+                    {d.fichaLegal.alertasLegales.map((a, i) => {
+                      const ac = {
+                        green: { bg: 'bg-[#F0FBF6]', border: 'border-[#9FE1CB]', dot: '#1D9E75', badge: 'bg-[#E1F5EE] text-[#0F6E56]', label: 'Sin impacto' },
+                        amber: { bg: 'bg-[#FFFBEB]', border: 'border-[#F5D97A]', dot: '#D97706', badge: 'bg-[#FEF3C7] text-[#92600A]', label: 'Manejable' },
+                        red: { bg: 'bg-[#FFF5F5]', border: 'border-[#FECACA]', dot: '#DC2626', badge: 'bg-[#FEE2E2] text-[#991B1B]', label: 'Crítico' },
+                      }[a.status]
+                      return (
+                        <div key={i} className={`${ac.bg} border ${ac.border} rounded-xl px-4 py-3`}>
+                          <div className="flex items-start justify-between gap-2 mb-1.5">
+                            <div className="flex items-center gap-2">
+                              <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: ac.dot }} />
+                              <p className="text-[13px] font-bold text-[#111d17]">{a.tipo}</p>
+                            </div>
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${ac.badge}`}>{ac.label}</span>
+                          </div>
+                          <p className="text-[12px] text-[#5a7065] mb-1.5">{a.descripcion}</p>
+                          <p className="text-[12px] font-semibold text-[#111d17]">{a.impacto}</p>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
             </Card>
           </div>
 
@@ -342,6 +499,107 @@ function AnalisisContent() {
             </Card>
           </div>
 
+          {/* Estructura de Capital */}
+          {d.estructuraCapital && (
+            <div>
+              <SectionTitle>Estructura de Capital</SectionTitle>
+              <Card>
+                {/* Barra equity / deuda */}
+                <div className="mb-5">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-[11px] font-bold text-[#0F6E56]">Equity {d.estructuraCapital.equity}%</span>
+                    <span className="text-[11px] font-bold text-[#4F46E5]">Deuda {d.estructuraCapital.deuda}%</span>
+                  </div>
+                  <div className="flex h-3 rounded-full overflow-hidden">
+                    <div className="bg-[#1D9E75] transition-all duration-700" style={{ width: `${d.estructuraCapital.equity}%` }} />
+                    <div className="bg-[#4F46E5]" style={{ width: `${d.estructuraCapital.deuda}%` }} />
+                  </div>
+                  <div className="flex justify-between mt-1">
+                    <span className="text-[11px] text-[#5a7065]">{fmt(d.estructuraCapital.montoEquity)}</span>
+                    <span className="text-[11px] text-[#5a7065]">{fmt(d.estructuraCapital.montoDeuda)}</span>
+                  </div>
+                </div>
+
+                {/* Métricas de deuda e ISR */}
+                <div className="grid grid-cols-2 gap-x-8 mb-5 divide-y divide-[#F0F4F2]">
+                  <MetricRow label="Tipo de deuda" value={d.estructuraCapital.tipoDeuda} />
+                  <MetricRow label="Tasa de interés" value={d.estructuraCapital.tasaDeuda} />
+                  <MetricRow label="Costo financiero" value={fmt(d.estructuraCapital.costoFinanciero)} />
+                  <MetricRow label="TIR — tipo" value={d.estructuraCapital.tasaDescuento} />
+                  <MetricRow label="ISR estimado (30%)" value={fmt(d.estructuraCapital.isrEstimado)} />
+                  <MetricRow label="Utilidad neta" value={fmt(d.estructuraCapital.utilidadNeta)} valueClass="text-[#0F6E56] font-bold" />
+                </div>
+
+                {/* Preventa mínima */}
+                <div className="bg-[#EEF2FF] border border-[#C7D2FE] rounded-xl px-4 py-4">
+                  <p className="text-[11px] font-bold text-[#3730A3] uppercase tracking-wide mb-2">Preventa mínima para crédito puente</p>
+                  <div className="flex items-center gap-6 mb-2">
+                    <div>
+                      <p className="text-[28px] font-black text-[#4F46E5] leading-none">{d.estructuraCapital.preventa.unidadesMinimas}</p>
+                      <p className="text-[11px] text-[#6366F1]">unidades · {d.estructuraCapital.preventa.porcentajeMinimo}</p>
+                    </div>
+                    <div>
+                      <p className="text-[18px] font-bold text-[#4F46E5] leading-none">{fmt(d.estructuraCapital.preventa.montoMinimo)}</p>
+                      <p className="text-[11px] text-[#6366F1]">ingreso mínimo en preventa</p>
+                    </div>
+                  </div>
+                  <p className="text-[12px] text-[#4338CA]">{d.estructuraCapital.preventa.condicion}</p>
+                </div>
+
+                {d.estructuraCapital.descripcion && (
+                  <p className="text-[12px] text-[#5a7065] mt-4 px-1 leading-relaxed">{d.estructuraCapital.descripcion}</p>
+                )}
+              </Card>
+            </div>
+          )}
+
+          {/* Flujo de Caja Proyectado */}
+          {d.flujoMensual && d.flujoMensual.length > 0 && (
+            <div>
+              <SectionTitle>Flujo de Caja Proyectado</SectionTitle>
+              <Card className="p-0 overflow-hidden">
+                <table className="w-full text-[12px]">
+                  <thead>
+                    <tr className="bg-[#F7F8F6] border-b border-[#E2E8E4]">
+                      <th className="px-4 py-3 text-left text-[10px] font-bold text-[#9aab9f] uppercase tracking-wide w-12">Mes</th>
+                      <th className="px-4 py-3 text-left text-[10px] font-bold text-[#9aab9f] uppercase tracking-wide">Fase</th>
+                      <th className="px-4 py-3 text-right text-[10px] font-bold text-[#DC2626] uppercase tracking-wide">Egresos</th>
+                      <th className="px-4 py-3 text-right text-[10px] font-bold text-[#0F6E56] uppercase tracking-wide">Ingresos</th>
+                      <th className="px-4 py-3 text-right text-[10px] font-bold text-[#9aab9f] uppercase tracking-wide">Acumulado</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {d.flujoMensual.map((row, i) => {
+                      const positivo = row.acumulado >= 0
+                      return (
+                        <tr key={i} className={`border-b border-[#F0F4F2] last:border-0 ${i % 2 === 0 ? 'bg-white' : 'bg-[#FAFBFA]'}`}>
+                          <td className="px-4 py-3 text-center">
+                            <span className="text-[11px] font-bold text-[#9aab9f]">{row.mes}</span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <p className="text-[12px] font-semibold text-[#111d17]">{row.fase}</p>
+                            <p className="text-[10px] text-[#9aab9f] leading-snug">{row.nota}</p>
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            {row.egresos > 0 && <span className="text-[12px] font-semibold text-[#DC2626]">−{fmt(row.egresos)}</span>}
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            {row.ingresos > 0 && <span className="text-[12px] font-semibold text-[#0F6E56]">+{fmt(row.ingresos)}</span>}
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <span className={`text-[12px] font-bold ${positivo ? 'text-[#0F6E56]' : 'text-[#DC2626]'}`}>
+                              {positivo ? '+' : ''}{fmt(row.acumulado)}
+                            </span>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </Card>
+            </div>
+          )}
+
           {/* Análisis de Mercado */}
           <div>
             <SectionTitle>Análisis de Mercado</SectionTitle>
@@ -369,6 +627,103 @@ function AnalisisContent() {
                 <p className="text-[11px] font-bold text-[#1D9E75] uppercase tracking-wide mb-1">Producto recomendado</p>
                 <p className="text-[13px] font-semibold text-[#111d17]">{d.mercado.productoRecomendado}</p>
               </div>
+
+              {/* Comparables */}
+              {d.mercado.comparables && d.mercado.comparables.length > 0 && (
+                <div className="mt-5">
+                  <p className="text-[11px] font-bold text-[#5a7065] uppercase tracking-wide mb-3">Proyectos comparables</p>
+                  <div className="flex flex-col gap-2">
+                    {d.mercado.comparables.map((c, i) => (
+                      <div key={i} className="bg-[#F7F8F6] border border-[#E2E8E4] rounded-xl px-4 py-3">
+                        <div className="flex items-start justify-between gap-2 mb-1">
+                          <p className="text-[13px] font-semibold text-[#111d17]">{c.nombre}</p>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${c.avanceObra === 'Entregado' ? 'bg-[#E1F5EE] text-[#0F6E56]' : c.avanceObra === 'En obra' ? 'bg-[#FEF3C7] text-[#D97706]' : 'bg-[#EEF2FF] text-[#4F46E5]'}`}>{c.avanceObra}</span>
+                        </div>
+                        <p className="text-[11px] text-[#8a9e92] mb-2">{c.direccion} · {c.fechaReferencia}</p>
+                        <div className="flex gap-4">
+                          <span className="text-[11px] text-[#5a7065]">💰 <b>${c.precioM2.toLocaleString('es-MX')}/m²</b></span>
+                          <span className="text-[11px] text-[#5a7065]">🏢 {c.unidades} unidades</span>
+                          <span className="text-[11px] text-[#5a7065]">📐 {c.tipologia}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Oferta activa en el corredor */}
+              {d.mercado.ofertaActiva && (
+                <div className="mt-5">
+                  <p className="text-[11px] font-bold text-[#5a7065] uppercase tracking-wide mb-3">Oferta activa en el corredor</p>
+                  <div className="grid grid-cols-3 gap-3 mb-3">
+                    {[
+                      { label: 'En preventa', value: d.mercado.ofertaActiva.proyectosEnPreventa, color: '#4F46E5' },
+                      { label: 'En obra', value: d.mercado.ofertaActiva.proyectosEnObra, color: '#D97706' },
+                      { label: 'Entregados 24m', value: d.mercado.ofertaActiva.proyectosEntregados24m, color: '#0F6E56' },
+                    ].map(item => (
+                      <div key={item.label} className="bg-[#F7F8F6] border border-[#E2E8E4] rounded-xl p-3 text-center">
+                        <p className="text-[22px] font-bold" style={{ color: item.color }}>{item.value}</p>
+                        <p className="text-[10px] text-[#8a9e92]">{item.label}</p>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="bg-[#F7F8F6] border border-[#E2E8E4] rounded-xl px-4 py-3 flex items-center justify-between">
+                    <div>
+                      <p className="text-[11px] text-[#8a9e92]">Rango de precios activos</p>
+                      <p className="text-[13px] font-semibold text-[#111d17]">{d.mercado.ofertaActiva.rangoPrecios}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[11px] text-[#8a9e92]">Unidades disponibles</p>
+                      <p className="text-[13px] font-semibold text-[#111d17]">{d.mercado.ofertaActiva.unidadesDisponibles}</p>
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-[#5a7065] mt-2 px-1">{d.mercado.ofertaActiva.saturacion}</p>
+                </div>
+              )}
+
+              {/* Segmentación por tipo de unidad */}
+              {d.mercado.segmentacion && d.mercado.segmentacion.length > 0 && (
+                <div className="mt-5">
+                  <p className="text-[11px] font-bold text-[#5a7065] uppercase tracking-wide mb-3">Segmentación por tipo de unidad</p>
+                  <div className="flex flex-col gap-2">
+                    {d.mercado.segmentacion.map((s, i) => (
+                      <div key={i} className="bg-[#F7F8F6] border border-[#E2E8E4] rounded-xl px-4 py-3">
+                        <div className="flex items-center justify-between mb-1">
+                          <p className="text-[13px] font-semibold text-[#111d17]">{s.tipo}</p>
+                          <span className="text-[11px] font-bold text-[#1D9E75]">{s.participacion}</span>
+                        </div>
+                        <div className="w-full bg-[#E2E8E4] rounded-full h-1.5 mb-2">
+                          <div className="bg-[#1D9E75] h-1.5 rounded-full" style={{ width: s.participacion }} />
+                        </div>
+                        <div className="flex gap-4">
+                          <span className="text-[11px] text-[#5a7065]">⚡ {s.absorcionMensual}</span>
+                          <span className="text-[11px] text-[#5a7065]">💰 ${s.precioM2.toLocaleString('es-MX')}/m²</span>
+                          <span className="text-[11px] text-[#5a7065]">👤 {s.perfilComprador}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Estrategia de pricing por fase */}
+              {d.mercado.pricingFases && d.mercado.pricingFases.length > 0 && (
+                <div className="mt-5">
+                  <p className="text-[11px] font-bold text-[#5a7065] uppercase tracking-wide mb-3">Estrategia de pricing por fase</p>
+                  <div className="grid grid-cols-3 gap-3">
+                    {d.mercado.pricingFases.map((f, i) => (
+                      <div key={i} className="bg-[#F7F8F6] border border-[#E2E8E4] rounded-xl p-3">
+                        <div className="flex items-center justify-between mb-2">
+                          <p className="text-[11px] font-bold text-[#5a7065] uppercase">{f.fase}</p>
+                          <span className="text-[10px] font-bold text-[#D97706] bg-[#FEF3C7] px-1.5 py-0.5 rounded-full">{f.descuento}</span>
+                        </div>
+                        <p className="text-[16px] font-bold text-[#111d17]">${f.precioM2.toLocaleString('es-MX')}<span className="text-[10px] font-normal text-[#8a9e92]">/m²</span></p>
+                        <p className="text-[10px] text-[#8a9e92] mt-1">{f.meta}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </Card>
           </div>
 
@@ -402,6 +757,52 @@ function AnalisisContent() {
               </div>
             </Card>
           </div>
+
+          {/* Metodología del Score */}
+          {d.metodologiaScore && (
+            <div>
+              <SectionTitle>Metodología del Score de Resiliencia</SectionTitle>
+              <Card>
+                <p className="text-[13px] text-[#5a7065] leading-relaxed mb-5">{d.metodologiaScore.descripcion}</p>
+                <div className="flex flex-col gap-4">
+                  {d.metodologiaScore.dimensiones.map((dim, i) => {
+                    const color = dim.score >= 70 ? '#1D9E75' : dim.score >= 50 ? '#D97706' : '#DC2626'
+                    return (
+                      <div key={i} className="bg-[#F7F8F6] border border-[#E2E8E4] rounded-xl p-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <div>
+                            <p className="text-[13px] font-bold text-[#111d17]">{dim.nombre}</p>
+                            <p className="text-[11px] text-[#9aab9f]">Ponderación: {dim.peso}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-[22px] font-black leading-none" style={{ color }}>{dim.score}</p>
+                            <p className="text-[10px] text-[#9aab9f]">/ 100</p>
+                          </div>
+                        </div>
+                        <div className="h-1.5 bg-[#E2E8E4] rounded-full overflow-hidden mb-3">
+                          <div className="h-full rounded-full transition-all duration-700" style={{ width: `${dim.score}%`, backgroundColor: color }} />
+                        </div>
+                        <div className="flex flex-col gap-1.5 mb-3">
+                          {dim.factores.map((f, j) => (
+                            <div key={j} className="flex items-start gap-2">
+                              <span className="w-1.5 h-1.5 rounded-full mt-1.5 shrink-0" style={{ backgroundColor: color }} />
+                              <div>
+                                <p className="text-[11px] font-semibold text-[#111d17]">{f.factor}</p>
+                                <p className="text-[11px] text-[#5a7065]">{f.contribucion}</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="bg-white border border-[#E2E8E4] rounded-lg px-3 py-2">
+                          <p className="text-[12px] text-[#5a7065] leading-relaxed">{dim.interpretacion}</p>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </Card>
+            </div>
+          )}
 
           {/* Stress Test */}
           <div>
@@ -590,17 +991,7 @@ function AnalisisContent() {
               <p className="text-[13px] text-[#5a9078]">Genera la propuesta ejecutiva con escenarios A/B/C para inversionistas.</p>
             </div>
             <button
-              onClick={async () => {
-                const { data: { user } } = await supabase.auth.getUser()
-                if (user) {
-                  const raw = localStorage.getItem('smt_analisis_data')
-                  if (raw) {
-                    const datos = JSON.parse(raw)
-                    await supabase.from('proyectos').insert(
-                      { usuario_id: user.id, nombre: proyecto, datos, flujo: 'A', status: 'propuesta' }
-                    )
-                  }
-                }
+              onClick={() => {
                 router.push(`/propuesta?proyecto=${encodeURIComponent(proyecto)}`)
               }}
               className="flex items-center gap-2 bg-[#1D9E75] text-white px-6 py-3.5 rounded-xl text-[14px] font-semibold hover:bg-[#0F6E56] transition-colors cursor-pointer shrink-0 ml-6"
