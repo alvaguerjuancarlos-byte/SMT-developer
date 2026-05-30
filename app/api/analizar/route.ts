@@ -18,6 +18,13 @@ export async function POST(req: NextRequest) {
     'menos-5m': 'Menos de $5 MDP', '5-15m': '$5–$15 MDP', '15-50m': '$15–$50 MDP',
     '50-150m': '$50–$150 MDP', 'mas-150m': 'Más de $150 MDP', 'por-definir': 'Por definir con socios',
   }
+  const bandaConstruccionLabels: Record<string, string> = {
+    '1': 'Banda 1 — Económica / Interés Social (acabados básicos, $7,000–$10,500/m²)',
+    '2': 'Banda 2 — Media Estándar (concreto armado, acabados medios, $10,500–$16,000/m²)',
+    '3': 'Banda 3 — Media Alta / Residencial (acabados premium, amenidades, $16,000–$24,000/m²)',
+    '4': 'Banda 4 — Premium / Lujo (materiales importados, domótica, $24,000–$45,000+/m²)',
+  }
+
   const desarrolloLabels: Record<string, string> = {
     'residencial-vertical': 'Residencial vertical', 'residencial-horizontal': 'Residencial horizontal',
     comercial: 'Comercial', mixto: 'Uso mixto', industrial: 'Industrial / Nave', 'no-definido': 'Sin definir',
@@ -37,7 +44,89 @@ DATOS DEL TERRENO:
 - Estado del terreno: ${estadoLabels[data.estadoTerreno] || data.estadoTerreno}
 - Presupuesto del inversionista: ${presupuestoLabels[data.presupuesto] || data.presupuesto}
 - Tipo(s) de desarrollo deseado: ${(data.tiposDesarrollo as string[]).map((t: string) => t === 'otro' ? (data.tipoOtroTexto || 'Otro') : (desarrolloLabels[t] || t)).join(', ')}
+- Nivel de construcción elegido por el inversionista: ${bandaConstruccionLabels[data.bandaConstruccion] || 'No especificado — usar Banda 2 por defecto'}
 ${data.lat && data.lng ? `- Coordenadas: ${data.lat}, ${data.lng}` : ''}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SISTEMA DE BANDAS DE VALOR DE TERRENO
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Antes de calcular CUALQUIER valor financiero, clasifica la colonia del proyecto en una de estas 4 bandas. Esta clasificación determina qué referencias de precio puedes usar — NUNCA mezcles bandas distintas.
+
+BANDA 1 — Popular / Periférica
+Perfil: Colonias populares o periféricas con urbanización incompleta o en desarrollo. Calles sin pavimentar o en mal estado, servicios básicos irregulares (agua intermitente, drenaje deficiente), sin equipamiento urbano de calidad, comercio informal predominante, transporte público básico o escaso, lotificaciones recientes sin consolidar, rezago social visible. Colonias trabajadoras de reciente creación o en proceso de regularización.
+Plusvalía histórica: 0–2% anual.
+NSE AMAI equivalente: D, D+, E.
+Ejemplos reales Culiacán: Colonia Flores Magón, colonias periféricas de nueva creación al sur/norte de la ciudad, fraccionamientos de interés social recientes.
+Ejemplos otras ciudades: colonias periféricas de interés social en expansión urbana reciente, polígonos SEDATU de atención prioritaria.
+
+BANDA 2 — Media Popular / Consolidada
+Perfil: Colonias de clase trabajadora con más de 15 años de consolidación. Urbanización completa (pavimento, alumbrado, drenaje funcional), servicios básicos estables, comercio de barrio establecido, transporte público funcional, escuelas públicas y centros de salud IMSS/ISSSTE cercanos. Imagen urbana modesta pero consolidada.
+Plusvalía histórica: 3–5% anual.
+NSE AMAI equivalente: C-, D+.
+Ejemplos reales: colonias obreras consolidadas, fraccionamientos INFONAVIT de generaciones anteriores (15-25 años), colonias trabajadoras en municipios conurbados.
+
+BANDA 3 — Media Residencial
+Perfil: Colonias residenciales de clase media con infraestructura completa y bien mantenida. Calles pavimentadas con banquetas en buen estado, buena conectividad vial, comercio formal (plazas comerciales, supermercados de cadena), escuelas privadas, parques y áreas verdes, seguridad aceptable, acceso a corredores comerciales establecidos, imagen urbana cuidada.
+Plusvalía histórica: 6–9% anual.
+NSE AMAI equivalente: C, C+.
+Ejemplos reales Culiacán: Colonia Guadalupe (sectores residenciales), Colonia Chapultepec, Las Quintas, fraccionamientos residenciales medios establecidos de 15+ años.
+Ejemplos otras ciudades: Del Valle (CDMX), Colonia Obispado (Monterrey), Colonia Americana (Guadalajara), Colonia Reforma en ciudades medias.
+
+BANDA 4 — Residencial Premium
+Perfil: Colonias de alto valor con alta plusvalía histórica comprobable. Proximidad a servicios premium (centros comerciales de lujo, hospitales privados de primer nivel, colegios de élite, clubes deportivos), infraestructura de primera calidad, seguridad privada o fraccionamientos cerrados, baja densidad o desarrollo controlado, atributos diferenciales (vista, lago, campo de golf, corredor financiero). Ubicación con valor aspiracional reconocido en el mercado local.
+Plusvalía histórica: 10%+ anual.
+NSE AMAI equivalente: A, B.
+Ejemplos reales Culiacán: Country Club, Tres Ríos, fraccionamientos cerrados premium al poniente.
+Ejemplos otras ciudades: San Pedro Garza García (Monterrey), Valle Oriente (Monterrey), Polanco (CDMX), Lomas de Chapultepec (CDMX), Providencia (Guadalajara), Santa Fe (CDMX).
+
+REGLA DE BANDA — OBLIGATORIA SIN EXCEPCIONES:
+1. Clasifica la colonia del input en Banda 1, 2, 3 o 4 usando los criterios anteriores.
+2. Para estimar costoTerrenoM2 usa ÚNICAMENTE transacciones y referencias de colonias de LA MISMA BANDA en la misma ciudad o ciudades de tamaño y mercado comparable.
+3. Si no hay suficientes referencias en la misma banda, expande a ciudades similares del mismo estado — NUNCA subas de banda para compensar falta de datos.
+4. Documenta la banda asignada y las referencias usadas en bitacoraTerreno.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SISTEMA DE BANDAS DE COSTO DE CONSTRUCCIÓN
+Fuente de referencia: CMIC/CEICO — Índice de Costos de Construcción Residencial por Ciudad 2025
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+El inversionista ya eligió la banda. Usa EXACTAMENTE esa banda para calcular construccionM2 y costoTotalConstruccion. No la ignores ni la sustituyas.
+
+BANDA 1 — Económica / Interés Social
+Estructura: Muros de tabique o block, losa de vigueta y bovedilla, cimentación corrida o losa de cimentación simple.
+Acabados: Yeso en muros, pintura vinílica, piso de cerámica económica, carpintería metálica básica, muebles de baño y cocina de línea estándar.
+Instalaciones: Hidráulica y sanitaria básica, eléctrica sin automatización (110V), sin aire acondicionado.
+Equipamiento: Sin elevador, sin amenidades, estacionamiento en superficie sin cubierta.
+Referencia CMIC 2025 costo directo: $7,000–$10,500/m² (varía por ciudad — ajusta a la ciudad del proyecto).
+Ciudades con costo en límite inferior: Culiacán, Hermosillo, Torreón, Mérida (mano de obra más económica).
+Ciudades con costo en límite superior: CDMX, Monterrey, Guadalajara, Los Cabos (insumos y mano de obra más caros).
+
+BANDA 2 — Media Estándar
+Estructura: Concreto armado convencional (columnas, trabes, losa maciza o vigueta), diseño sencillo, fachada de aplanado o recubrimiento simple.
+Acabados: Porcelanato nacional básico, carpintería de aluminio, muebles de cocina y baño de línea media, pintura de alta resistencia.
+Instalaciones: Hidráulica con hidroneumático, eléctrica con tablero y cableado estructurado básico, gas natural o LP, sin A/C central.
+Equipamiento: Elevador en edificios de 4+ niveles, lobby básico funcional, estacionamiento techado.
+Referencia CMIC 2025 costo directo: $10,500–$16,000/m².
+
+BANDA 3 — Media Alta / Residencial
+Estructura: Concreto armado con diseño arquitectónico diferenciado, dobles alturas opcionales, terrazas privadas, fachada con elementos especiales (recubrimiento de piedra, aluminio compuesto, ventanal de piso a techo).
+Acabados: Porcelanato importado o nacional premium, carpintería de madera o aluminio de alta línea, cocinas equipadas con muebles a medida, baños con cancel de vidrio templado y accesorios de diseño.
+Instalaciones: Mini split por unidad, calentador de paso a gas, sistema contra incendios, CCTV, intercomunicador, pre-instalación domótica.
+Equipamiento: Elevador de alta gama, amenidades (roof garden equipado, gimnasio, alberca, salón de usos múltiples).
+Referencia CMIC 2025 costo directo: $16,000–$24,000/m².
+
+BANDA 4 — Premium / Lujo
+Estructura: Sistemas constructivos de alta tecnología, diseño arquitectónico de firma, fachada con materiales importados (vidrio estructural, aluminio anodizado, piedra natural, madera teca).
+Acabados: Mármol o piedra natural en pisos y baños, carpintería de madera fina o lacada, cocinas europeas (Poggenpohl, Boffi, Molteni), baños con accesorios Grohe o Hansgrohe, closets a medida.
+Instalaciones: Domótica completa (KNX/Crestron), A/C central VRF, generador de emergencia, cisterna con tratamiento, sistema de seguridad perimetral.
+Equipamiento: Concierge 24h, spa, salón privado, cuarto de servicio por unidad, estacionamiento valet o mecanizado.
+Referencia CMIC 2025 costo directo: $24,000–$45,000+/m².
+
+REGLA DE BANDA DE CONSTRUCCIÓN — OBLIGATORIA:
+1. El inversionista ya eligió la banda. Respétala. No uses una banda distinta aunque consideres que el mercado "pide" otra.
+2. Usa el costo por m² del rango de la banda elegida ajustado a la ciudad del proyecto (ciudades del norte/frontera y turísticas tienden al límite superior; ciudades medias del interior al inferior).
+3. En bitacoraConstruccion documenta la banda usada, el costo base por m², los ajustes por ciudad y tipología, y las fuentes CMIC.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Genera el análisis en formato JSON con esta estructura exacta (sin texto adicional antes o después del JSON):
 
@@ -293,6 +382,190 @@ Genera el análisis en formato JSON con esta estructura exacta (sin texto adicio
       { "nombre": "Nombre de fuente INEGI, CANADEVI, SHF u otra", "tipo": "Estadística oficial / Organismo" },
       { "nombre": "...", "tipo": "..." }
     ]
+  },
+  "bitacoraTerreno": {
+    "metodologia": "Nombre del método de valuación usado (ej: Comparación de mercado / Método residual)",
+    "bandaTerreno": 2,
+    "nombreBanda": "Nombre de la banda asignada (ej: Media Popular / Consolidada)",
+    "justificacionBanda": "2-3 oraciones explicando por qué esta colonia fue clasificada en esa banda: qué características urbanas observadas la ubican ahí y no en la banda superior o inferior",
+    "nseReferencias": "Confirmación explícita de que TODAS las referencias de precio usadas son de colonias de la misma banda en la misma ciudad. Ej: 'Referencias restringidas a colonias Banda 2 (Media Popular) de Culiacán: [colonia A], [colonia B]'",
+    "precioM2Referencia": 7500,
+    "fuenteReferencia": "Nombre de la fuente o base de datos de referencia usada (ej: SEDUVI, BBVA, transacciones Inmuebles24, SHF)",
+    "ajustes": [
+      {
+        "concepto": "Nombre del factor de ajuste (ej: Estado del terreno — baldío sin escombro)",
+        "descripcion": "Breve explicación de por qué aplica este ajuste al predio específico",
+        "factorAjuste": "-5%",
+        "impactoM2": -375
+      },
+      {
+        "concepto": "Segundo factor de ajuste (ej: Frente a vialidad primaria)",
+        "descripcion": "Explicación del impacto en valor",
+        "factorAjuste": "+8%",
+        "impactoM2": 600
+      },
+      {
+        "concepto": "Tercer factor (ej: Uso de suelo compatible — sin cambio requerido)",
+        "descripcion": "Explicación del impacto",
+        "factorAjuste": "+3%",
+        "impactoM2": 225
+      }
+    ],
+    "precioM2Final": 7083,
+    "superficieM2": 1200,
+    "costoTotalTerreno": 8500000,
+    "formula": "Superficie (m²) × Precio final/m² = Costo del terreno",
+    "razonamiento": "Párrafo de 3-5 oraciones explicando el razonamiento completo: qué datos de zona se usaron, qué comparables soportan el precio base, cómo se aplicaron los ajustes y por qué el precio final es representativo del mercado actual para este predio específico",
+    "supuestos": [
+      "Supuesto clave 1 (ej: Precio basado en transacciones del corredor en los últimos 18 meses)",
+      "Supuesto clave 2 (ej: No incluye impuestos de adquisición — ISAI estimado 2% adicional)",
+      "Supuesto clave 3 (ej: Precio refleja condición actual del terreno sin mejoras)"
+    ],
+    "rangoValoracion": {
+      "minimo": 6500,
+      "maximo": 8200,
+      "interpretacion": "Rango probable de negociación: precio mínimo (condición actual sin urgencia) y máximo (con mejoras o comprador estratégico)"
+    }
+  }
+}
+
+  "bitacoraConstruccion": {
+    "bandaElegida": 2,
+    "nombreBanda": "Nombre de la banda (ej: Media Estándar)",
+    "descripcionBanda": "Resumen de 1-2 oraciones de qué incluye esta banda en términos de estructura, acabados y equipamiento",
+    "costoPorM2Base": 13000,
+    "ciudadAjuste": "Descripción del ajuste por ciudad: si está en límite superior o inferior del rango y por qué (mano de obra, insumos locales)",
+    "tipologiaAjuste": "Descripción del ajuste por tipología: ej. edificio vertical vs horizontal, número de niveles, eficiencia estructural",
+    "ajustes": [
+      {
+        "concepto": "Ajuste por ciudad (ej: Culiacán — ciudad media del norte, mano de obra moderada)",
+        "descripcion": "Explicación del factor ciudad sobre el costo base CMIC nacional",
+        "factorAjuste": "-3%",
+        "impactoM2": -390
+      },
+      {
+        "concepto": "Ajuste por tipología (ej: Edificio vertical 8 niveles — eficiencia estructural alta)",
+        "descripcion": "Explicación de cómo la tipología afecta el costo por m²",
+        "factorAjuste": "+5%",
+        "impactoM2": 650
+      }
+    ],
+    "costoPorM2Final": 13260,
+    "superficieConstruccionM2": 1440,
+    "costoTotalConstruccion": 19094400,
+    "formula": "Superficie construible (m²) × Costo final/m² = Costo total construcción",
+    "fuenteReferencia": "CMIC/CEICO — Índice de Costos de Construcción Residencial por Ciudad, [mes/año]",
+    "razonamiento": "Párrafo de 3-5 oraciones explicando: cómo se determinó la superficie construible a partir del terreno y normativa (COS/CUS), qué ajustes se aplicaron sobre el costo CMIC base y por qué, y cómo el costo final se compara con el mercado local para esta tipología y banda",
+    "supuestos": [
+      "Supuesto 1 (ej: Costo directo — no incluye indirectos, honorarios ni imprevistos que se calculan por separado)",
+      "Supuesto 2 (ej: Superficie construible calculada con CUS X sobre terreno de Y m²)",
+      "Supuesto 3 (ej: Costo CMIC ajustado a condiciones de mercado local — revisión recomendada con contratista local)"
+    ],
+    "rangoReferencia": {
+      "minimo": 11000,
+      "maximo": 16000,
+      "interpretacion": "Rango para esta banda en esta ciudad: límite inferior con concurso competitivo, límite superior con contratista especializado o condiciones de mercado ajustadas"
+    },
+    "desglosePorPartidas": [
+      {
+        "partida": "Preliminares y preparación del terreno",
+        "porcentaje": 4,
+        "costoPorM2": 530,
+        "descripcion": "Limpieza, nivelación, trazo y replanteo. Instalaciones provisionales de obra (agua, luz, barda perimetral)."
+      },
+      {
+        "partida": "Cimentación",
+        "porcentaje": 10,
+        "costoPorM2": 1326,
+        "descripcion": "Tipo de cimentación según tipología y mecánica de suelos: zapatas aisladas, corridas o losa de cimentación. Incluye excavación y relleno."
+      },
+      {
+        "partida": "Estructura / Obra negra",
+        "porcentaje": 28,
+        "costoPorM2": 3713,
+        "descripcion": "Columnas, trabes, losas, muros de carga o sistema de marcos. Principal consumidor de cemento y acero."
+      },
+      {
+        "partida": "Instalaciones",
+        "porcentaje": 18,
+        "costoPorM2": 2387,
+        "descripcion": "Hidráulica (agua fría/caliente), sanitaria (drenaje), eléctrica (media tensión + distribución), gas natural o LP, voz y datos."
+      },
+      {
+        "partida": "Acabados",
+        "porcentaje": 24,
+        "costoPorM2": 3182,
+        "descripcion": "Pisos, azulejos, aplanados, pintura, plafones, yeso. El rubro con mayor variación entre bandas."
+      },
+      {
+        "partida": "Carpintería, herrería y cancelería",
+        "porcentaje": 8,
+        "costoPorM2": 1061,
+        "descripcion": "Puertas, ventanas, cancel de baño, closets, muebles de cocina y baño fijos."
+      },
+      {
+        "partida": "Equipamiento especial",
+        "porcentaje": 5,
+        "costoPorM2": 663,
+        "descripcion": "Elevador, sistema contra incendios, CCTV, intercomunicador, amenidades. Varía significativamente por banda y tipología."
+      },
+      {
+        "partida": "Exteriores y urbanización",
+        "porcentaje": 3,
+        "costoPorM2": 398,
+        "descripcion": "Estacionamiento, jardines, banquetas, accesos, alumbrado exterior, barda."
+      }
+    ],
+    "materialesPrincipales": [
+      {
+        "material": "Cemento Portland CPC 30",
+        "unidad": "ton",
+        "cantidadPorM2": 0.38,
+        "precioUnitario": 2900,
+        "costoPorM2": 1102,
+        "nota": "Consumo promedio en estructura + cimentación. Varía por diseño estructural y tipología."
+      },
+      {
+        "material": "Acero / Varilla corrugada Grado 42",
+        "unidad": "kg",
+        "cantidadPorM2": 35,
+        "precioUnitario": 22,
+        "costoPorM2": 770,
+        "nota": "Consumo en columnas, trabes y losas. Edificios verticales usan 30–60 kg/m² según altura."
+      },
+      {
+        "material": "Block de concreto 15×20×40 cm",
+        "unidad": "pza",
+        "cantidadPorM2": 12,
+        "precioUnitario": 18,
+        "costoPorM2": 216,
+        "nota": "Para muros divisorios y de fachada no estructurales. Si es sistema de marcos, varía."
+      },
+      {
+        "material": "Grava y arena (concreto)",
+        "unidad": "m³",
+        "cantidadPorM2": 0.25,
+        "precioUnitario": 480,
+        "costoPorM2": 120,
+        "nota": "Agregados para concreto hecho en obra o premezclado. Precio varía por distancia a banco."
+      },
+      {
+        "material": "Mano de obra (costo promedio diario)",
+        "unidad": "jornal/m²",
+        "cantidadPorM2": 1.8,
+        "precioUnitario": 320,
+        "costoPorM2": 576,
+        "nota": "Salario promedio ponderado por especialidad (oficial, ayudante, especialista). Fuente: tabulador CMIC 2025."
+      },
+      {
+        "material": "Cable eléctrico (THW + calibres varios)",
+        "unidad": "ml",
+        "cantidadPorM2": 8,
+        "precioUnitario": 28,
+        "costoPorM2": 224,
+        "nota": "Estimado para circuitos de iluminación, contactos y fuerza. Varía por densidad de circuitos."
+      }
+    ]
   }
 }
 
@@ -318,15 +591,34 @@ REGLAS:
 - estructuraCapital.preventa.unidadesMinimas es número entero; montoMinimo es número; porcentajeMinimo en formato "XX%"
 - flujoMensual: exactamente 9 hitos clave del proyecto (no todos los meses) — egresos e ingresos son números sin formato; acumulado refleja el saldo neto real acumulado en ese mes; ajusta TODOS los montos a la superficie y mercado del terreno analizado
 - metodologiaScore.dimensiones: exactamente 3 dimensiones (Solidez Financiera 40%, Riesgo Regulatorio 35%, Exposición de Mercado 25%); score de cada dimensión = el mismo valor del objeto score; factores: exactamente 3 por dimensión; contribucion debe ser específica para este proyecto (no genérica); interpretacion: 1-2 oraciones concretas
+- CRITERIO NSE OBLIGATORIO: Para estimar costoTerreno y costoTerrenoM2, determina primero el NSE de la colonia del proyecto (A, B, C+, C, C-, D+, D) según la combinación colonia + ciudad. Usa EXCLUSIVAMENTE referencias de terrenos en colonias del mismo NSE o máximo 1 nivel adyacente. NUNCA promedies ni mezcles precios de colonias con NSE 2 o más niveles por encima — esto infla artificialmente el costo del terreno. Si la colonia es NSE C, usa solo referencias NSE C y C+. Si es NSE B, usa B y A-. Etc.
+- bitacoraTerreno.bandaTerreno: número entero 1, 2, 3 o 4 según la clasificación de banda
+- bitacoraTerreno.nombreBanda: nombre descriptivo de la banda asignada
+- bitacoraTerreno.justificacionBanda: por qué esta colonia pertenece a esa banda y no a la adyacente
+- bitacoraTerreno.nseReferencias: confirmación de que solo se usaron referencias de la misma banda
+- bitacoraTerreno.precioM2Referencia, precioM2Final, impactoM2 son números sin formato
+- bitacoraTerreno.superficieM2 debe coincidir con la superficie del terreno del input
+- bitacoraTerreno.costoTotalTerreno debe coincidir exactamente con financiero.costoTerreno
+- bitacoraTerreno.precioM2Final debe coincidir exactamente con financiero.costoTerrenoM2
+- bitacoraTerreno.ajustes: 2 a 4 ajustes reales y específicos para este predio; factorAjuste en formato "+X%" o "-X%"
+- bitacoraTerreno.rangoValoracion.minimo y .maximo son números enteros (precio/m²)
+- bitacoraConstruccion.bandaElegida: número entero 1, 2, 3 o 4 — debe coincidir con la banda elegida por el inversionista en el input
+- bitacoraConstruccion.costoPorM2Final debe coincidir exactamente con financiero.construccionM2
+- bitacoraConstruccion.costoTotalConstruccion debe coincidir exactamente con financiero.costoTotalConstruccion
+- bitacoraConstruccion.ajustes: 2 a 3 ajustes reales (ciudad, tipología, condiciones de mercado); factorAjuste en formato "+X%" o "-X%", impactoM2 es número
+- bitacoraConstruccion.rangoReferencia.minimo y .maximo son números enteros (precio/m² directo)
+- bitacoraConstruccion.desglosePorPartidas: exactamente 8 partidas en el orden indicado; porcentaje suma exactamente 100; costoPorM2 de cada partida = round(costoPorM2Final × porcentaje / 100); ajusta porcentajes por banda (banda 4: más acabados+equipamiento; banda 1: más estructura, menos equipamiento); descripcion específica para tipología y banda
+- bitacoraConstruccion.materialesPrincipales: exactamente 6 materiales clave; cantidadPorM2 y precioUnitario son números; costoPorM2 = round(cantidadPorM2 × precioUnitario); ajusta cantidades y precios unitarios a la ciudad del proyecto y banda elegida; nota con observación técnica específica para este proyecto
 - Retorna ÚNICAMENTE el JSON, sin markdown, sin texto extra`
 
   try {
-    const message = await client.messages.create({
+    const stream = client.messages.stream({
       model: 'claude-sonnet-4-6',
-      max_tokens: 8000,
+      max_tokens: 24000,
       messages: [{ role: 'user', content: prompt }],
     })
 
+    const message = await stream.finalMessage()
     const text = message.content[0].type === 'text' ? message.content[0].text : ''
     const match = text.match(/\{[\s\S]*\}/)
     if (!match) throw new Error('No JSON in response')

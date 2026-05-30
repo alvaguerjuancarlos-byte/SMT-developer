@@ -32,8 +32,78 @@ interface FactorScore { factor: string; contribucion: string }
 interface DimensionScore { nombre: string; peso: string; score: number; factores: FactorScore[]; interpretacion: string }
 interface MetodologiaScore { descripcion: string; dimensiones: DimensionScore[] }
 
+interface AjusteTerreno {
+  concepto: string
+  descripcion: string
+  factorAjuste: string
+  impactoM2: number
+}
+
+interface BitacoraTerreno {
+  metodologia: string
+  bandaTerreno?: number
+  nombreBanda?: string
+  justificacionBanda?: string
+  nseReferencias?: string
+  precioM2Referencia: number
+  fuenteReferencia: string
+  ajustes: AjusteTerreno[]
+  precioM2Final: number
+  superficieM2: number
+  costoTotalTerreno: number
+  formula: string
+  razonamiento: string
+  supuestos: string[]
+  rangoValoracion: { minimo: number; maximo: number; interpretacion: string }
+}
+
+interface AjusteConstruccion {
+  concepto: string
+  descripcion: string
+  factorAjuste: string
+  impactoM2: number
+}
+
+interface PartidaConstruccion {
+  partida: string
+  porcentaje: number
+  costoPorM2: number
+  descripcion: string
+}
+
+interface MaterialClave {
+  material: string
+  unidad: string
+  cantidadPorM2: number
+  precioUnitario: number
+  costoPorM2: number
+  nota: string
+}
+
+interface BitacoraConstruccion {
+  bandaElegida: number
+  nombreBanda: string
+  descripcionBanda: string
+  costoPorM2Base: number
+  ciudadAjuste: string
+  tipologiaAjuste: string
+  ajustes: AjusteConstruccion[]
+  costoPorM2Final: number
+  superficieConstruccionM2: number
+  costoTotalConstruccion: number
+  formula: string
+  fuenteReferencia: string
+  razonamiento: string
+  supuestos: string[]
+  rangoReferencia: { minimo: number; maximo: number; interpretacion: string }
+  desglosePorPartidas?: PartidaConstruccion[]
+  materialesPrincipales?: MaterialClave[]
+}
+
 interface AnalisisData {
   proyecto?: string
+  bitacoraTerreno?: BitacoraTerreno
+  bitacoraConstruccion?: BitacoraConstruccion
   recomendacion: { tipologia: string; descripcion: string }
   fichaLegal: {
     usoSueloActual?: string; usoSueloPermitido?: string; usoSuelo?: string
@@ -171,6 +241,8 @@ function AnalisisContent() {
   const [chatInput, setChatInput] = useState('')
   const [chatLoading, setChatLoading] = useState(false)
   const chatEndRef = useRef<HTMLDivElement>(null)
+  const [showBitacora, setShowBitacora] = useState(false)
+  const [showBitacoraConstruccion, setShowBitacoraConstruccion] = useState(false)
 
   useEffect(() => {
     const raw = localStorage.getItem('smt_analisis_data')
@@ -227,7 +299,488 @@ function AnalisisContent() {
 
   const f = d.financiero
 
+  const BitacoraModal = () => {
+    const b = d.bitacoraTerreno
+    if (!b) return null
+    return (
+      <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/40 backdrop-blur-sm" onClick={() => setShowBitacora(false)}>
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-[640px] max-h-[88vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+          {/* Header */}
+          <div className="sticky top-0 bg-white border-b border-[#E2E8E4] px-6 py-4 flex items-center justify-between rounded-t-2xl">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-[#F0FBF6] border border-[#9FE1CB] flex items-center justify-center">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                  <rect x="2" y="1.5" width="10" height="13" rx="1.5" stroke="#1D9E75" strokeWidth="1.3"/>
+                  <path d="M4.5 5.5h5M4.5 8h5M4.5 10.5h3" stroke="#1D9E75" strokeWidth="1.3" strokeLinecap="round"/>
+                  <circle cx="13" cy="13" r="3" fill="#1D9E75"/>
+                  <path d="M11.8 13h2.4M13 11.8v2.4" stroke="white" strokeWidth="1" strokeLinecap="round"/>
+                </svg>
+              </div>
+              <div>
+                <p className="text-[14px] font-bold text-[#111d17]">Bitácora de Cálculo</p>
+                <p className="text-[11px] text-[#9aab9f]">Costo del terreno · Metodología detallada</p>
+              </div>
+            </div>
+            <button onClick={() => setShowBitacora(false)} className="w-8 h-8 rounded-lg flex items-center justify-center text-[#9aab9f] hover:bg-[#F7F8F6] hover:text-[#111d17] transition-colors">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                <path d="M2 2l10 10M12 2L2 12" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
+              </svg>
+            </button>
+          </div>
+
+          <div className="px-6 py-5 flex flex-col gap-5">
+            {/* Metodología */}
+            <div className="bg-[#F0FBF6] border border-[#9FE1CB] rounded-xl px-4 py-3">
+              <p className="text-[10px] font-bold text-[#1D9E75] uppercase tracking-wide mb-1">Metodología de valuación</p>
+              <p className="text-[14px] font-bold text-[#0F6E56]">{b.metodologia}</p>
+              <p className="text-[11px] text-[#5a7065] mt-1">Fuente de referencia: {b.fuenteReferencia}</p>
+            </div>
+
+            {/* Banda */}
+            {b.bandaTerreno && (
+              <div className="bg-[#EEF2FF] border border-[#C7D2FE] rounded-xl px-4 py-4">
+                <p className="text-[10px] font-bold text-[#3730A3] uppercase tracking-wide mb-3">Clasificación de banda</p>
+                <div className="flex items-center gap-4 mb-3">
+                  {/* Badge de banda */}
+                  <div className="flex flex-col items-center shrink-0">
+                    <div className="w-14 h-14 rounded-2xl bg-[#4F46E5] flex items-center justify-center mb-1">
+                      <span className="text-[28px] font-black text-white leading-none">{b.bandaTerreno}</span>
+                    </div>
+                    <span className="text-[9px] font-bold text-[#6366F1] uppercase tracking-wide">de 4</span>
+                  </div>
+                  {/* Barra visual de bandas */}
+                  <div className="flex-1">
+                    <div className="flex gap-1 mb-1.5">
+                      {[1,2,3,4].map(n => (
+                        <div key={n} className={`flex-1 h-2 rounded-full ${n === b.bandaTerreno ? 'bg-[#4F46E5]' : 'bg-[#E0E7FF]'}`} />
+                      ))}
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-[9px] text-[#9aab9f]">Popular</span>
+                      <span className="text-[9px] text-[#9aab9f]">Premium</span>
+                    </div>
+                    <p className="text-[12px] font-bold text-[#4F46E5] mt-1.5">{b.nombreBanda}</p>
+                  </div>
+                </div>
+                {b.justificacionBanda && (
+                  <p className="text-[11px] text-[#4338CA] leading-snug mb-2">{b.justificacionBanda}</p>
+                )}
+                {b.nseReferencias && (
+                  <div className="bg-white border border-[#C7D2FE] rounded-lg px-3 py-2">
+                    <p className="text-[10px] font-bold text-[#6366F1] uppercase tracking-wide mb-0.5">Referencias usadas</p>
+                    <p className="text-[11px] text-[#4338CA]">{b.nseReferencias}</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Precio base */}
+            <div>
+              <p className="text-[11px] font-bold text-[#5a7065] uppercase tracking-wide mb-3">Precio base de referencia</p>
+              <div className="flex items-center gap-4 bg-[#F7F8F6] border border-[#E2E8E4] rounded-xl px-4 py-3">
+                <div>
+                  <p className="text-[10px] text-[#9aab9f] mb-0.5">Precio/m² zona</p>
+                  <p className="text-[22px] font-black text-[#111d17]">${b.precioM2Referencia.toLocaleString('es-MX')}</p>
+                  <p className="text-[10px] text-[#9aab9f]">por m²</p>
+                </div>
+                <div className="flex-1 text-center text-[#C8D5CF]">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className="mx-auto">
+                    <path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                  <p className="text-[10px] text-[#C8D5CF] mt-1">ajustes</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-[#9aab9f] mb-0.5">Precio/m² final</p>
+                  <p className="text-[22px] font-black text-[#1D9E75]">${b.precioM2Final.toLocaleString('es-MX')}</p>
+                  <p className="text-[10px] text-[#9aab9f]">por m²</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Ajustes */}
+            {b.ajustes && b.ajustes.length > 0 && (
+              <div>
+                <p className="text-[11px] font-bold text-[#5a7065] uppercase tracking-wide mb-3">Factores de ajuste aplicados</p>
+                <div className="flex flex-col gap-2">
+                  {b.ajustes.map((aj, i) => {
+                    const positivo = aj.impactoM2 >= 0
+                    return (
+                      <div key={i} className={`border rounded-xl px-4 py-3 ${positivo ? 'bg-[#F0FBF6] border-[#9FE1CB]' : 'bg-[#FFF5F5] border-[#FECACA]'}`}>
+                        <div className="flex items-start justify-between gap-3 mb-1">
+                          <p className="text-[13px] font-semibold text-[#111d17]">{aj.concepto}</p>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${positivo ? 'bg-[#E1F5EE] text-[#0F6E56]' : 'bg-[#FEE2E2] text-[#991B1B]'}`}>
+                              {aj.factorAjuste}
+                            </span>
+                            <span className={`text-[12px] font-bold ${positivo ? 'text-[#0F6E56]' : 'text-[#DC2626]'}`}>
+                              {positivo ? '+' : ''}{aj.impactoM2 >= 0 ? `$${aj.impactoM2.toLocaleString('es-MX')}` : `-$${Math.abs(aj.impactoM2).toLocaleString('es-MX')}`}/m²
+                            </span>
+                          </div>
+                        </div>
+                        <p className="text-[11px] text-[#5a7065]">{aj.descripcion}</p>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Fórmula y resultado */}
+            <div className="bg-[#111d17] rounded-xl px-5 py-4">
+              <p className="text-[10px] font-bold text-white/40 uppercase tracking-wide mb-3">Cálculo final</p>
+              <p className="text-[12px] text-white/60 mb-2">{b.formula}</p>
+              <div className="flex items-center gap-3 flex-wrap">
+                <div className="text-center">
+                  <p className="text-[10px] text-white/40 mb-0.5">Superficie</p>
+                  <p className="text-[18px] font-bold text-white">{b.superficieM2.toLocaleString('es-MX')} m²</p>
+                </div>
+                <p className="text-[18px] text-white/30 font-light">×</p>
+                <div className="text-center">
+                  <p className="text-[10px] text-white/40 mb-0.5">Precio/m²</p>
+                  <p className="text-[18px] font-bold text-white">${b.precioM2Final.toLocaleString('es-MX')}</p>
+                </div>
+                <p className="text-[18px] text-white/30 font-light">=</p>
+                <div className="text-center">
+                  <p className="text-[10px] text-[#4ade80] mb-0.5">Costo total</p>
+                  <p className="text-[22px] font-black text-[#4ade80]">${b.costoTotalTerreno.toLocaleString('es-MX')}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Razonamiento */}
+            <div>
+              <p className="text-[11px] font-bold text-[#5a7065] uppercase tracking-wide mb-2">Razonamiento del agente</p>
+              <p className="text-[13px] text-[#5a7065] leading-relaxed bg-[#F7F8F6] border border-[#E2E8E4] rounded-xl px-4 py-3">{b.razonamiento}</p>
+            </div>
+
+            {/* Rango de valuación */}
+            {b.rangoValoracion && (
+              <div>
+                <p className="text-[11px] font-bold text-[#5a7065] uppercase tracking-wide mb-3">Rango de valuación</p>
+                <div className="bg-[#F7F8F6] border border-[#E2E8E4] rounded-xl px-4 py-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="text-center">
+                      <p className="text-[10px] text-[#9aab9f] mb-0.5">Mínimo</p>
+                      <p className="text-[16px] font-bold text-[#5a7065]">${b.rangoValoracion.minimo.toLocaleString('es-MX')}/m²</p>
+                    </div>
+                    <div className="flex-1 mx-4">
+                      <div className="relative h-2 bg-[#E2E8E4] rounded-full">
+                        {(() => {
+                          const rango = b.rangoValoracion.maximo - b.rangoValoracion.minimo
+                          const pos = rango > 0 ? ((b.precioM2Final - b.rangoValoracion.minimo) / rango) * 100 : 50
+                          return (
+                            <>
+                              <div className="h-full bg-gradient-to-r from-[#9FE1CB] to-[#1D9E75] rounded-full" />
+                              <div className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-white border-2 border-[#1D9E75] shadow-sm" style={{ left: `${Math.min(Math.max(pos, 5), 95)}%`, transform: 'translateX(-50%) translateY(-50%)' }} />
+                            </>
+                          )
+                        })()}
+                      </div>
+                      <p className="text-[10px] text-[#9aab9f] text-center mt-1">Precio estimado</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-[10px] text-[#9aab9f] mb-0.5">Máximo</p>
+                      <p className="text-[16px] font-bold text-[#111d17]">${b.rangoValoracion.maximo.toLocaleString('es-MX')}/m²</p>
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-[#5a7065] leading-snug">{b.rangoValoracion.interpretacion}</p>
+                </div>
+              </div>
+            )}
+
+            {/* Supuestos */}
+            {b.supuestos && b.supuestos.length > 0 && (
+              <div>
+                <p className="text-[11px] font-bold text-[#5a7065] uppercase tracking-wide mb-2">Supuestos del cálculo</p>
+                <div className="flex flex-col gap-1.5">
+                  {b.supuestos.map((s, i) => (
+                    <div key={i} className="flex items-start gap-2">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#9aab9f] mt-1.5 shrink-0" />
+                      <p className="text-[12px] text-[#5a7065]">{s}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  const BANDA_COLORS: Record<number, { bg: string; border: string; text: string; badge: string }> = {
+    1: { bg: 'bg-[#F7F8F6]', border: 'border-[#E2E8E4]', text: 'text-[#5a7065]', badge: 'bg-[#E2E8E4] text-[#5a7065]' },
+    2: { bg: 'bg-[#EEF2FF]', border: 'border-[#C7D2FE]', text: 'text-[#4338CA]', badge: 'bg-[#C7D2FE] text-[#3730A3]' },
+    3: { bg: 'bg-[#F0FBF6]', border: 'border-[#9FE1CB]', text: 'text-[#0F6E56]', badge: 'bg-[#E1F5EE] text-[#0F6E56]' },
+    4: { bg: 'bg-[#FFF8E6]', border: 'border-[#F0D070]', text: 'text-[#92600A]', badge: 'bg-[#FEF3C7] text-[#92600A]' },
+  }
+
+  const BitacoraConstruccionModal = () => {
+    const b = d.bitacoraConstruccion
+    if (!b) return null
+    const bc = BANDA_COLORS[b.bandaElegida] ?? BANDA_COLORS[2]
+    return (
+      <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/40 backdrop-blur-sm" onClick={() => setShowBitacoraConstruccion(false)}>
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-[640px] max-h-[88vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+          {/* Header */}
+          <div className="sticky top-0 bg-white border-b border-[#E2E8E4] px-6 py-4 flex items-center justify-between rounded-t-2xl">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-[#F0FBF6] border border-[#9FE1CB] flex items-center justify-center">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                  <rect x="2" y="1" width="9" height="12" rx="1" stroke="#1D9E75" strokeWidth="1.3"/>
+                  <path d="M4 4.5h5M4 7h5M4 9.5h3" stroke="#1D9E75" strokeWidth="1.3" strokeLinecap="round"/>
+                  <path d="M11 9l2 2-2 2" stroke="#1D9E75" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </div>
+              <div>
+                <p className="text-[14px] font-bold text-[#111d17]">Bitácora de Cálculo</p>
+                <p className="text-[11px] text-[#9aab9f]">Costo de construcción · Metodología CMIC</p>
+              </div>
+            </div>
+            <button onClick={() => setShowBitacoraConstruccion(false)} className="w-8 h-8 rounded-lg flex items-center justify-center text-[#9aab9f] hover:bg-[#F7F8F6] hover:text-[#111d17] transition-colors">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                <path d="M2 2l10 10M12 2L2 12" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
+              </svg>
+            </button>
+          </div>
+
+          <div className="px-6 py-5 flex flex-col gap-5">
+            {/* Banda elegida */}
+            <div className={`${bc.bg} border ${bc.border} rounded-xl px-4 py-4`}>
+              <p className="text-[10px] font-bold text-[#9aab9f] uppercase tracking-wide mb-2">Banda de construcción elegida</p>
+              <div className="flex items-center gap-4">
+                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 ${bc.badge}`}>
+                  <span className="text-[28px] font-black leading-none">{b.bandaElegida}</span>
+                </div>
+                <div className="flex-1">
+                  <div className="flex gap-1 mb-1.5">
+                    {[1,2,3,4].map(n => (
+                      <div key={n} className={`flex-1 h-2 rounded-full ${n === b.bandaElegida ? 'bg-[#1D9E75]' : 'bg-[#E2E8E4]'}`} />
+                    ))}
+                  </div>
+                  <div className="flex justify-between mb-1">
+                    <span className="text-[9px] text-[#9aab9f]">Económica</span>
+                    <span className="text-[9px] text-[#9aab9f]">Premium</span>
+                  </div>
+                  <p className={`text-[13px] font-bold ${bc.text}`}>{b.nombreBanda}</p>
+                </div>
+              </div>
+              {b.descripcionBanda && <p className="text-[11px] text-[#5a7065] mt-2 leading-snug">{b.descripcionBanda}</p>}
+            </div>
+
+            {/* Fuente */}
+            <div className="bg-[#F7F8F6] border border-[#E2E8E4] rounded-xl px-4 py-3">
+              <p className="text-[10px] font-bold text-[#9aab9f] uppercase tracking-wide mb-1">Fuente de referencia</p>
+              <p className="text-[12px] font-semibold text-[#111d17]">{b.fuenteReferencia}</p>
+            </div>
+
+            {/* Costo base y ajustes */}
+            <div>
+              <p className="text-[11px] font-bold text-[#5a7065] uppercase tracking-wide mb-3">Costo base y ajustes aplicados</p>
+              <div className="flex items-center gap-4 bg-[#F7F8F6] border border-[#E2E8E4] rounded-xl px-4 py-3 mb-3">
+                <div>
+                  <p className="text-[10px] text-[#9aab9f] mb-0.5">Costo base CMIC</p>
+                  <p className="text-[22px] font-black text-[#111d17]">${b.costoPorM2Base.toLocaleString('es-MX')}</p>
+                  <p className="text-[10px] text-[#9aab9f]">por m²</p>
+                </div>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className="text-[#C8D5CF] shrink-0">
+                  <path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                <div>
+                  <p className="text-[10px] text-[#9aab9f] mb-0.5">Costo final/m²</p>
+                  <p className="text-[22px] font-black text-[#1D9E75]">${b.costoPorM2Final.toLocaleString('es-MX')}</p>
+                  <p className="text-[10px] text-[#9aab9f]">por m²</p>
+                </div>
+              </div>
+              {b.ajustes && b.ajustes.length > 0 && (
+                <div className="flex flex-col gap-2">
+                  {b.ajustes.map((aj, i) => {
+                    const positivo = aj.impactoM2 >= 0
+                    return (
+                      <div key={i} className={`border rounded-xl px-4 py-3 ${positivo ? 'bg-[#F0FBF6] border-[#9FE1CB]' : 'bg-[#FFF5F5] border-[#FECACA]'}`}>
+                        <div className="flex items-start justify-between gap-3 mb-1">
+                          <p className="text-[13px] font-semibold text-[#111d17]">{aj.concepto}</p>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${positivo ? 'bg-[#E1F5EE] text-[#0F6E56]' : 'bg-[#FEE2E2] text-[#991B1B]'}`}>{aj.factorAjuste}</span>
+                            <span className={`text-[12px] font-bold ${positivo ? 'text-[#0F6E56]' : 'text-[#DC2626]'}`}>
+                              {positivo ? '+' : ''}{aj.impactoM2 >= 0 ? `$${aj.impactoM2.toLocaleString('es-MX')}` : `-$${Math.abs(aj.impactoM2).toLocaleString('es-MX')}`}/m²
+                            </span>
+                          </div>
+                        </div>
+                        <p className="text-[11px] text-[#5a7065]">{aj.descripcion}</p>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Cálculo final */}
+            <div className="bg-[#111d17] rounded-xl px-5 py-4">
+              <p className="text-[10px] font-bold text-white/40 uppercase tracking-wide mb-3">Cálculo final</p>
+              <p className="text-[12px] text-white/60 mb-2">{b.formula}</p>
+              <div className="flex items-center gap-3 flex-wrap">
+                <div className="text-center">
+                  <p className="text-[10px] text-white/40 mb-0.5">Superficie construible</p>
+                  <p className="text-[18px] font-bold text-white">{b.superficieConstruccionM2.toLocaleString('es-MX')} m²</p>
+                </div>
+                <p className="text-[18px] text-white/30 font-light">×</p>
+                <div className="text-center">
+                  <p className="text-[10px] text-white/40 mb-0.5">Costo/m²</p>
+                  <p className="text-[18px] font-bold text-white">${b.costoPorM2Final.toLocaleString('es-MX')}</p>
+                </div>
+                <p className="text-[18px] text-white/30 font-light">=</p>
+                <div className="text-center">
+                  <p className="text-[10px] text-[#4ade80] mb-0.5">Costo total</p>
+                  <p className="text-[22px] font-black text-[#4ade80]">${b.costoTotalConstruccion.toLocaleString('es-MX')}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Contexto ciudad y tipología */}
+            {(b.ciudadAjuste || b.tipologiaAjuste) && (
+              <div>
+                <p className="text-[11px] font-bold text-[#5a7065] uppercase tracking-wide mb-2">Contexto del ajuste</p>
+                <div className="flex flex-col gap-2">
+                  {b.ciudadAjuste && (
+                    <div className="bg-[#F7F8F6] border border-[#E2E8E4] rounded-xl px-4 py-3">
+                      <p className="text-[10px] font-bold text-[#9aab9f] uppercase mb-1">Factor ciudad</p>
+                      <p className="text-[12px] text-[#5a7065]">{b.ciudadAjuste}</p>
+                    </div>
+                  )}
+                  {b.tipologiaAjuste && (
+                    <div className="bg-[#F7F8F6] border border-[#E2E8E4] rounded-xl px-4 py-3">
+                      <p className="text-[10px] font-bold text-[#9aab9f] uppercase mb-1">Factor tipología</p>
+                      <p className="text-[12px] text-[#5a7065]">{b.tipologiaAjuste}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Razonamiento */}
+            <div>
+              <p className="text-[11px] font-bold text-[#5a7065] uppercase tracking-wide mb-2">Razonamiento del agente</p>
+              <p className="text-[13px] text-[#5a7065] leading-relaxed bg-[#F7F8F6] border border-[#E2E8E4] rounded-xl px-4 py-3">{b.razonamiento}</p>
+            </div>
+
+            {/* Rango de referencia */}
+            {b.rangoReferencia && (
+              <div>
+                <p className="text-[11px] font-bold text-[#5a7065] uppercase tracking-wide mb-3">Rango CMIC para esta banda y ciudad</p>
+                <div className="bg-[#F7F8F6] border border-[#E2E8E4] rounded-xl px-4 py-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="text-center">
+                      <p className="text-[10px] text-[#9aab9f] mb-0.5">Mínimo</p>
+                      <p className="text-[16px] font-bold text-[#5a7065]">${b.rangoReferencia.minimo.toLocaleString('es-MX')}/m²</p>
+                    </div>
+                    <div className="flex-1 mx-4">
+                      <div className="relative h-2 bg-[#E2E8E4] rounded-full">
+                        {(() => {
+                          const rango = b.rangoReferencia.maximo - b.rangoReferencia.minimo
+                          const pos = rango > 0 ? ((b.costoPorM2Final - b.rangoReferencia.minimo) / rango) * 100 : 50
+                          return (
+                            <>
+                              <div className="h-full bg-gradient-to-r from-[#9FE1CB] to-[#1D9E75] rounded-full" />
+                              <div className="absolute top-1/2 w-3 h-3 rounded-full bg-white border-2 border-[#1D9E75] shadow-sm" style={{ left: `${Math.min(Math.max(pos, 5), 95)}%`, transform: 'translateX(-50%) translateY(-50%)' }} />
+                            </>
+                          )
+                        })()}
+                      </div>
+                      <p className="text-[10px] text-[#9aab9f] text-center mt-1">Costo estimado</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-[10px] text-[#9aab9f] mb-0.5">Máximo</p>
+                      <p className="text-[16px] font-bold text-[#111d17]">${b.rangoReferencia.maximo.toLocaleString('es-MX')}/m²</p>
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-[#5a7065] leading-snug">{b.rangoReferencia.interpretacion}</p>
+                </div>
+              </div>
+            )}
+
+            {/* Desglose por partidas */}
+            {b.desglosePorPartidas && b.desglosePorPartidas.length > 0 && (
+              <div>
+                <p className="text-[11px] font-bold text-[#5a7065] uppercase tracking-wide mb-3">Desglose por partidas</p>
+                <div className="bg-[#F7F8F6] border border-[#E2E8E4] rounded-xl overflow-hidden">
+                  {(() => {
+                    const maxPct = Math.max(...b.desglosePorPartidas!.map(p => p.porcentaje))
+                    return b.desglosePorPartidas!.map((p, i) => (
+                      <div key={i} className={`px-4 py-3 ${i > 0 ? 'border-t border-[#E2E8E4]' : ''}`}>
+                        <div className="flex items-center justify-between gap-2 mb-1.5">
+                          <p className="text-[12px] font-semibold text-[#111d17] shrink-0">{p.partida}</p>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span className="text-[10px] font-bold text-[#9aab9f]">{p.porcentaje}%</span>
+                            <span className="text-[12px] font-bold text-[#1D9E75]">${p.costoPorM2.toLocaleString('es-MX')}/m²</span>
+                          </div>
+                        </div>
+                        <div className="relative h-1.5 bg-[#E2E8E4] rounded-full mb-1.5">
+                          <div className="h-full bg-[#1D9E75] rounded-full" style={{ width: `${(p.porcentaje / maxPct) * 100}%` }} />
+                        </div>
+                        <p className="text-[10px] text-[#9aab9f] leading-snug">{p.descripcion}</p>
+                      </div>
+                    ))
+                  })()}
+                  <div className="bg-[#111d17] px-4 py-3 flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-white/60">Total (100%)</span>
+                    <span className="text-[14px] font-black text-[#4ade80]">${b.costoPorM2Final.toLocaleString('es-MX')}/m²</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Materiales principales */}
+            {b.materialesPrincipales && b.materialesPrincipales.length > 0 && (
+              <div>
+                <p className="text-[11px] font-bold text-[#5a7065] uppercase tracking-wide mb-3">Materiales principales</p>
+                <div className="border border-[#E2E8E4] rounded-xl overflow-hidden">
+                  <div className="bg-[#F7F8F6] px-4 py-2 grid grid-cols-4 gap-2 border-b border-[#E2E8E4]">
+                    <p className="text-[10px] font-bold text-[#9aab9f] uppercase tracking-wide col-span-2">Material</p>
+                    <p className="text-[10px] font-bold text-[#9aab9f] uppercase tracking-wide text-right">Cant./m²</p>
+                    <p className="text-[10px] font-bold text-[#9aab9f] uppercase tracking-wide text-right">$/m²</p>
+                  </div>
+                  {b.materialesPrincipales.map((m, i) => (
+                    <div key={i} className={`px-4 py-3 grid grid-cols-4 gap-2 items-center ${i % 2 === 0 ? 'bg-white' : 'bg-[#FAFBFA]'} ${i < b.materialesPrincipales!.length - 1 ? 'border-b border-[#F0F4F2]' : ''}`}>
+                      <div className="col-span-2">
+                        <p className="text-[12px] font-semibold text-[#111d17]">{m.material}</p>
+                        {m.nota && <p className="text-[10px] text-[#9aab9f]">{m.nota}</p>}
+                      </div>
+                      <p className="text-[12px] text-[#5a7065] text-right">{m.cantidadPorM2} {m.unidad}</p>
+                      <p className="text-[12px] font-bold text-[#1D9E75] text-right">${m.costoPorM2.toLocaleString('es-MX')}</p>
+                    </div>
+                  ))}
+                  <div className="px-4 py-2 bg-[#F7F8F6] border-t border-[#E2E8E4]">
+                    <p className="text-[10px] text-[#9aab9f] italic">Costos referenciales. Validar con proveedores locales antes de presupuestar.</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Supuestos */}
+            {b.supuestos && b.supuestos.length > 0 && (
+              <div>
+                <p className="text-[11px] font-bold text-[#5a7065] uppercase tracking-wide mb-2">Supuestos del cálculo</p>
+                <div className="flex flex-col gap-1.5">
+                  {b.supuestos.map((s, i) => (
+                    <div key={i} className="flex items-start gap-2">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#9aab9f] mt-1.5 shrink-0" />
+                      <p className="text-[12px] text-[#5a7065]">{s}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
+    <>
+    {showBitacora && <BitacoraModal />}
+    {showBitacoraConstruccion && <BitacoraConstruccionModal />}
     <div className="min-h-screen bg-[#F7F8F6] flex flex-col">
       <header className="px-8 py-5 flex items-center gap-3 border-b border-[#E2E8E4] bg-white sticky top-0 z-10">
         <div className="w-8 h-8 rounded-lg bg-[#1D9E75] flex items-center justify-center">
@@ -472,22 +1025,46 @@ function AnalisisContent() {
               <table className="w-full">
                 <tbody>
                   {[
-                    { label: 'Costo del terreno', value: fmt(f.costoTerreno), sub: `${fmt(f.costoTerrenoM2)}/m²`, highlight: false },
-                    { label: 'Construcción por m²', value: `${fmt(f.construccionM2)}/m²`, sub: 'Clase media-alta, acabados premium', highlight: false },
-                    { label: 'Costo total construcción', value: fmt(f.costoTotalConstruccion), sub: '', highlight: false },
-                    { label: 'Indirectos y permisos', value: fmt(f.indirectos), sub: '8% sobre costo de obra', highlight: false },
-                    { label: 'Honorarios y diseño', value: fmt(f.honorarios), sub: '4.5% sobre costo de obra', highlight: false },
-                    { label: 'Imprevistos (5%)', value: fmt(f.imprevistos), sub: 'Reserva de contingencia', highlight: false },
-                    { label: 'Inversión Total', value: fmt(f.inversionTotal), sub: '', highlight: true },
-                    { label: 'Precio venta estimado / m²', value: `${fmt(f.precioVentaM2)}/m²`, sub: `Mercado ${d.mercado.zona} · NSE ${d.mercado.perfilNSE.split('·')[0].trim()}`, highlight: false },
-                    { label: 'Ingresos proyectados', value: fmt(f.ingresosProyectados), sub: '100% absorción', highlight: false },
-                    { label: 'Utilidad bruta', value: fmt(f.utilidadBruta), sub: '', highlight: false },
-                    { label: 'Margen bruto', value: `${f.margenBruto}%`, sub: 'sobre inversión total', highlight: true },
+                    { label: 'Costo del terreno', value: fmt(f.costoTerreno), sub: `${fmt(f.costoTerrenoM2)}/m²`, highlight: false, bitacora: true },
+                    { label: 'Construcción por m²', value: `${fmt(f.construccionM2)}/m²`, sub: 'Costo directo por m² construido', highlight: false, bitacora: false, bitacoraCons: true },
+                    { label: 'Costo total construcción', value: fmt(f.costoTotalConstruccion), sub: '', highlight: false, bitacora: false, bitacoraCons: false },
+                    { label: 'Indirectos y permisos', value: fmt(f.indirectos), sub: '8% sobre costo de obra', highlight: false, bitacora: false, bitacoraCons: false },
+                    { label: 'Honorarios y diseño', value: fmt(f.honorarios), sub: '4.5% sobre costo de obra', highlight: false, bitacora: false, bitacoraCons: false },
+                    { label: 'Imprevistos (5%)', value: fmt(f.imprevistos), sub: 'Reserva de contingencia', highlight: false, bitacora: false, bitacoraCons: false },
+                    { label: 'Inversión Total', value: fmt(f.inversionTotal), sub: '', highlight: true, bitacora: false, bitacoraCons: false },
+                    { label: 'Precio venta estimado / m²', value: `${fmt(f.precioVentaM2)}/m²`, sub: `Mercado ${d.mercado.zona} · NSE ${d.mercado.perfilNSE.split('·')[0].trim()}`, highlight: false, bitacora: false, bitacoraCons: false },
+                    { label: 'Ingresos proyectados', value: fmt(f.ingresosProyectados), sub: '100% absorción', highlight: false, bitacora: false, bitacoraCons: false },
+                    { label: 'Utilidad bruta', value: fmt(f.utilidadBruta), sub: '', highlight: false, bitacora: false, bitacoraCons: false },
+                    { label: 'Margen bruto', value: `${f.margenBruto}%`, sub: 'sobre inversión total', highlight: true, bitacora: false, bitacoraCons: false },
                   ].map((row, i) => (
                     <tr key={i} className={row.highlight ? 'bg-[#F0FBF6]' : i % 2 === 0 ? 'bg-white' : 'bg-[#FAFBFA]'}>
                       <td className="px-6 py-3 border-b border-[#F0F4F2]">
-                        <p className={`text-[13px] ${row.highlight ? 'font-bold text-[#0F6E56]' : 'text-[#5a7065]'}`}>{row.label}</p>
-                        {row.sub && <p className="text-[11px] text-[#9aab9f]">{row.sub}</p>}
+                        <div className="flex items-center gap-2">
+                          <div>
+                            <p className={`text-[13px] ${row.highlight ? 'font-bold text-[#0F6E56]' : 'text-[#5a7065]'}`}>{row.label}</p>
+                            {row.sub && <p className="text-[11px] text-[#9aab9f]">{row.sub}</p>}
+                          </div>
+                          {row.bitacora && d.bitacoraTerreno && (
+                            <button onClick={() => setShowBitacora(true)} title="Ver bitácora de cálculo"
+                              className="flex items-center gap-1 text-[10px] font-bold text-[#1D9E75] border border-[#9FE1CB] bg-[#F0FBF6] px-2 py-0.5 rounded-full hover:bg-[#E1F5EE] transition-colors shrink-0 cursor-pointer">
+                              <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                                <rect x="1" y="0.5" width="7" height="9" rx="1" stroke="currentColor" strokeWidth="1"/>
+                                <path d="M3 3.5h4M3 5.5h4M3 7.5h2" stroke="currentColor" strokeWidth="1" strokeLinecap="round"/>
+                              </svg>
+                              Bitácora
+                            </button>
+                          )}
+                          {row.bitacoraCons && d.bitacoraConstruccion && (
+                            <button onClick={() => setShowBitacoraConstruccion(true)} title="Ver bitácora de construcción"
+                              className="flex items-center gap-1 text-[10px] font-bold text-[#1D9E75] border border-[#9FE1CB] bg-[#F0FBF6] px-2 py-0.5 rounded-full hover:bg-[#E1F5EE] transition-colors shrink-0 cursor-pointer">
+                              <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                                <rect x="1" y="0.5" width="7" height="9" rx="1" stroke="currentColor" strokeWidth="1"/>
+                                <path d="M3 3.5h4M3 5.5h4M3 7.5h2" stroke="currentColor" strokeWidth="1" strokeLinecap="round"/>
+                              </svg>
+                              Bitácora
+                            </button>
+                          )}
+                        </div>
                       </td>
                       <td className="px-6 py-3 border-b border-[#F0F4F2] text-right">
                         <p className={`text-[13px] ${row.highlight ? 'font-bold text-[#0F6E56]' : 'font-semibold text-[#111d17]'}`}>{row.value}</p>
@@ -1006,6 +1583,7 @@ function AnalisisContent() {
         </div>
       </main>
     </div>
+    </>
   )
 }
 

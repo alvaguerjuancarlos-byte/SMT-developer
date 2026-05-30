@@ -88,17 +88,19 @@ function AnalizandoContent() {
     const t1 = setTimeout(() => setStage(2), 3000)
     const t2 = setTimeout(() => setStage(3), 6000)
 
-    fetch('/api/analizar', {
+    const runAnalisis = () => fetch('/api/analizar', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(formData),
+    }).then(res => {
+      if (!res.ok) throw new Error('API error')
+      return res.json()
     })
-      .then(res => {
-        if (!res.ok) throw new Error('API error')
-        return res.json()
-      })
-      .then(async data => {
-        if (data.error) throw new Error(data.error)
+
+    runAnalisis()
+      .catch(() => new Promise<void>(r => setTimeout(r, 2000)).then(runAnalisis))
+      .then(async (data: Record<string, unknown>) => {
+        if (data.error) throw new Error(String(data.error))
         localStorage.setItem('smt_analisis_data', JSON.stringify({ ...data, proyecto }))
         saveProyecto({ nombre: proyecto, datos: data, flujo: 'A' }).then(r => {
           if (r.ok && r.id) localStorage.setItem('smt_proyecto_id', r.id)

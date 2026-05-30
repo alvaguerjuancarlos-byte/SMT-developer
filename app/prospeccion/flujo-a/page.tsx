@@ -70,6 +70,41 @@ const RANGOS_PRESUPUESTO = [
   { id: 'por-definir', label: 'Por definir con socios' },
 ]
 
+const BANDAS_CONSTRUCCION = [
+  {
+    id: '1',
+    label: 'Económica',
+    sub: 'Interés social · Acabados básicos',
+    desc: 'Estructura de block/tabique, acabados estándar, sin amenidades. INFONAVIT / VIS.',
+    rango: '$7,000–$10,500/m²',
+    icon: '🧱',
+  },
+  {
+    id: '2',
+    label: 'Media Estándar',
+    sub: 'Clase media · Acabados funcionales',
+    desc: 'Concreto armado, porcelanato básico, elevador en torre, estacionamiento techado.',
+    rango: '$10,500–$16,000/m²',
+    icon: '🏗️',
+  },
+  {
+    id: '3',
+    label: 'Media Alta',
+    sub: 'Residencial · Acabados premium',
+    desc: 'Fachada diferenciada, cocinas equipadas, A/C, amenidades (gym, roof garden, alberca).',
+    rango: '$16,000–$24,000/m²',
+    icon: '🏢',
+  },
+  {
+    id: '4',
+    label: 'Premium / Lujo',
+    sub: 'Alto standing · Acabados de lujo',
+    desc: 'Materiales importados, domótica, concierge, spa, arquitectura de firma.',
+    rango: '$24,000–$45,000+/m²',
+    icon: '✨',
+  },
+]
+
 const TIPOS_DESARROLLO = [
   { id: 'residencial-vertical', label: 'Residencial vertical', icon: '🏢' },
   { id: 'residencial-horizontal', label: 'Residencial horizontal', icon: '🏘️' },
@@ -114,6 +149,7 @@ interface FormData {
   presupuesto: string
   tiposDesarrollo: string[]
   tipoOtroTexto: string
+  bandaConstruccion: string
   mapsLink: string
 }
 
@@ -134,6 +170,7 @@ const INITIAL: FormData = {
   presupuesto: '',
   tiposDesarrollo: [],
   tipoOtroTexto: '',
+  bandaConstruccion: '',
   mapsLink: '',
 }
 
@@ -772,6 +809,28 @@ function Step4({ data, setData }: { data: FormData; setData: (d: FormData) => vo
             />
           )}
         </div>
+
+        <div>
+          <p className="text-[13px] font-semibold text-[#111d17] mb-1">Nivel de construcción deseado</p>
+          <p className="text-[12px] text-[#9aab9f] mb-3">Define la calidad y acabados del desarrollo. Esto calibra el costo de construcción por m².</p>
+          <div className="flex flex-col gap-2">
+            {BANDAS_CONSTRUCCION.map(b => (
+              <ChipOption key={b.id} selected={data.bandaConstruccion === b.id} onClick={() => setData({ ...data, bandaConstruccion: b.id })}>
+                <div className="flex items-start gap-3">
+                  <span className="text-xl shrink-0 mt-0.5">{b.icon}</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2 mb-0.5">
+                      <p className="text-[13px] font-semibold text-[#111d17]">Banda {b.id} — {b.label}</p>
+                      <span className="text-[10px] font-bold text-[#1D9E75] shrink-0">{b.rango}</span>
+                    </div>
+                    <p className="text-[11px] text-[#9aab9f] mb-0.5">{b.sub}</p>
+                    <p className="text-[11px] text-[#5a7065]">{b.desc}</p>
+                  </div>
+                </div>
+              </ChipOption>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   )
@@ -790,6 +849,7 @@ function Step5({ data }: { data: FormData }) {
   const usoSuelo   = USOS_SUELO.find(u => u.id === data.usoSuelo)
   const estado     = ESTADOS_TERRENO.find(e => e.id === data.estadoTerreno)
   const presupuesto = RANGOS_PRESUPUESTO.find(r => r.id === data.presupuesto)
+  const bandaConst = BANDAS_CONSTRUCCION.find(b => b.id === data.bandaConstruccion)
   const tiposLabels = [
     ...TIPOS_DESARROLLO.filter(t => data.tiposDesarrollo.includes(t.id)).map(t => t.label),
     ...(data.tiposDesarrollo.includes('otro') && data.tipoOtroTexto ? [data.tipoOtroTexto] : []),
@@ -844,6 +904,12 @@ function Step5({ data }: { data: FormData }) {
             label="Desarrollo"
             value={tiposLabels.length > 0 ? tiposLabels.join(' · ') : undefined}
           />
+          {bandaConst && (
+            <SummaryRow
+              label="Construcción"
+              value={`Banda ${bandaConst.id} — ${bandaConst.label} · ${bandaConst.rango}`}
+            />
+          )}
         </div>
       </div>
 
@@ -868,7 +934,7 @@ export default function FlujoA() {
     if (step === 3) return data.superficie !== '' && data.usoSuelo !== '' && data.estadoTerreno !== ''
     if (step === 4) {
       const otroOk = !data.tiposDesarrollo.includes('otro') || data.tipoOtroTexto.trim() !== ''
-      return data.presupuesto !== '' && data.tiposDesarrollo.length > 0 && otroOk
+      return data.presupuesto !== '' && data.tiposDesarrollo.length > 0 && otroOk && data.bandaConstruccion !== ''
     }
     return true
   }
