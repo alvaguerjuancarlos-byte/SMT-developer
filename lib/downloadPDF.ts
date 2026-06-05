@@ -5,12 +5,7 @@ async function buildPDF(filename: string) {
   const source = document.getElementById('propuesta-print')
   if (!source) return null
 
-  // Work on a hidden clone so the user's view is never disturbed
-  const clone = source.cloneNode(true) as HTMLElement
-  clone.style.cssText =
-    'position:absolute;top:-9999px;left:-9999px;width:900px;max-width:none;margin:0;'
-  document.body.appendChild(clone)
-
+  // Suppress cross-origin stylesheet access errors
   const proto = CSSStyleSheet.prototype
   const originalDescriptor = Object.getOwnPropertyDescriptor(proto, 'cssRules')
   if (originalDescriptor?.get) {
@@ -23,17 +18,35 @@ async function buildPDF(filename: string) {
     })
   }
 
+  // Render a clone in a fixed full-screen overlay so the browser paints it
+  // at a known position (0,0) with an explicit width — avoids blank canvas
+  // and viewport-offset issues.
+  const overlay = document.createElement('div')
+  overlay.style.cssText =
+    'position:fixed;inset:0;z-index:99999;background:#F7F8F6;overflow:auto;pointer-events:none;'
+
+  const clone = source.cloneNode(true) as HTMLElement
+  clone.style.cssText = 'width:800px;max-width:none;margin:0;'
+
+  overlay.appendChild(clone)
+  document.body.appendChild(overlay)
+
   try {
-    await new Promise(r => setTimeout(r, 150))
+    await new Promise(r => setTimeout(r, 300))
+
+    const W = clone.offsetWidth       // 800
+    const H = clone.scrollHeight      // full content height
 
     const canvas = await toCanvas(clone, {
       pixelRatio: 2,
       backgroundColor: '#F7F8F6',
       skipFonts: true,
+      width: W,
+      height: H,
     })
 
     const A4_W_MM = 210
-    const imgH_MM = (canvas.height / canvas.width) * A4_W_MM
+    const imgH_MM = (H / W) * A4_W_MM
 
     const pdf = new jsPDF({
       orientation: 'portrait',
@@ -47,7 +60,7 @@ async function buildPDF(filename: string) {
     console.warn('[buildPDF] generation failed:', err)
     return null
   } finally {
-    document.body.removeChild(clone)
+    document.body.removeChild(overlay)
     if (originalDescriptor) {
       Object.defineProperty(proto, 'cssRules', originalDescriptor)
     }
