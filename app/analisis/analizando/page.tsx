@@ -102,7 +102,7 @@ function AnalizandoContent() {
       .then(async (data: Record<string, unknown>) => {
         if (data.error) throw new Error(String(data.error))
         localStorage.setItem('smt_analisis_data', JSON.stringify({ ...data, proyecto }))
-        saveProyecto({ nombre: proyecto, datos: data, flujo: 'A' }).then(r => {
+        saveProyecto({ nombre: proyecto, datos: { ...data, _inputData: formData }, flujo: 'A' }).then(r => {
           if (r.ok && r.id) localStorage.setItem('smt_proyecto_id', r.id)
         })
         setStage(4)

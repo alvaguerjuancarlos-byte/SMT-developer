@@ -192,8 +192,10 @@ export default function DashboardPage() {
                       <button
                         onClick={() => {
                           if (p.datos) {
+                            const { _inputData, ...analysisData } = p.datos as Record<string, unknown>
                             const key = p.flujo === 'B' ? 'smt_scout_data' : 'smt_analisis_data'
-                            localStorage.setItem(key, JSON.stringify({ ...p.datos, proyecto: p.nombre }))
+                            localStorage.setItem(key, JSON.stringify({ ...analysisData, proyecto: p.nombre }))
+                            if (_inputData) localStorage.setItem('smt_flujo_a_data', JSON.stringify(_inputData))
                           }
                           localStorage.setItem('smt_proyecto_id', p.id)
                           const path = p.flujo === 'B' ? '/analisis/flujo-b' : '/analisis'
@@ -221,8 +223,10 @@ export default function DashboardPage() {
                         <button
                           onClick={() => {
                             if (p.datos) {
+                              const { _inputData, ...analysisData } = p.datos as Record<string, unknown>
                               const key = p.flujo === 'B' ? 'smt_scout_data' : 'smt_analisis_data'
-                              localStorage.setItem(key, JSON.stringify({ ...p.datos, proyecto: p.nombre }))
+                              localStorage.setItem(key, JSON.stringify({ ...analysisData, proyecto: p.nombre }))
+                              if (_inputData) localStorage.setItem('smt_flujo_a_data', JSON.stringify(_inputData))
                             }
                             localStorage.setItem('smt_proyecto_id', p.id)
                             const path = p.flujo === 'B' ? '/propuesta/flujo-b' : '/propuesta'
