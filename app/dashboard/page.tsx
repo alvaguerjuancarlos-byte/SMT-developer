@@ -196,6 +196,7 @@ export default function DashboardPage() {
                             const key = p.flujo === 'B' ? 'smt_scout_data' : 'smt_analisis_data'
                             localStorage.setItem(key, JSON.stringify({ ...analysisData, proyecto: p.nombre }))
                             if (_inputData) localStorage.setItem('smt_flujo_a_data', JSON.stringify(_inputData))
+                            else localStorage.removeItem('smt_flujo_a_data')
                           }
                           localStorage.setItem('smt_proyecto_id', p.id)
                           const path = p.flujo === 'B' ? '/analisis/flujo-b' : '/analisis'
@@ -227,6 +228,7 @@ export default function DashboardPage() {
                               const key = p.flujo === 'B' ? 'smt_scout_data' : 'smt_analisis_data'
                               localStorage.setItem(key, JSON.stringify({ ...analysisData, proyecto: p.nombre }))
                               if (_inputData) localStorage.setItem('smt_flujo_a_data', JSON.stringify(_inputData))
+                              else localStorage.removeItem('smt_flujo_a_data')
                             }
                             localStorage.setItem('smt_proyecto_id', p.id)
                             const path = p.flujo === 'B' ? '/propuesta/flujo-b' : '/propuesta'
