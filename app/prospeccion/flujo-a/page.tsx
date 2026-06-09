@@ -105,6 +105,51 @@ const BANDAS_CONSTRUCCION = [
   },
 ]
 
+const PENDIENTE_OPTIONS = [
+  { id: 'plano', label: 'Plano (< 5%)' },
+  { id: 'suave', label: 'Suave (5–10%)' },
+  { id: 'moderada', label: 'Moderada (10–20%)' },
+  { id: 'pronunciada', label: 'Pronunciada (> 20%)' },
+]
+
+const FORMA_TERRENO = [
+  { id: 'regular', label: 'Regular' },
+  { id: 'irregular', label: 'Irregular' },
+]
+
+const VISTA_DESTACADA = [
+  { id: 'ninguna', label: 'Sin vista especial' },
+  { id: 'sierra', label: 'Sierra / montaña' },
+  { id: 'valle', label: 'Valle' },
+  { id: 'lago', label: 'Lago / presa' },
+  { id: 'canon', label: 'Cañón' },
+]
+
+const SERVICIOS_AGUA = [
+  { id: 'red-municipal', label: 'Red municipal' },
+  { id: 'pozo', label: 'Pozo' },
+  { id: 'pipa', label: 'Pipa' },
+  { id: 'sin-servicio', label: 'Sin servicio' },
+]
+
+const SERVICIOS_DRENAJE = [
+  { id: 'red-municipal', label: 'Red municipal' },
+  { id: 'fosa-septica', label: 'Fosa séptica' },
+  { id: 'sin-servicio', label: 'Sin servicio' },
+]
+
+const SERVICIOS_ELECTRICIDAD = [
+  { id: 'cfe-frente', label: 'CFE frente al predio' },
+  { id: 'extension', label: 'Extensión requerida' },
+  { id: 'sin-servicio', label: 'Sin servicio' },
+]
+
+const DISTANCIA_ABASTO = [
+  { id: 'menos-20', label: 'Menos de 20 km' },
+  { id: '20-40', label: '20–40 km' },
+  { id: 'mas-40', label: 'Más de 40 km' },
+]
+
 const TIPOS_DESARROLLO = [
   { id: 'residencial-vertical', label: 'Residencial vertical', icon: '🏢' },
   { id: 'residencial-horizontal', label: 'Residencial horizontal', icon: '🏘️' },
@@ -151,6 +196,17 @@ interface FormData {
   tipoOtroTexto: string
   bandaConstruccion: string
   mapsLink: string
+  frente: string
+  pendiente: string
+  formaTerreno: string
+  vistaDestacada: string
+  esEsquina: string
+  agua: string
+  drenaje: string
+  electricidad: string
+  pavimento: string
+  distanciaAbasto: string
+  precioSolicitado: string
 }
 
 const INITIAL: FormData = {
@@ -172,6 +228,17 @@ const INITIAL: FormData = {
   tipoOtroTexto: '',
   bandaConstruccion: '',
   mapsLink: '',
+  frente: '',
+  pendiente: '',
+  formaTerreno: '',
+  vistaDestacada: '',
+  esEsquina: '',
+  agua: '',
+  drenaje: '',
+  electricidad: '',
+  pavimento: '',
+  distanciaAbasto: '',
+  precioSolicitado: '',
 }
 
 const TOTAL_STEPS = 5
@@ -747,6 +814,144 @@ function Step3({ data, setData }: { data: FormData; setData: (d: FormData) => vo
             ))}
           </div>
         </div>
+
+        <div className="pt-2">
+          <div className="flex items-center gap-3 mb-1">
+            <div className="flex-1 h-px bg-[#E2E8E4]"/>
+            <p className="text-[11px] font-semibold text-[#9aab9f] tracking-[0.1em] uppercase">Características adicionales</p>
+            <div className="flex-1 h-px bg-[#E2E8E4]"/>
+          </div>
+          <p className="text-[11px] text-[#9aab9f] mb-3">Opcionales — cada campo mejora la precisión del análisis</p>
+        </div>
+
+        <div>
+          <FieldLabel optional>Frente del terreno</FieldLabel>
+          <div className="relative">
+            <input
+              type="number"
+              value={data.frente}
+              onChange={e => setData({ ...data, frente: e.target.value })}
+              placeholder="0"
+              className="w-full border border-[#E2E8E4] rounded-xl px-4 py-3 pr-14 text-[14px] text-[#111d17] bg-white focus:outline-none focus:border-[#1D9E75] focus:ring-2 focus:ring-[#1D9E75]/20 placeholder:text-[#c5d0cb]"
+            />
+            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[12px] text-[#9aab9f] font-medium">m</span>
+          </div>
+        </div>
+
+        <div>
+          <FieldLabel optional>Pendiente del terreno</FieldLabel>
+          <div className="grid grid-cols-2 gap-2">
+            {PENDIENTE_OPTIONS.map(p => (
+              <ChipOption key={p.id} selected={data.pendiente === p.id} onClick={() => setData({ ...data, pendiente: data.pendiente === p.id ? '' : p.id })}>
+                <p className="text-[13px] font-medium text-[#111d17]">{p.label}</p>
+              </ChipOption>
+            ))}
+          </div>
+          {(data.pendiente === 'moderada' || data.pendiente === 'pronunciada') && (
+            <div className="mt-2 flex items-start gap-2 bg-[#FFF8E6] border border-[#F0D070] rounded-xl px-3 py-2">
+              <span className="text-sm mt-0.5">⚠️</span>
+              <p className="text-[11px] text-[#7a6020]">
+                Pendiente {data.pendiente === 'pronunciada' ? 'pronunciada' : 'moderada'} — puede generar sobrecosto de cimentación de $800k–$1.2M. El análisis lo cuantificará.
+              </p>
+            </div>
+          )}
+        </div>
+
+        <div>
+          <FieldLabel optional>Forma del terreno</FieldLabel>
+          <div className="grid grid-cols-2 gap-2">
+            {FORMA_TERRENO.map(f => (
+              <ChipOption key={f.id} selected={data.formaTerreno === f.id} onClick={() => setData({ ...data, formaTerreno: data.formaTerreno === f.id ? '' : f.id })}>
+                <p className="text-[13px] font-medium text-[#111d17]">{f.label}</p>
+              </ChipOption>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <FieldLabel optional>Vista destacada</FieldLabel>
+          <div className="grid grid-cols-2 gap-2">
+            {VISTA_DESTACADA.map(v => (
+              <ChipOption key={v.id} selected={data.vistaDestacada === v.id} onClick={() => setData({ ...data, vistaDestacada: data.vistaDestacada === v.id ? '' : v.id })}>
+                <p className="text-[13px] font-medium text-[#111d17]">{v.label}</p>
+              </ChipOption>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <FieldLabel optional>¿El terreno es esquina?</FieldLabel>
+          <div className="grid grid-cols-2 gap-2">
+            {[{ id: 'si', label: 'Sí, es esquina' }, { id: 'no', label: 'No es esquina' }].map(o => (
+              <ChipOption key={o.id} selected={data.esEsquina === o.id} onClick={() => setData({ ...data, esEsquina: data.esEsquina === o.id ? '' : o.id })}>
+                <p className="text-[13px] font-medium text-[#111d17]">{o.label}</p>
+              </ChipOption>
+            ))}
+          </div>
+        </div>
+
+        <div className="pt-2">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="flex-1 h-px bg-[#E2E8E4]"/>
+            <p className="text-[11px] font-semibold text-[#9aab9f] tracking-[0.1em] uppercase">Servicios disponibles</p>
+            <div className="flex-1 h-px bg-[#E2E8E4]"/>
+          </div>
+        </div>
+
+        <div>
+          <FieldLabel optional>Agua</FieldLabel>
+          <div className="grid grid-cols-2 gap-2">
+            {SERVICIOS_AGUA.map(o => (
+              <ChipOption key={o.id} selected={data.agua === o.id} onClick={() => setData({ ...data, agua: data.agua === o.id ? '' : o.id })}>
+                <p className="text-[13px] font-medium text-[#111d17]">{o.label}</p>
+              </ChipOption>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <FieldLabel optional>Drenaje</FieldLabel>
+          <div className="grid grid-cols-2 gap-2">
+            {SERVICIOS_DRENAJE.map(o => (
+              <ChipOption key={o.id} selected={data.drenaje === o.id} onClick={() => setData({ ...data, drenaje: data.drenaje === o.id ? '' : o.id })}>
+                <p className="text-[13px] font-medium text-[#111d17]">{o.label}</p>
+              </ChipOption>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <FieldLabel optional>Electricidad</FieldLabel>
+          <div className="grid grid-cols-2 gap-2">
+            {SERVICIOS_ELECTRICIDAD.map(o => (
+              <ChipOption key={o.id} selected={data.electricidad === o.id} onClick={() => setData({ ...data, electricidad: data.electricidad === o.id ? '' : o.id })}>
+                <p className="text-[13px] font-medium text-[#111d17]">{o.label}</p>
+              </ChipOption>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <FieldLabel optional>¿Pavimento frente al predio?</FieldLabel>
+          <div className="grid grid-cols-2 gap-2">
+            {[{ id: 'si', label: 'Sí' }, { id: 'no', label: 'No' }].map(o => (
+              <ChipOption key={o.id} selected={data.pavimento === o.id} onClick={() => setData({ ...data, pavimento: data.pavimento === o.id ? '' : o.id })}>
+                <p className="text-[13px] font-medium text-[#111d17]">{o.label}</p>
+              </ChipOption>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <FieldLabel optional>Distancia a ciudad de abasto</FieldLabel>
+          <div className="flex flex-col gap-2">
+            {DISTANCIA_ABASTO.map(o => (
+              <ChipOption key={o.id} selected={data.distanciaAbasto === o.id} onClick={() => setData({ ...data, distanciaAbasto: data.distanciaAbasto === o.id ? '' : o.id })}>
+                <p className="text-[13px] font-medium text-[#111d17]">{o.label}</p>
+              </ChipOption>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   )
@@ -777,6 +982,22 @@ function Step4({ data, setData }: { data: FormData; setData: (d: FormData) => vo
               </ChipOption>
             ))}
           </div>
+        </div>
+
+        <div>
+          <FieldLabel optional>Precio solicitado por el terreno</FieldLabel>
+          <div className="relative">
+            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[14px] text-[#9aab9f] font-medium">$</span>
+            <input
+              type="number"
+              value={data.precioSolicitado}
+              onChange={e => setData({ ...data, precioSolicitado: e.target.value })}
+              placeholder="0"
+              className="w-full border border-[#E2E8E4] rounded-xl pl-8 pr-16 py-3 text-[14px] text-[#111d17] bg-white focus:outline-none focus:border-[#1D9E75] focus:ring-2 focus:ring-[#1D9E75]/20 placeholder:text-[#c5d0cb]"
+            />
+            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[12px] text-[#9aab9f] font-medium">MXN</span>
+          </div>
+          <p className="text-[11px] text-[#9aab9f] mt-1.5">El análisis validará este precio contra el mercado y emitirá un semáforo de confiabilidad.</p>
         </div>
 
         <div>
@@ -910,6 +1131,17 @@ function Step5({ data }: { data: FormData }) {
               value={`Banda ${bandaConst.id} — ${bandaConst.label} · ${bandaConst.rango}`}
             />
           )}
+          {data.frente && <SummaryRow label="Frente" value={`${data.frente} m`} />}
+          {data.pendiente && <SummaryRow label="Pendiente" value={PENDIENTE_OPTIONS.find(p => p.id === data.pendiente)?.label} />}
+          {data.formaTerreno && <SummaryRow label="Forma" value={FORMA_TERRENO.find(f => f.id === data.formaTerreno)?.label} />}
+          {data.vistaDestacada && data.vistaDestacada !== 'ninguna' && <SummaryRow label="Vista" value={VISTA_DESTACADA.find(v => v.id === data.vistaDestacada)?.label} />}
+          {data.esEsquina && <SummaryRow label="Esquina" value={data.esEsquina === 'si' ? 'Sí' : 'No'} />}
+          {data.agua && <SummaryRow label="Agua" value={SERVICIOS_AGUA.find(o => o.id === data.agua)?.label} />}
+          {data.drenaje && <SummaryRow label="Drenaje" value={SERVICIOS_DRENAJE.find(o => o.id === data.drenaje)?.label} />}
+          {data.electricidad && <SummaryRow label="Electricidad" value={SERVICIOS_ELECTRICIDAD.find(o => o.id === data.electricidad)?.label} />}
+          {data.pavimento && <SummaryRow label="Pavimento" value={data.pavimento === 'si' ? 'Sí' : 'No'} />}
+          {data.distanciaAbasto && <SummaryRow label="Abasto" value={DISTANCIA_ABASTO.find(o => o.id === data.distanciaAbasto)?.label} />}
+          {data.precioSolicitado && <SummaryRow label="Precio solicitado" value={`$${Number(data.precioSolicitado).toLocaleString('es-MX')} MXN`} />}
         </div>
       </div>
 

@@ -30,6 +30,30 @@ export async function POST(req: NextRequest) {
     comercial: 'Comercial', mixto: 'Uso mixto', industrial: 'Industrial / Nave', 'no-definido': 'Sin definir',
   }
 
+  const pendienteLabels: Record<string, string> = {
+    'plano': 'Plano (< 5%)',
+    'suave': 'Suave (5–10%)',
+    'moderada': 'Moderada (10–20%)',
+    'pronunciada': 'Pronunciada (> 20%)',
+  }
+  const formaLabels: Record<string, string> = { regular: 'Regular', irregular: 'Irregular' }
+  const vistaLabels: Record<string, string> = {
+    ninguna: 'Sin vista especial', sierra: 'Sierra / montaña',
+    valle: 'Valle', lago: 'Lago / presa', canon: 'Cañón',
+  }
+  const aguaLabels: Record<string, string> = {
+    'red-municipal': 'Red municipal', pozo: 'Pozo', pipa: 'Pipa', 'sin-servicio': 'Sin servicio',
+  }
+  const drenajeLabels: Record<string, string> = {
+    'red-municipal': 'Red municipal', 'fosa-septica': 'Fosa séptica', 'sin-servicio': 'Sin servicio',
+  }
+  const electricidadLabels: Record<string, string> = {
+    'cfe-frente': 'CFE frente al predio', extension: 'Extensión requerida', 'sin-servicio': 'Sin servicio',
+  }
+  const distanciaLabels: Record<string, string> = {
+    'menos-20': 'Menos de 20 km', '20-40': '20–40 km', 'mas-40': 'Más de 40 km',
+  }
+
   const prompt = `Eres el Agente Mastermind de SMT Developer, especialista en análisis de inversión inmobiliaria en México.
 
 Con base en los siguientes datos del terreno, genera un análisis de inversión completo y profesional.
@@ -39,6 +63,7 @@ DATOS DEL TERRENO:
 - Dirección: ${data.direccion}
 - Colonia: ${data.colonia}
 - Ciudad: ${data.ciudad}
+- Código postal: ${data.codigoPostal || 'No proporcionado'}
 - Superficie: ${data.superficie} m²
 - Uso de suelo actual: ${usoSueloLabels[data.usoSuelo] || data.usoSuelo}
 - Estado del terreno: ${estadoLabels[data.estadoTerreno] || data.estadoTerreno}
@@ -46,6 +71,25 @@ DATOS DEL TERRENO:
 - Tipo(s) de desarrollo deseado: ${(data.tiposDesarrollo as string[]).map((t: string) => t === 'otro' ? (data.tipoOtroTexto || 'Otro') : (desarrolloLabels[t] || t)).join(', ')}
 - Nivel de construcción elegido por el inversionista: ${bandaConstruccionLabels[data.bandaConstruccion] || 'No especificado — usar Banda 2 por defecto'}
 ${data.lat && data.lng ? `- Coordenadas: ${data.lat}, ${data.lng}` : ''}
+
+DATOS ADICIONALES DEL PREDIO (proporcionados por el usuario — mejoran precisión):
+- Frente: ${data.frente ? `${data.frente} m` : 'No proporcionado'}
+- Pendiente: ${data.pendiente ? pendienteLabels[data.pendiente] : 'No proporcionada'}
+- Forma del terreno: ${data.formaTerreno ? formaLabels[data.formaTerreno] : 'No proporcionada'}
+- Vista destacada: ${data.vistaDestacada ? vistaLabels[data.vistaDestacada] : 'No proporcionada'}
+- ¿Es esquina?: ${data.esEsquina === 'si' ? 'Sí' : data.esEsquina === 'no' ? 'No' : 'No proporcionado'}
+- Agua: ${data.agua ? aguaLabels[data.agua] : 'No proporcionado'}
+- Drenaje: ${data.drenaje ? drenajeLabels[data.drenaje] : 'No proporcionado'}
+- Electricidad: ${data.electricidad ? electricidadLabels[data.electricidad] : 'No proporcionado'}
+- Pavimento frente al predio: ${data.pavimento === 'si' ? 'Sí' : data.pavimento === 'no' ? 'No' : 'No proporcionado'}
+- Distancia a ciudad de abasto: ${data.distanciaAbasto ? distanciaLabels[data.distanciaAbasto] : 'No proporcionada'}
+- Precio solicitado por el terreno: ${data.precioSolicitado ? `$${Number(data.precioSolicitado).toLocaleString('es-MX')} MXN` : 'No proporcionado'}
+
+INSTRUCCIÓN SOBRE DATOS ADICIONALES:
+- Aplica los ajustes de valor de suelo SOLO para los campos que están proporcionados.
+- Para los campos "No proporcionado", omite ese ajuste y regístralo como "ajuste no aplicado — dato faltante".
+- Si hay precio solicitado, compáralo contra el valor calculado e indica si está por encima, dentro o por debajo del rango de mercado.
+${data.pendiente === 'moderada' || data.pendiente === 'pronunciada' ? `- ⚠️ ALERTA PENDIENTE ACTIVADA: El terreno tiene pendiente ${pendienteLabels[data.pendiente || '']}. Cuantifica el sobrecosto de cimentación estimado ($800k–$1.2M según grado) y refléjalo en costoTotalConstruccion y bitacoraConstruccion.` : ''}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 SISTEMA DE BANDAS DE VALOR DE TERRENO
@@ -127,6 +171,81 @@ REGLA DE BANDA DE CONSTRUCCIÓN — OBLIGATORIA:
 2. Usa el costo por m² del rango de la banda elegida ajustado a la ciudad del proyecto (ciudades del norte/frontera y turísticas tienden al límite superior; ciudades medias del interior al inferior).
 3. En bitacoraConstruccion documenta la banda usada, el costo base por m², los ajustes por ciudad y tipología, y las fuentes CMIC.
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+BÚSQUEDA ACTIVA DE COMPARABLES DE TERRENO
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Antes de calcular el valor del terreno, realiza una búsqueda activa de comparables en los portales inmobiliarios. Busca terrenos en venta en la misma zona usando el CP y la colonia del predio.
+
+PORTALES A CONSULTAR (en orden de prioridad):
+1. Lamudi México — terrenos en venta, filtrar por CP y colonia
+2. Inmuebles24 — terrenos en venta, mismo filtro
+3. Mercado Libre Inmuebles — sección terrenos
+4. Propiedades.com — si los anteriores tienen menos de 3 resultados
+5. Vivanuncios — como fuente de respaldo
+
+CRITERIOS DE FILTRO:
+- Tipo: terreno / lote en venta
+- Ubicación: CP del predio + colonias adyacentes (radio ≤ 3 km)
+- Superficie: ±30% de la superficie del predio analizado (si está disponible)
+- Preferir publicaciones de los últimos 12 meses
+
+Para cada comparable encontrado registrar: portal, superficie, precio total, precio/m², colonia, distancia estimada, fecha de publicación.
+Si el radio primario tiene menos de 3 comparables, ampliar a radio secundario (3–5 km) y señalarlo.
+Si no se encuentran comparables en ningún radio, usar estimación paramétrica por banda y señalarlo en el IC.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+FUENTES PARAMÉTRICAS DE COSTO DE CONSTRUCCIÓN
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Para el costo de construcción, consulta y cruza TODAS las fuentes disponibles:
+
+FUENTES PRIMARIAS:
+1. CMIC — Índice de costos de construcción residencial vigente para el estado
+2. Construdata México — costos paramétricos por tipo y nivel constructivo
+3. CONASAMI — tabulador de salarios mínimos profesionales de construcción
+
+FUENTES SECUNDARIAS:
+4. CANADEVI delegación estatal — si tiene publicación de costos de referencia
+5. INFONAVIT / SHF — tablas de valor de reposición nueva por m²
+
+Para cada fuente, registrar: nombre, dato obtenido o "No disponible", fecha del dato.
+Calcular la dispersión entre fuentes: (máximo - mínimo) / promedio × 100. Documentar en bitacoraConstruccion.fuentesConstruccion.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ÍNDICE DE CONFIABILIDAD (IC) — CALCULAR PARA TERRENO Y CONSTRUCCIÓN
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Calcula el IC de 0 a 100 para CADA dato (terreno y construcción) sumando 4 componentes:
+
+COMPONENTE A — Cobertura de fuentes (0–30 pts):
+- 3+ fuentes con dato válido: 30 pts
+- 2 fuentes: 20 pts
+- 1 fuente: 10 pts
+- Solo inferencia: 0 pts
+
+COMPONENTE B — Proximidad geográfica (0–30 pts):
+- Mismo fraccionamiento / CP exacto: 30 pts
+- Colonia colindante / radio ≤ 3 km: 20 pts
+- Radio ampliado 3–5 km: 10 pts
+- Solo referencia de zona o inferencia: 0 pts
+- Si superficie del predio no fue proporcionada: -5 pts adicionales
+
+COMPONENTE C — Vigencia de los datos (0–20 pts):
+- Datos ≤ 6 meses: 20 pts
+- Datos 6–12 meses: 15 pts
+- Datos 12–24 meses: 10 pts
+- Datos > 24 meses: 5 pts
+
+COMPONENTE D — Consistencia entre fuentes (0–20 pts):
+- Dispersión < 10%: 20 pts
+- Dispersión 10–20%: 12 pts
+- Dispersión 20–30%: 6 pts
+- Dispersión > 30%: 2 pts
+- Una sola fuente: 8 pts (penalización muestra única)
+
+IC TOTAL = A + B + C + D
+Semáforo: 🟢 VERDE (75–100) · 🟡 AMARILLO (45–74) · 🔴 ROJO (0–44)
+
+Incluir el IC en bitacoraTerreno.indiceConfiabilidad y bitacoraConstruccion.indiceConfiabilidad.
 
 Genera el análisis en formato JSON con esta estructura exacta (sin texto adicional antes o después del JSON):
 
@@ -425,6 +544,36 @@ Genera el análisis en formato JSON con esta estructura exacta (sin texto adicio
       "minimo": 6500,
       "maximo": 8200,
       "interpretacion": "Rango probable de negociación: precio mínimo (condición actual sin urgencia) y máximo (con mejoras o comprador estratégico)"
+    },
+    "fuentesComparables": [
+      {
+        "portal": "Lamudi",
+        "superficie": 350,
+        "precioTotal": 875000,
+        "precioM2": 2500,
+        "colonia": "nombre de la colonia del comparable",
+        "distanciaKm": 1.2,
+        "fechaPublicacion": "Mayo 2026",
+        "valido": true
+      }
+    ],
+    "indiceConfiabilidad": {
+      "score": 65,
+      "semaforo": "AMARILLO",
+      "componenteA": 20,
+      "componenteB": 20,
+      "componenteC": 15,
+      "componenteD": 10,
+      "interpretacion": "Descripción de 1-2 oraciones sobre el nivel de confiabilidad del valor de terreno calculado y qué dato faltante tendría mayor impacto en mejorarlo",
+      "accionRecomendada": "Solo si IC < 75: acción concreta para mejorar la confiabilidad antes del cierre"
+    },
+    "validacionPrecioSolicitado": {
+      "aplica": false,
+      "precioSolicitado": 0,
+      "precioCalculado": 0,
+      "diferenciaPorcentaje": 0,
+      "semaforo": "VERDE",
+      "interpretacion": "Si aplica: si está por encima, dentro o por debajo del rango de mercado y en qué porcentaje"
     }
   }
 }
@@ -465,6 +614,24 @@ Genera el análisis en formato JSON con esta estructura exacta (sin texto adicio
       "minimo": 11000,
       "maximo": 16000,
       "interpretacion": "Rango para esta banda en esta ciudad: límite inferior con concurso competitivo, límite superior con contratista especializado o condiciones de mercado ajustadas"
+    },
+    "fuentesConstruccion": [
+      { "fuente": "CMIC", "dato": "13000", "fecha": "2025", "disponible": true },
+      { "fuente": "Construdata México", "dato": "13500", "fecha": "2025", "disponible": true },
+      { "fuente": "CONASAMI", "dato": "tabulador $380/jornal", "fecha": "2025", "disponible": true },
+      { "fuente": "CANADEVI estatal", "dato": "No disponible", "fecha": "", "disponible": false },
+      { "fuente": "INFONAVIT / SHF", "dato": "No disponible", "fecha": "", "disponible": false }
+    ],
+    "dispersionFuentes": "Porcentaje de dispersión entre fuentes disponibles (ej: 8.5%)",
+    "indiceConfiabilidad": {
+      "score": 55,
+      "semaforo": "AMARILLO",
+      "componenteA": 20,
+      "componenteB": 15,
+      "componenteC": 15,
+      "componenteD": 8,
+      "interpretacion": "Descripción de 1-2 oraciones sobre la confiabilidad del costo de construcción estimado",
+      "accionRecomendada": "Solo si IC < 75: acción concreta (ej: verificar con contratista local antes del cierre)"
     },
     "desglosePorPartidas": [
       {
@@ -609,6 +776,14 @@ REGLAS:
 - bitacoraConstruccion.rangoReferencia.minimo y .maximo son números enteros (precio/m² directo)
 - bitacoraConstruccion.desglosePorPartidas: exactamente 8 partidas en el orden indicado; porcentaje suma exactamente 100; costoPorM2 de cada partida = round(costoPorM2Final × porcentaje / 100); ajusta porcentajes por banda (banda 4: más acabados+equipamiento; banda 1: más estructura, menos equipamiento); descripcion específica para tipología y banda
 - bitacoraConstruccion.materialesPrincipales: exactamente 6 materiales clave; cantidadPorM2 y precioUnitario son números; costoPorM2 = round(cantidadPorM2 × precioUnitario); ajusta cantidades y precios unitarios a la ciudad del proyecto y banda elegida; nota con observación técnica específica para este proyecto
+- bitacoraTerreno.fuentesComparables: lista de comparables encontrados en portales (mínimo 1, máximo 5); si no se encontraron, lista vacía [] y refleja IC bajo
+- bitacoraTerreno.indiceConfiabilidad.score es número entero 0–100; semaforo es "VERDE", "AMARILLO" o "ROJO"; componentes son números enteros; accionRecomendada es string vacío "" si IC >= 75
+- bitacoraTerreno.validacionPrecioSolicitado.aplica es true SOLO si el usuario proporcionó precio solicitado; si aplica=false, los demás campos de ese objeto son 0 o ""
+- bitacoraConstruccion.fuentesConstruccion: exactamente 5 registros en el orden indicado; disponible es boolean; dato es string (el valor o "No disponible")
+- bitacoraConstruccion.dispersionFuentes: string con el porcentaje calculado solo entre fuentes disponibles (ej: "8.5%"); si solo hay 1 fuente disponible, escribir "Muestra única — dispersión no calculable"
+- bitacoraConstruccion.indiceConfiabilidad: mismas reglas que bitacoraTerreno.indiceConfiabilidad
+- Aplica los ajustes de valor de suelo (frente, pendiente, esquina, vista, servicios) SOLO para los datos que el usuario proporcionó. Si el dato es "No proporcionado", omite ese ajuste y documéntalo
+- Si pendiente es moderada o pronunciada: agrega un ajuste de cimentación específico en bitacoraConstruccion.ajustes con el sobrecosto estimado ($800k–$1.2M según grado)
 - Retorna ÚNICAMENTE el JSON, sin markdown, sin texto extra`
 
   try {
