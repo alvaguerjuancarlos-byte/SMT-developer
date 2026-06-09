@@ -153,6 +153,7 @@ const DISTANCIA_ABASTO = [
 const TIPOS_DESARROLLO = [
   { id: 'residencial-vertical', label: 'Residencial vertical', icon: '🏢' },
   { id: 'residencial-horizontal', label: 'Residencial horizontal', icon: '🏘️' },
+  { id: 'unifamiliar', label: 'Unifamiliar', icon: '🏠' },
   { id: 'comercial', label: 'Comercial', icon: '🏪' },
   { id: 'mixto', label: 'Uso mixto', icon: '🏗️' },
   { id: 'industrial', label: 'Industrial / Nave', icon: '🏭' },
