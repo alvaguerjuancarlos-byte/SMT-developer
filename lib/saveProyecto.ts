@@ -1,5 +1,3 @@
-import { supabase } from './supabase'
-
 export async function saveProyecto({
   nombre,
   datos,
@@ -10,13 +8,10 @@ export async function saveProyecto({
   flujo: 'A' | 'B'
 }): Promise<{ ok: boolean; error?: string; id?: string }> {
   try {
-    const { data: { session } } = await supabase.auth.getSession()
-    const usuario_id = session?.user?.id ?? null
-
     const res = await fetch('/api/save-proyecto', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ nombre, datos, flujo, usuario_id }),
+      body: JSON.stringify({ nombre, datos, flujo }),
     })
     const json = await res.json()
     if (!res.ok) {
