@@ -3,6 +3,7 @@
 import { useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { downloadPDF, autoSavePDF } from '@/lib/downloadPDF'
+import { saveProyecto } from '@/lib/saveProyecto'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -220,6 +221,12 @@ function PropuestaFlujoBContent() {
         if (parsed?.candidatos?.length) {
           setScoutData(parsed)
           setAiGenerated(true)
+          if (!localStorage.getItem('smt_proyecto_id')) {
+            const nombre = proyectoParam || parsed.proyecto || 'Proyecto Scout'
+            saveProyecto({ nombre, datos: parsed, flujo: 'B' })
+              .then(r => { if (r.ok && r.id) localStorage.setItem('smt_proyecto_id', r.id) })
+              .catch(() => {})
+          }
         }
       } catch { /* keep fallback */ }
     }

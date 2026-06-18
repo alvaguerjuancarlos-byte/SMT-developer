@@ -3,6 +3,7 @@
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Suspense, useEffect, useState } from 'react'
 import { downloadPDF, autoSavePDF } from '@/lib/downloadPDF'
+import { saveProyecto } from '@/lib/saveProyecto'
 
 interface StressItem { titulo: string; escenario: string; impacto: string; status: 'green' | 'amber' | 'red' }
 interface Factibilidad { status: 'Disponible' | 'Con condicionante' | 'No disponible'; nota: string }
@@ -167,7 +168,18 @@ function PropuestaContent() {
   useEffect(() => {
     const raw = localStorage.getItem('smt_analisis_data')
     if (raw) {
-      try { setD(JSON.parse(raw)); setAiGenerated(true) } catch { /* fallback */ }
+      try {
+        const parsed = JSON.parse(raw)
+        setD(parsed)
+        setAiGenerated(true)
+        if (!localStorage.getItem('smt_proyecto_id')) {
+          const rawForm = localStorage.getItem('smt_flujo_a_data')
+          const formData = rawForm ? JSON.parse(rawForm) : {}
+          saveProyecto({ nombre: proyecto, datos: { ...parsed, _inputData: formData }, flujo: 'A' })
+            .then(r => { if (r.ok && r.id) localStorage.setItem('smt_proyecto_id', r.id) })
+            .catch(() => {})
+        }
+      } catch { /* fallback */ }
     }
     const rawForm = localStorage.getItem('smt_flujo_a_data')
     if (rawForm) {
