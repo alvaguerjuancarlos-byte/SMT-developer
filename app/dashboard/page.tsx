@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { supabase } from '@/lib/supabase'
 
 interface Proyecto {
   id: string
@@ -22,7 +23,10 @@ export default function DashboardPage() {
   const load = async () => {
     setLoading(true)
     try {
-      const res = await fetch('/api/proyectos')
+      const { data: { session } } = await supabase.auth.getSession()
+      const uid = session?.user?.id
+      const url = uid ? `/api/proyectos?usuario_id=${uid}` : '/api/proyectos'
+      const res = await fetch(url)
       const data = await res.json()
       setProyectos(Array.isArray(data) ? data : [])
     } catch {

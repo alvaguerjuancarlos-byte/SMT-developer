@@ -5,8 +5,9 @@ const SERVICE_KEY  = process.env.SUPABASE_SERVICE_KEY!
 
 export async function POST(req: NextRequest) {
   try {
-    const { nombre, datos, flujo } = await req.json()
+    const { nombre, datos, flujo, usuario_id } = await req.json()
     if (!nombre) return NextResponse.json({ error: 'nombre requerido' }, { status: 400 })
+    if (!usuario_id) return NextResponse.json({ error: 'Debes iniciar sesión para guardar proyectos' }, { status: 401 })
 
     if (!SUPABASE_URL || !SERVICE_KEY) {
       console.error('[save-proyecto] Supabase env vars not set')
@@ -24,6 +25,7 @@ export async function POST(req: NextRequest) {
         'Prefer': 'return=representation',
       },
       body: JSON.stringify({
+        usuario_id,
         nombre,
         datos: datos ?? {},
         flujo: flujo || 'A',
