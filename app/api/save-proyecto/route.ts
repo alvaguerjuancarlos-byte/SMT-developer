@@ -2,11 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 
 const SUPABASE_URL = process.env.SUPABASE_URL!
 const SERVICE_KEY  = process.env.SUPABASE_SERVICE_KEY!
-const ANON_UUID    = '00000000-0000-0000-0000-000000000001'
-
 export async function POST(req: NextRequest) {
   try {
-    const { nombre, datos, flujo, usuario_id } = await req.json()
+    const { nombre, datos, flujo } = await req.json()
     if (!nombre) return NextResponse.json({ error: 'nombre requerido' }, { status: 400 })
 
     if (!SUPABASE_URL || !SERVICE_KEY) {
@@ -16,6 +14,13 @@ export async function POST(req: NextRequest) {
 
     console.log('[save-proyecto] Guardando:', nombre, 'flujo:', flujo)
 
+    const body: Record<string, unknown> = {
+      nombre,
+      datos: datos ?? {},
+      flujo: flujo || 'A',
+      status: 'en-revision',
+    }
+
     const res = await fetch(`${SUPABASE_URL}/rest/v1/proyectos`, {
       method: 'POST',
       headers: {
@@ -24,13 +29,7 @@ export async function POST(req: NextRequest) {
         'Content-Type': 'application/json',
         'Prefer': 'return=representation',
       },
-      body: JSON.stringify({
-        usuario_id: usuario_id || ANON_UUID,
-        nombre,
-        datos: datos ?? {},
-        flujo: flujo || 'A',
-        status: 'en-revision',
-      }),
+      body: JSON.stringify(body),
     })
 
     if (!res.ok) {
