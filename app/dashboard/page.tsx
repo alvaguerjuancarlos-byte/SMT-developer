@@ -155,6 +155,7 @@ export default function DashboardPage() {
           <span className="text-[15px] font-medium text-[#1a1a1a] tracking-wide">SMT Developer</span>
           <span className="block text-[10px] text-[#6b7c74] tracking-[0.12em] uppercase">Inteligencia inmobiliaria</span>
         </div>
+        <span className="text-[10px] text-[#9aab9f] font-medium ml-3">v2.3 · Jun 2026</span>
         <div className="ml-auto">
           <button
             onClick={() => router.push('/prospeccion')}
