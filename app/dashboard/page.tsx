@@ -17,50 +17,50 @@ interface FuenteCategoria {
   color: string
   titulo: string
   sub: string
-  items: [string, string][]
+  items: [string, string, string][]
 }
 
 const FUENTES_DATA: FuenteCategoria[] = [
   { color: '#3B82F6', titulo: 'Normativa Urbana',         sub: 'Planes y zonificación',
-    items: [['Plan de Desarrollo Urbano Municipal', 'Usos de suelo, densidades y alturas permitidas'],
-            ['Plan Parcial de Desarrollo Urbano',   'Detalle normativo de zona específica'],
-            ['Tabla de Compatibilidades de Uso',    'CUS / COS / CAS aplicables al predio'],
-            ['Programa de Ordenamiento Territorial','Macro-zonificación y vocación regional']] },
+    items: [['Plan de Desarrollo Urbano Municipal', 'Usos de suelo, densidades y alturas permitidas',  'Varía por municipio'],
+            ['Plan Parcial de Desarrollo Urbano',   'Detalle normativo de zona específica',             'Varía por municipio'],
+            ['Tabla de Compatibilidades de Uso',    'CUS / COS / CAS aplicables al predio',            'Varía por municipio'],
+            ['Programa de Ordenamiento Territorial','Macro-zonificación y vocación regional',           'Varía por estado']] },
   { color: '#D97706', titulo: 'Marco Legal Federal',       sub: 'Legislación nacional',
-    items: [['LGAHOTDU',             'Ley de Asentamientos Humanos y Ordenamiento Territorial'],
-            ['Ley de Vivienda',      'Criterios de habitabilidad y acceso a financiamiento'],
-            ['LGEEPA',               'Equilibrio Ecológico y Protección al Ambiente'],
-            ['Código Civil Federal', 'Régimen de propiedad, contratos y garantías']] },
+    items: [['LGAHOTDU',             'Ley de Asentamientos Humanos y Ordenamiento Territorial', 'DOF: 28 nov 2016'],
+            ['Ley de Vivienda',      'Criterios de habitabilidad y acceso a financiamiento',   'DOF: 27 jun 2006'],
+            ['LGEEPA',               'Equilibrio Ecológico y Protección al Ambiente',          'DOF: 28 ene 1988'],
+            ['Código Civil Federal', 'Régimen de propiedad, contratos y garantías',            'DOF: 26 may 1928']] },
   { color: '#F97316', titulo: 'Reglamentación Local',      sub: 'Estatal y municipal',
-    items: [['Reglamento de Construcciones',     'Normas técnicas y especificaciones de edificación'],
-            ['Ley de Desarrollo Urbano Estatal', 'Marco regulatorio del estado donde se ubica'],
-            ['Reglamento de Zonificación',       'Restricciones específicas por zona y uso'],
-            ['Ley de Catastro Municipal',         'Valuación catastral y registro predial']] },
+    items: [['Reglamento de Construcciones',     'Normas técnicas y especificaciones de edificación', 'Varía por municipio'],
+            ['Ley de Desarrollo Urbano Estatal', 'Marco regulatorio del estado donde se ubica',       'Varía por estado'],
+            ['Reglamento de Zonificación',       'Restricciones específicas por zona y uso',          'Varía por municipio'],
+            ['Ley de Catastro Municipal',         'Valuación catastral y registro predial',           'Varía por municipio']] },
   { color: '#1D9E75', titulo: 'Mercado Inmobiliario',      sub: 'Comparables y absorción',
-    items: [['Inmuebles24 / Vivanuncios',           'Base de oferta activa y precios por zona'],
-            ['CBRE / JLL / Colliers',              'Reportes de mercado comercial e industrial'],
-            ['AMPI',                               'Índices de precios y velocidad de absorción'],
-            ['SHF — Índice de Precios de Vivienda','Evolución histórica del valor habitacional']] },
+    items: [['Inmuebles24 / Vivanuncios',           'Base de oferta activa y precios por zona',           'Datos en tiempo real'],
+            ['CBRE / JLL / Colliers',              'Reportes de mercado comercial e industrial',         'Reportes trimestrales'],
+            ['AMPI',                               'Índices de precios y velocidad de absorción',        'Fund. 1956'],
+            ['SHF — Índice de Precios de Vivienda','Evolución histórica del valor habitacional',         'DOF: 11 oct 2001']] },
   { color: '#059669', titulo: 'Financiero y Fiscal',       sub: 'Costos, tasas e impuestos',
-    items: [['BANXICO',               'Tasa de referencia, inflación y tipo de cambio'],
-            ['INFONAVIT / FOVISSSTE', 'Mezcla de crédito y elegibilidad de compradores'],
-            ['CMIC',                  'Índice Nacional de Costos de Construcción por m²'],
-            ['SAT',                   'Marco fiscal: ISR, IVA, ISAI y CFDI de operaciones']] },
+    items: [['BANXICO',               'Tasa de referencia, inflación y tipo de cambio',        'DOF: 23 dic 1993'],
+            ['INFONAVIT / FOVISSSTE', 'Mezcla de crédito y elegibilidad de compradores',      'DOF: 24 abr 1972'],
+            ['CMIC',                  'Índice Nacional de Costos de Construcción por m²',     'Fund. 1958'],
+            ['SAT',                   'Marco fiscal: ISR, IVA, ISAI y CFDI de operaciones',  'Creado: 1 jul 1997']] },
   { color: '#7C3AED', titulo: 'Catastro y Registro',       sub: 'Propiedad y linderos',
-    items: [['Registro Público de la Propiedad', 'Titularidad, gravámenes e historial jurídico'],
-            ['Catastro Municipal',               'Valor catastral, superficie y colindancias'],
-            ['RAN — Registro Agrario Nacional',  'Régimen ejidal y regularización de suelo'],
-            ['INEGI — Marco Geoestadístico',     'Cartografía, coordenadas y delimitación']] },
+    items: [['Registro Público de la Propiedad', 'Titularidad, gravámenes e historial jurídico', 'Varía por estado'],
+            ['Catastro Municipal',               'Valor catastral, superficie y colindancias',   'Varía por municipio'],
+            ['RAN — Registro Agrario Nacional',  'Régimen ejidal y regularización de suelo',     'DOF: 26 feb 1992'],
+            ['INEGI — Marco Geoestadístico',     'Cartografía, coordenadas y delimitación',      'Decreto: ene 1983']] },
   { color: '#0D9488', titulo: 'Ambiental y Riesgos',       sub: 'Impacto y vulnerabilidad',
-    items: [['SEMARNAT — MIA',            'Manifestación de Impacto Ambiental requerida'],
-            ['CENAPRED — Atlas de Riesgos','Vulnerabilidad: inundaciones, sismos, deslaves'],
-            ['CONAGUA',                   'Zonas de riesgo hídrico y aguas nacionales'],
-            ['INEGI — Carta Geológica',   'Tipo de suelo, topografía y estratigrafía']] },
+    items: [['SEMARNAT — MIA',            'Manifestación de Impacto Ambiental requerida',           'DOF: 30 nov 2000'],
+            ['CENAPRED — Atlas de Riesgos','Vulnerabilidad: inundaciones, sismos, deslaves',        'Creado: sep 1988'],
+            ['CONAGUA',                   'Zonas de riesgo hídrico y aguas nacionales',             'DOF: 1 dic 1992'],
+            ['INEGI — Carta Geológica',   'Tipo de suelo, topografía y estratigrafía',              'Act. continua']] },
   { color: '#6366F1', titulo: 'Estadístico / Demográfico', sub: 'Población y economía local',
-    items: [['INEGI — Censo de Población y Vivienda','Crecimiento, densidad y composición de hogares'],
-            ['DENUE',  'Actividad económica por zona y sector productivo'],
-            ['CONAPO', 'Proyecciones de población y flujos migratorios'],
-            ['ENOE',   'Empleo, ingresos y demanda habitacional efectiva']] },
+    items: [['INEGI — Censo de Población y Vivienda','Crecimiento, densidad y composición de hogares', 'Último: 2020'],
+            ['DENUE',   'Actividad económica por zona y sector productivo',   'Act. continua'],
+            ['CONAPO',  'Proyecciones de población y flujos migratorios',     'Creado: 1974'],
+            ['ENOE',    'Empleo, ingresos y demanda habitacional efectiva',   'Inicio: 2005']] },
 ]
 
 export default function DashboardPage() {
@@ -341,9 +341,12 @@ export default function DashboardPage() {
                     <p className="text-[11px] text-[#9aab9f] uppercase tracking-widest font-semibold pl-5">{cat.sub}</p>
                   </div>
                   <ul className="px-5 py-4 space-y-3 flex-1">
-                    {cat.items.map(([nombre, uso]) => (
+                    {cat.items.map(([nombre, uso, fecha]) => (
                       <li key={nombre}>
-                        <div className="text-[12px] font-semibold text-[#111d17] leading-tight">{nombre}</div>
+                        <div className="flex items-baseline justify-between gap-2">
+                          <div className="text-[12px] font-semibold text-[#111d17] leading-tight">{nombre}</div>
+                          <span className="text-[9px] text-[#b0bdb6] font-medium shrink-0 whitespace-nowrap">{fecha}</span>
+                        </div>
                         <div className="text-[11px] text-[#9aab9f] mt-0.5 leading-snug">{uso}</div>
                       </li>
                     ))}
