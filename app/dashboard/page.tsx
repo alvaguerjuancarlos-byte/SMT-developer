@@ -13,11 +13,62 @@ interface Proyecto {
   pdf_url?: string
 }
 
+interface FuenteCategoria {
+  color: string
+  titulo: string
+  sub: string
+  items: [string, string][]
+}
+
+const FUENTES_DATA: FuenteCategoria[] = [
+  { color: '#3B82F6', titulo: 'Normativa Urbana',         sub: 'Planes y zonificación',
+    items: [['Plan de Desarrollo Urbano Municipal', 'Usos de suelo, densidades y alturas permitidas'],
+            ['Plan Parcial de Desarrollo Urbano',   'Detalle normativo de zona específica'],
+            ['Tabla de Compatibilidades de Uso',    'CUS / COS / CAS aplicables al predio'],
+            ['Programa de Ordenamiento Territorial','Macro-zonificación y vocación regional']] },
+  { color: '#D97706', titulo: 'Marco Legal Federal',       sub: 'Legislación nacional',
+    items: [['LGAHOTDU',             'Ley de Asentamientos Humanos y Ordenamiento Territorial'],
+            ['Ley de Vivienda',      'Criterios de habitabilidad y acceso a financiamiento'],
+            ['LGEEPA',               'Equilibrio Ecológico y Protección al Ambiente'],
+            ['Código Civil Federal', 'Régimen de propiedad, contratos y garantías']] },
+  { color: '#F97316', titulo: 'Reglamentación Local',      sub: 'Estatal y municipal',
+    items: [['Reglamento de Construcciones',     'Normas técnicas y especificaciones de edificación'],
+            ['Ley de Desarrollo Urbano Estatal', 'Marco regulatorio del estado donde se ubica'],
+            ['Reglamento de Zonificación',       'Restricciones específicas por zona y uso'],
+            ['Ley de Catastro Municipal',         'Valuación catastral y registro predial']] },
+  { color: '#1D9E75', titulo: 'Mercado Inmobiliario',      sub: 'Comparables y absorción',
+    items: [['Inmuebles24 / Vivanuncios',           'Base de oferta activa y precios por zona'],
+            ['CBRE / JLL / Colliers',              'Reportes de mercado comercial e industrial'],
+            ['AMPI',                               'Índices de precios y velocidad de absorción'],
+            ['SHF — Índice de Precios de Vivienda','Evolución histórica del valor habitacional']] },
+  { color: '#059669', titulo: 'Financiero y Fiscal',       sub: 'Costos, tasas e impuestos',
+    items: [['BANXICO',               'Tasa de referencia, inflación y tipo de cambio'],
+            ['INFONAVIT / FOVISSSTE', 'Mezcla de crédito y elegibilidad de compradores'],
+            ['CMIC',                  'Índice Nacional de Costos de Construcción por m²'],
+            ['SAT',                   'Marco fiscal: ISR, IVA, ISAI y CFDI de operaciones']] },
+  { color: '#7C3AED', titulo: 'Catastro y Registro',       sub: 'Propiedad y linderos',
+    items: [['Registro Público de la Propiedad', 'Titularidad, gravámenes e historial jurídico'],
+            ['Catastro Municipal',               'Valor catastral, superficie y colindancias'],
+            ['RAN — Registro Agrario Nacional',  'Régimen ejidal y regularización de suelo'],
+            ['INEGI — Marco Geoestadístico',     'Cartografía, coordenadas y delimitación']] },
+  { color: '#0D9488', titulo: 'Ambiental y Riesgos',       sub: 'Impacto y vulnerabilidad',
+    items: [['SEMARNAT — MIA',            'Manifestación de Impacto Ambiental requerida'],
+            ['CENAPRED — Atlas de Riesgos','Vulnerabilidad: inundaciones, sismos, deslaves'],
+            ['CONAGUA',                   'Zonas de riesgo hídrico y aguas nacionales'],
+            ['INEGI — Carta Geológica',   'Tipo de suelo, topografía y estratigrafía']] },
+  { color: '#6366F1', titulo: 'Estadístico / Demográfico', sub: 'Población y economía local',
+    items: [['INEGI — Censo de Población y Vivienda','Crecimiento, densidad y composición de hogares'],
+            ['DENUE',  'Actividad económica por zona y sector productivo'],
+            ['CONAPO', 'Proyecciones de población y flujos migratorios'],
+            ['ENOE',   'Empleo, ingresos y demanda habitacional efectiva']] },
+]
+
 export default function DashboardPage() {
   const router = useRouter()
   const [proyectos, setProyectos] = useState<Proyecto[]>([])
   const [loading, setLoading] = useState(true)
   const [toggling, setToggling] = useState<string | null>(null)
+  const [tab, setTab] = useState<'proyectos' | 'fuentes'>('proyectos')
 
   const load = async () => {
     setLoading(true)
@@ -120,6 +171,26 @@ export default function DashboardPage() {
       <main className="flex-1 px-6 py-10">
         <div className="w-full max-w-[860px] mx-auto flex flex-col gap-6">
 
+          <div className="flex gap-0 border-b border-[#E2E8E4]">
+            <button
+              onClick={() => setTab('proyectos')}
+              className={`px-4 py-3 text-[13px] font-semibold border-b-2 -mb-px transition-colors ${
+                tab === 'proyectos' ? 'border-[#1D9E75] text-[#1D9E75]' : 'border-transparent text-[#9aab9f] hover:text-[#111d17]'
+              }`}
+            >
+              Mis Proyectos
+            </button>
+            <button
+              onClick={() => setTab('fuentes')}
+              className={`px-4 py-3 text-[13px] font-semibold border-b-2 -mb-px transition-colors ${
+                tab === 'fuentes' ? 'border-[#1D9E75] text-[#1D9E75]' : 'border-transparent text-[#9aab9f] hover:text-[#111d17]'
+              }`}
+            >
+              Fuentes Consultadas
+            </button>
+          </div>
+
+          {tab === 'proyectos' && (<>
           {/* Header row */}
           <div className="flex items-center justify-between">
             <div>
@@ -255,6 +326,34 @@ export default function DashboardPage() {
               </div>
             )}
           </div>
+          </>)}
+
+          {tab === 'fuentes' && (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+              {FUENTES_DATA.map(cat => (
+                <div key={cat.titulo} className="bg-white rounded-2xl border border-[#E2E8E4] shadow-sm overflow-hidden flex flex-col">
+                  <div className="px-5 pt-5 pb-4 border-b border-[#F0F4F2]">
+                    <div className="flex items-center gap-2.5 mb-1">
+                      <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: cat.color }} />
+                      <span className="text-[13px] font-bold text-[#111d17]">{cat.titulo}</span>
+                    </div>
+                    <p className="text-[11px] text-[#9aab9f] uppercase tracking-widest font-semibold pl-5">{cat.sub}</p>
+                  </div>
+                  <ul className="px-5 py-4 space-y-3 flex-1">
+                    {cat.items.map(([nombre, uso]) => (
+                      <li key={nombre}>
+                        <div className="text-[12px] font-semibold text-[#111d17] leading-tight">{nombre}</div>
+                        <div className="text-[11px] text-[#9aab9f] mt-0.5 leading-snug">{uso}</div>
+                      </li>
+                    ))}
+                  </ul>
+                  <div className="px-5 pb-4">
+                    <div className="h-0.5 w-6 rounded-full" style={{ background: cat.color }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
 
         </div>
       </main>
