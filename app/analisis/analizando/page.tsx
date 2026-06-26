@@ -762,6 +762,41 @@ function PipelineContent() {
 
                     <AgentChat agentKey="terreno" agentData={pipe.terreno.data} />
 
+                    {/* Accesibilidad ORS — contexto usado por el agente */}
+                    {pipe.ubicacion.data && (() => {
+                      const { isocronas, errorMsg } = pipe.ubicacion.data
+                      return (
+                        <div className="border-t border-[#F0F4F2] px-5 py-4">
+                          <p className="text-[10px] font-bold text-[#9aab9f] uppercase tracking-widest mb-3">
+                            Accesibilidad · contexto enviado al agente
+                          </p>
+                          {errorMsg ? (
+                            <p className="text-[10px] text-[#92400E] font-mono bg-[#FEF3C7] px-3 py-2 rounded-lg">{errorMsg}</p>
+                          ) : isocronas.length === 0 ? (
+                            <p className="text-[11px] text-[#9aab9f]">Sin datos de isócronas — el agente no recibió contexto de demanda.</p>
+                          ) : (
+                            <div className="flex gap-2">
+                              {isocronas.map(iso => (
+                                <div key={iso.rango_min} className="flex-1 bg-[#F7F8F6] rounded-xl px-3 py-3 text-center">
+                                  <p className="text-[10px] text-[#9aab9f] font-semibold">{iso.rango_min} min</p>
+                                  <p className="text-[15px] font-black text-[#111d17] mt-0.5">
+                                    {iso.poblacion_alcanzada != null
+                                      ? iso.poblacion_alcanzada >= 1_000_000
+                                        ? `${(iso.poblacion_alcanzada / 1_000_000).toFixed(1)}M`
+                                        : iso.poblacion_alcanzada >= 1_000
+                                          ? `${(iso.poblacion_alcanzada / 1_000).toFixed(0)}k`
+                                          : iso.poblacion_alcanzada.toLocaleString()
+                                      : '—'}
+                                  </p>
+                                  <p className="text-[9px] text-[#9aab9f]">hab.</p>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })()}
+
                     {pipe.construccion.status === 'waiting' && (
                       <div className="px-5 pb-5">
                         <button
@@ -785,68 +820,6 @@ function PipelineContent() {
               })()}
             </section>
 
-            {/* ══ UBICACIÓN ══ */}
-            {pipe.ubicacion.status !== 'waiting' && (
-              <section>
-                <p className="text-[10px] font-bold text-[#9aab9f] uppercase tracking-widest mb-3">Inteligencia de Ubicación</p>
-
-                {pipe.ubicacion.status === 'running' && (
-                  <div className="bg-white rounded-2xl border border-[#E2E8E4] shadow-sm p-5 flex items-center gap-4">
-                    <Spinner size={22} />
-                    <p className="text-[13px] font-medium text-[#111d17]">Calculando isócronas y precio de suelo…</p>
-                  </div>
-                )}
-
-                {pipe.ubicacion.status === 'done' && pipe.ubicacion.data && (() => {
-                  const { isocronas, errorMsg } = pipe.ubicacion.data
-                  return (
-                    <div className="bg-white rounded-2xl border border-[#9FE1CB] shadow-sm overflow-hidden">
-                      <div className="px-5 py-4 border-b border-[#F0F4F2] flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <CheckIcon />
-                          <span className="text-[13px] font-bold text-[#0F6E56]">Accesibilidad</span>
-                          <span className="text-[11px] text-[#9aab9f]">Contexto enviado al Agente Terreno</span>
-                        </div>
-                      </div>
-
-                      {errorMsg ? (
-                        <div className="px-5 py-3">
-                          <p className="text-[11px] text-[#92400E] font-mono bg-[#FEF3C7] px-3 py-2 rounded-lg">{errorMsg}</p>
-                        </div>
-                      ) : isocronas.length === 0 ? (
-                        <div className="px-5 py-3">
-                          <p className="text-[11px] text-[#9aab9f]">ORS no devolvió isócronas para esta ubicación.</p>
-                        </div>
-                      ) : (
-                        <div className="px-5 py-4 flex flex-col gap-3">
-                          <p className="text-[10px] text-[#9aab9f] uppercase tracking-widest font-bold">Población alcanzable en auto</p>
-                          <div className="flex gap-2">
-                            {isocronas.map(iso => (
-                              <div key={iso.rango_min} className="flex-1 bg-[#F7F8F6] rounded-xl px-3 py-3 text-center">
-                                <p className="text-[10px] text-[#9aab9f] font-semibold">{iso.rango_min} min</p>
-                                <p className="text-[15px] font-black text-[#111d17] mt-0.5">
-                                  {iso.poblacion_alcanzada != null
-                                    ? iso.poblacion_alcanzada >= 1_000_000
-                                      ? `${(iso.poblacion_alcanzada / 1_000_000).toFixed(1)}M`
-                                      : iso.poblacion_alcanzada >= 1_000
-                                        ? `${(iso.poblacion_alcanzada / 1_000).toFixed(0)}k`
-                                        : iso.poblacion_alcanzada.toLocaleString()
-                                    : '—'}
-                                </p>
-                                <p className="text-[9px] text-[#9aab9f]">hab.</p>
-                              </div>
-                            ))}
-                          </div>
-                          <p className="text-[10px] text-[#9aab9f] leading-snug">
-                            Estos datos de demanda potencial fueron compartidos con el Agente Terreno antes de su análisis.
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  )
-                })()}
-              </section>
-            )}
 
             {/* ══ STEP 2 — CONSTRUCCIÓN ══ */}
             {(pipe.construccion.status !== 'waiting') && (
