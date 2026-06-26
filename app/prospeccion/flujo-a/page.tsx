@@ -105,6 +105,14 @@ const BANDAS_CONSTRUCCION = [
   },
 ]
 
+const CLASIFICACION_VIAL = [
+  { id: 'arterial',   label: 'Arterial / Primaria',    sub: 'Avenida principal, boulevard o acceso a ciudad', factor: '+20% a +28%' },
+  { id: 'colectora',  label: 'Colectora',               sub: 'Conecta arteriales con calles locales',          factor: '+10% a +15%' },
+  { id: 'secundaria', label: 'Secundaria',              sub: 'Calle secundaria con servicios consolidados',     factor: '+5% a +8%'   },
+  { id: 'local',      label: 'Local / Habitacional',   sub: 'Calle interior de colonia (valor base)',          factor: 'Base'         },
+  { id: 'privada',    label: 'Privada / Andador',       sub: 'Acceso cerrado, sin salida o privada',           factor: '-5% a -10%'  },
+]
+
 const PENDIENTE_OPTIONS = [
   { id: 'plano', label: 'Plano (< 5%)' },
   { id: 'suave', label: 'Suave (5–10%)' },
@@ -198,6 +206,7 @@ interface FormData {
   bandaConstruccion: string
   mapsLink: string
   frente: string
+  clasificacionVial: string
   pendiente: string
   formaTerreno: string
   vistaDestacada: string
@@ -230,6 +239,7 @@ const INITIAL: FormData = {
   bandaConstruccion: '',
   mapsLink: '',
   frente: '',
+  clasificacionVial: '',
   pendiente: '',
   formaTerreno: '',
   vistaDestacada: '',
@@ -840,6 +850,43 @@ function Step3({ data, setData }: { data: FormData; setData: (d: FormData) => vo
         </div>
 
         <div>
+          <FieldLabel optional>Clasificación vial de la calle</FieldLabel>
+          <p className="text-[11px] text-[#9aab9f] mb-2 -mt-1">Tipo de vía según el Plan de Desarrollo Urbano — impacta directamente el valor del terreno.</p>
+          <div className="flex flex-col gap-2">
+            {CLASIFICACION_VIAL.map(v => (
+              <ChipOption key={v.id} selected={data.clasificacionVial === v.id} onClick={() => setData({ ...data, clasificacionVial: data.clasificacionVial === v.id ? '' : v.id })}>
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-[13px] font-semibold text-[#111d17]">{v.label}</p>
+                    <p className="text-[11px] text-[#9aab9f] mt-0.5">{v.sub}</p>
+                  </div>
+                  <span className={`text-[10px] font-bold shrink-0 px-2 py-0.5 rounded-full ${
+                    v.id === 'local' ? 'bg-[#F0F4F2] text-[#9aab9f]' :
+                    v.id === 'privada' ? 'bg-[#FEE2E2] text-[#DC2626]' :
+                    'bg-[#E1F5EE] text-[#0F6E56]'
+                  }`}>{v.factor}</span>
+                </div>
+              </ChipOption>
+            ))}
+          </div>
+          {data.clasificacionVial && data.clasificacionVial !== 'local' && (
+            <div className={`mt-2 flex items-start gap-2 rounded-xl px-3 py-2 ${
+              data.clasificacionVial === 'privada'
+                ? 'bg-[#FEE2E2] border border-[#FECACA]'
+                : 'bg-[#E1F5EE] border border-[#9FE1CB]'
+            }`}>
+              <span className="text-sm mt-0.5">{data.clasificacionVial === 'privada' ? '⚠️' : '✅'}</span>
+              <p className={`text-[11px] ${data.clasificacionVial === 'privada' ? 'text-[#991B1B]' : 'text-[#0F6E56]'}`}>
+                {data.clasificacionVial === 'privada'
+                  ? 'Calle privada — el agente aplicará una reducción sobre el valor base. Acceso limitado y menor plusvalía comercial.'
+                  : `Vía ${CLASIFICACION_VIAL.find(v => v.id === data.clasificacionVial)?.label?.toLowerCase()} — el agente aplicará un incremento de ${CLASIFICACION_VIAL.find(v => v.id === data.clasificacionVial)?.factor} sobre el valor base del terreno.`
+                }
+              </p>
+            </div>
+          )}
+        </div>
+
+        <div>
           <FieldLabel optional>Pendiente del terreno</FieldLabel>
           <div className="grid grid-cols-2 gap-2">
             {PENDIENTE_OPTIONS.map(p => (
@@ -1133,6 +1180,16 @@ function Step5({ data }: { data: FormData }) {
             />
           )}
           {data.frente && <SummaryRow label="Frente" value={`${data.frente} m`} />}
+          {data.clasificacionVial && <SummaryRow label="Vialidad" value={
+            <span className="flex items-center gap-1.5">
+              {CLASIFICACION_VIAL.find(v => v.id === data.clasificacionVial)?.label}
+              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+                data.clasificacionVial === 'local' ? 'bg-[#F0F4F2] text-[#9aab9f]' :
+                data.clasificacionVial === 'privada' ? 'bg-[#FEE2E2] text-[#DC2626]' :
+                'bg-[#E1F5EE] text-[#0F6E56]'
+              }`}>{CLASIFICACION_VIAL.find(v => v.id === data.clasificacionVial)?.factor}</span>
+            </span>
+          } />}
           {data.pendiente && <SummaryRow label="Pendiente" value={PENDIENTE_OPTIONS.find(p => p.id === data.pendiente)?.label} />}
           {data.formaTerreno && <SummaryRow label="Forma" value={FORMA_TERRENO.find(f => f.id === data.formaTerreno)?.label} />}
           {data.vistaDestacada && data.vistaDestacada !== 'ninguna' && <SummaryRow label="Vista" value={VISTA_DESTACADA.find(v => v.id === data.vistaDestacada)?.label} />}

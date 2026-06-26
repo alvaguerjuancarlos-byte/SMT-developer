@@ -53,6 +53,13 @@ export async function POST(req: NextRequest) {
   const distanciaLabels: Record<string, string> = {
     'menos-20': 'Menos de 20 km', '20-40': '20–40 km', 'mas-40': 'Más de 40 km',
   }
+  const clasificacionVialLabels: Record<string, string> = {
+    arterial:   'Arterial / Primaria — avenida principal o boulevard (factor +20% a +28%)',
+    colectora:  'Colectora — conecta arteriales con calles locales (factor +10% a +15%)',
+    secundaria: 'Secundaria — calle secundaria consolidada (factor +5% a +8%)',
+    local:      'Local / Habitacional — calle interior de colonia (valor base, sin ajuste)',
+    privada:    'Privada / Andador — acceso cerrado o sin salida (factor -5% a -10%)',
+  }
 
   const prompt = `Eres el Agente Mastermind de SMT Developer, especialista en análisis de inversión inmobiliaria en México.
 
@@ -77,6 +84,7 @@ DATOS ADICIONALES DEL PREDIO (proporcionados por el usuario — mejoran precisi�
 - Pendiente: ${data.pendiente ? pendienteLabels[data.pendiente] : 'No proporcionada'}
 - Forma del terreno: ${data.formaTerreno ? formaLabels[data.formaTerreno] : 'No proporcionada'}
 - Vista destacada: ${data.vistaDestacada ? vistaLabels[data.vistaDestacada] : 'No proporcionada'}
+- Clasificación vial de la calle frente al predio: ${data.clasificacionVial ? clasificacionVialLabels[data.clasificacionVial] : 'No proporcionada'}
 - ¿Es esquina?: ${data.esEsquina === 'si' ? 'Sí' : data.esEsquina === 'no' ? 'No' : 'No proporcionado'}
 - Agua: ${data.agua ? aguaLabels[data.agua] : 'No proporcionado'}
 - Drenaje: ${data.drenaje ? drenajeLabels[data.drenaje] : 'No proporcionado'}
@@ -89,6 +97,13 @@ INSTRUCCIÓN SOBRE DATOS ADICIONALES:
 - Aplica los ajustes de valor de suelo SOLO para los campos que están proporcionados.
 - Para los campos "No proporcionado", omite ese ajuste y regístralo como "ajuste no aplicado — dato faltante".
 - Si hay precio solicitado, compáralo contra el valor calculado e indica si está por encima, dentro o por debajo del rango de mercado.
+- FACTOR DE CLASIFICACIÓN VIAL (aplicar si fue proporcionado): La clasificación vial determina un ajuste directo sobre el precio base del terreno. Aplica el factor ANTES de otros ajustes secundarios y documéntalo en bitacoraTerreno.ajustes como concepto "Clasificación vial — [tipo de vía]". Rangos metodología INDAABIN/SHF:
+  * Arterial/Primaria: +20% a +28% (usa el extremo superior solo si la vía tiene alto flujo vehicular, comercio formal y es un corredor reconocido; usa el inferior si el flujo es menor o la vía está en desarrollo)
+  * Colectora: +10% a +15%
+  * Secundaria: +5% a +8%
+  * Local/Habitacional: 0% (es la referencia base — no aplica ajuste, pero documenta que se confirmó esta clasificación)
+  * Privada/Andador: -5% a -10% (penaliza por acceso limitado y menor liquidez comercial)
+  Si la clasificación vial NO fue proporcionada, el agente puede inferirla a partir de la dirección y señalarlo en bitacoraTerreno como "clasificación vial inferida — no confirmada por el usuario".
 ${data.pendiente === 'moderada' || data.pendiente === 'pronunciada' ? `- ⚠️ ALERTA PENDIENTE ACTIVADA: El terreno tiene pendiente ${pendienteLabels[data.pendiente || '']}. Cuantifica el sobrecosto de cimentación estimado ($800k–$1.2M según grado) y refléjalo en costoTotalConstruccion y bitacoraConstruccion.` : ''}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import FuentesConsultadas from '@/app/components/FuentesConsultadas'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -845,6 +846,9 @@ function AnalisisflujoB() {
               </div>
             </div>
           )}
+
+          {/* Base de conocimiento */}
+          <FuentesConsultadas />
 
           {/* 13 · CTA */}
           <div className="bg-white rounded-2xl border border-[#E2E8E4] shadow-sm p-6 flex items-center justify-between">

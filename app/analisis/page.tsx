@@ -2,6 +2,7 @@
 
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Suspense, useEffect, useRef, useState } from 'react'
+import FuentesConsultadas from '@/app/components/FuentesConsultadas'
 
 interface StressItem {
   titulo: string
@@ -1560,6 +1561,9 @@ function AnalisisContent() {
               </div>
             </Card>
           </div>
+
+          {/* Fuentes Consultadas */}
+          <FuentesConsultadas />
 
           {/* CTA */}
           <div className="bg-[#F0FBF6] border border-[#1D9E75]/30 rounded-2xl p-6 flex items-center justify-between">
