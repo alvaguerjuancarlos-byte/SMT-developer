@@ -23,34 +23,36 @@ interface CachedRow {
 
 export async function POST(req: NextRequest) {
   const body = await req.json() as {
-    terrenoId: string
+    terrenoId?: string | null
     lat: number
     lng: number
     perfil?: 'driving' | 'walking'
   }
 
-  const { terrenoId, lat, lng, perfil = 'driving' } = body
+  const { terrenoId = null, lat, lng, perfil = 'driving' } = body
 
-  if (!terrenoId || lat == null || lng == null) {
+  if (lat == null || lng == null) {
     return NextResponse.json(
-      { error: 'terrenoId, lat y lng son requeridos' },
+      { error: 'lat y lng son requeridos' },
       { status: 400 },
     )
   }
 
-  // ── 1. Buscar cache válido (< 30 días) ────────────────────────────────────
-  const cutoff = new Date(Date.now() - CACHE_DAYS * 86_400_000).toISOString()
-  const cacheUrl =
-    `${SUPABASE_URL}/rest/v1/isocronas` +
-    `?terreno_id=eq.${terrenoId}` +
-    `&perfil=eq.${perfil}` +
-    `&fecha_calculo=gte.${cutoff}` +
-    `&select=rango_min,geojson,poblacion_alcanzada`
+  // ── 1. Buscar cache válido (< 30 días) — solo si hay terrenoId ─────────────
+  let cached: CachedRow[] = []
+  if (terrenoId) {
+    const cutoff = new Date(Date.now() - CACHE_DAYS * 86_400_000).toISOString()
+    const cacheUrl =
+      `${SUPABASE_URL}/rest/v1/isocronas` +
+      `?terreno_id=eq.${terrenoId}` +
+      `&perfil=eq.${perfil}` +
+      `&fecha_calculo=gte.${cutoff}` +
+      `&select=rango_min,geojson,poblacion_alcanzada`
+    const cacheRes = await fetch(cacheUrl, { headers: sbHeaders() })
+    cached = cacheRes.ok ? await cacheRes.json() : []
+  }
 
-  const cacheRes  = await fetch(cacheUrl, { headers: sbHeaders() })
-  const cached: CachedRow[] = cacheRes.ok ? await cacheRes.json() : []
-
-  const cachedSet    = new Set(cached.map(c => c.rango_min))
+  const cachedSet     = new Set(cached.map(c => c.rango_min))
   const pendingRangos = RANGOS.filter(r => !cachedSet.has(r))
 
   let fresh: IsochroneResult[] = []
@@ -87,8 +89,8 @@ export async function POST(req: NextRequest) {
       throw err
     }
 
-    // ── 3. Guardar en cache (upsert) ─────────────────────────────────────────
-    if (fresh.length > 0) {
+    // ── 3. Guardar en cache (upsert) — solo si hay terrenoId ─────────────────
+    if (fresh.length > 0 && terrenoId) {
       const records = fresh.map(iso => ({
         terreno_id:          terrenoId,
         perfil,

@@ -28,12 +28,28 @@ interface FinancieroResult {
   stressTest: any[]; puntoQuiebre: any
 }
 
+interface UbicacionData {
+  landPrice: {
+    encontrado: boolean
+    zona?: { municipio: string; colonia: string }
+    precio_m2_min?: number
+    precio_m2_base?: number
+    precio_m2_max?: number
+    precio_cierre_estimado?: number
+    n_muestras?: number
+    fuente?: string | null
+    mensaje?: string
+  } | null
+  isocronas: { rango_min: number; poblacion_alcanzada: number | null }[]
+}
+
 interface PipelineState {
   terreno:     { status: AgentStatus; data: TerrenoResult | null;     overrideM2: string }
   construccion:{ status: AgentStatus; data: ConstruccionResult | null; overrideM2: string }
   legal:       { status: AgentStatus; data: LegalResult | null }
   mercado:     { status: AgentStatus; data: MercadoResult | null }
   financiero:  { status: AgentStatus; data: FinancieroResult | null }
+  ubicacion:   { status: AgentStatus; data: UbicacionData | null }
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -327,6 +343,7 @@ function PipelineContent() {
     legal:       { status: 'waiting', data: null },
     mercado:     { status: 'waiting', data: null },
     financiero:  { status: 'waiting', data: null },
+    ubicacion:   { status: 'waiting', data: null },
   })
 
   useEffect(() => {
@@ -336,6 +353,31 @@ function PipelineContent() {
     setFormData(fd)
     runTerreno(fd)
   }, [])
+
+  // ── Ubicación (corre en paralelo al aprobar terreno) ──
+  const runUbicacion = async (fd: any) => {
+    const lat: number | null = fd.lat ?? fd.zonaGeo?.lat ?? null
+    const lng: number | null = fd.lng ?? fd.zonaGeo?.lng ?? null
+    if (!lat || !lng) return
+    setPipe(p => ({ ...p, ubicacion: { status: 'running', data: null } }))
+    try {
+      const [lpRes, isoRes] = await Promise.allSettled([
+        fetch('/api/market/land-price', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ lat, lng }),
+        }).then(r => r.json()),
+        fetch('/api/geo/isochrone', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ lat, lng, perfil: 'driving' }),
+        }).then(r => r.json()),
+      ])
+      const landPrice = lpRes.status === 'fulfilled' ? lpRes.value : null
+      const isocronas = isoRes.status === 'fulfilled' ? (isoRes.value.isocronas ?? []) : []
+      setPipe(p => ({ ...p, ubicacion: { status: 'done', data: { landPrice, isocronas } } }))
+    } catch {
+      setPipe(p => ({ ...p, ubicacion: { status: 'error', data: null } }))
+    }
+  }
 
   // ── Step 1: Terreno ──
   const runTerreno = async (fd?: any) => {
@@ -349,6 +391,7 @@ function PipelineContent() {
       const json = await res.json()
       if (json.error) throw new Error(json.error)
       setPipe(p => ({ ...p, terreno: { ...p.terreno, status: 'done', data: json } }))
+      runUbicacion(input)
     } catch {
       setPipe(p => ({ ...p, terreno: { ...p.terreno, status: 'error' } }))
     }
@@ -739,6 +782,95 @@ function PipelineContent() {
                 )
               })()}
             </section>
+
+            {/* ══ UBICACIÓN ══ */}
+            {pipe.ubicacion.status !== 'waiting' && (
+              <section>
+                <p className="text-[10px] font-bold text-[#9aab9f] uppercase tracking-widest mb-3">Inteligencia de Ubicación</p>
+
+                {pipe.ubicacion.status === 'running' && (
+                  <div className="bg-white rounded-2xl border border-[#E2E8E4] shadow-sm p-5 flex items-center gap-4">
+                    <Spinner size={22} />
+                    <p className="text-[13px] font-medium text-[#111d17]">Calculando isócronas y precio de suelo…</p>
+                  </div>
+                )}
+
+                {pipe.ubicacion.status === 'done' && pipe.ubicacion.data && (() => {
+                  const u = pipe.ubicacion.data
+                  const lp = u.landPrice
+                  return (
+                    <div className="bg-white rounded-2xl border border-[#9FE1CB] shadow-sm overflow-hidden">
+                      <div className="px-5 py-4 border-b border-[#F0F4F2] flex items-center gap-2">
+                        <CheckIcon />
+                        <span className="text-[13px] font-bold text-[#0F6E56]">Ubicación</span>
+                        {lp?.encontrado && lp.zona && (
+                          <span className="text-[11px] text-[#9aab9f]">{lp.zona.colonia}, {lp.zona.municipio}</span>
+                        )}
+                      </div>
+
+                      <div className="px-5 py-4 flex flex-col gap-4">
+
+                        {/* Precio de suelo */}
+                        {lp?.encontrado ? (
+                          <div>
+                            <p className="text-[10px] font-bold text-[#9aab9f] uppercase tracking-widest mb-2">Precio de suelo zona</p>
+                            <div className="flex items-center gap-2">
+                              <div className="flex-1 bg-[#F7F8F6] rounded-lg px-3 py-2 text-center">
+                                <p className="text-[9px] text-[#9aab9f] uppercase tracking-wide">Mínimo</p>
+                                <p className="text-[13px] font-bold text-[#111d17]">${lp.precio_m2_min?.toLocaleString('es-MX')}/m²</p>
+                              </div>
+                              <div className="flex-1 bg-[#1D9E75] rounded-lg px-3 py-2 text-center">
+                                <p className="text-[9px] text-white/70 uppercase tracking-wide">Cierre est.</p>
+                                <p className="text-[13px] font-bold text-white">${lp.precio_cierre_estimado?.toLocaleString('es-MX')}/m²</p>
+                              </div>
+                              <div className="flex-1 bg-[#F7F8F6] rounded-lg px-3 py-2 text-center">
+                                <p className="text-[9px] text-[#9aab9f] uppercase tracking-wide">Máximo</p>
+                                <p className="text-[13px] font-bold text-[#111d17]">${lp.precio_m2_max?.toLocaleString('es-MX')}/m²</p>
+                              </div>
+                            </div>
+                            {lp.n_muestras != null && (
+                              <p className="text-[10px] text-[#9aab9f] mt-1.5">
+                                {lp.n_muestras} muestras{lp.fuente ? ` · ${lp.fuente}` : ''}
+                              </p>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="bg-[#F7F8F6] rounded-xl px-4 py-3">
+                            <p className="text-[11px] text-[#9aab9f]">
+                              Sin zona de precio registrada para esta ubicación. Agrega polígonos a <code className="text-[10px]">zonas_referencia</code> para habilitar este indicador.
+                            </p>
+                          </div>
+                        )}
+
+                        {/* Isócronas */}
+                        {u.isocronas.length > 0 && (
+                          <div>
+                            <p className="text-[10px] font-bold text-[#9aab9f] uppercase tracking-widest mb-2">Población alcanzable (auto)</p>
+                            <div className="flex gap-2">
+                              {u.isocronas.map(iso => (
+                                <div key={iso.rango_min} className="flex-1 bg-[#F7F8F6] rounded-xl px-3 py-3 text-center">
+                                  <p className="text-[10px] text-[#9aab9f] font-semibold">{iso.rango_min} min</p>
+                                  <p className="text-[15px] font-black text-[#111d17] mt-0.5">
+                                    {iso.poblacion_alcanzada != null
+                                      ? iso.poblacion_alcanzada >= 1_000_000
+                                        ? `${(iso.poblacion_alcanzada / 1_000_000).toFixed(1)}M`
+                                        : iso.poblacion_alcanzada >= 1_000
+                                          ? `${(iso.poblacion_alcanzada / 1_000).toFixed(0)}k`
+                                          : iso.poblacion_alcanzada.toLocaleString()
+                                      : '—'}
+                                  </p>
+                                  <p className="text-[9px] text-[#9aab9f]">hab.</p>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })()}
+              </section>
+            )}
 
             {/* ══ STEP 2 — CONSTRUCCIÓN ══ */}
             {(pipe.construccion.status !== 'waiting') && (
