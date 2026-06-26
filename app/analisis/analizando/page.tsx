@@ -29,17 +29,6 @@ interface FinancieroResult {
 }
 
 interface UbicacionData {
-  landPrice: {
-    encontrado: boolean
-    zona?: { municipio: string; colonia: string }
-    precio_m2_min?: number
-    precio_m2_base?: number
-    precio_m2_max?: number
-    precio_cierre_estimado?: number
-    n_muestras?: number
-    fuente?: string | null
-    mensaje?: string
-  } | null
   isocronas: { rango_min: number; poblacion_alcanzada: number | null }[]
 }
 
@@ -368,23 +357,15 @@ function PipelineContent() {
 
     setPipe(p => ({ ...p, ubicacion: { status: 'running', data: null } }))
     try {
-      const [lpRes, isoRes] = await Promise.allSettled([
-        fetch('/api/market/land-price', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ lat, lng }),
-        }).then(r => r.json()),
-        fetch('/api/geo/isochrone', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ lat, lng, perfil: 'driving' }),
-        }).then(r => r.json()),
-      ])
-      const landPrice = lpRes.status === 'fulfilled' ? lpRes.value : null
-      const isocronas = isoRes.status === 'fulfilled' ? (isoRes.value.isocronas ?? []) : []
-      const ubicacionData: UbicacionData = { landPrice, isocronas }
+      const isoRes = await fetch('/api/geo/isochrone', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lat, lng, perfil: 'driving' }),
+      }).then(r => r.json())
+      const isocronas = isoRes.isocronas ?? []
+      const ubicacionData: UbicacionData = { isocronas }
       setPipe(p => ({ ...p, ubicacion: { status: 'done', data: ubicacionData } }))
       runTerreno(fd, ubicacionData)
     } catch {
-      // Degradación: si ubicación falla, terreno corre igual sin ese contexto
       setPipe(p => ({ ...p, ubicacion: { status: 'error', data: null } }))
       runTerreno(fd, null)
     }
@@ -814,75 +795,31 @@ function PipelineContent() {
                 )}
 
                 {pipe.ubicacion.status === 'done' && pipe.ubicacion.data && (() => {
-                  const u = pipe.ubicacion.data
-                  const lp = u.landPrice
+                  const { isocronas } = pipe.ubicacion.data
+                  if (isocronas.length === 0) return null
                   return (
                     <div className="bg-white rounded-2xl border border-[#9FE1CB] shadow-sm overflow-hidden">
                       <div className="px-5 py-4 border-b border-[#F0F4F2] flex items-center gap-2">
                         <CheckIcon />
-                        <span className="text-[13px] font-bold text-[#0F6E56]">Ubicación</span>
-                        {lp?.encontrado && lp.zona && (
-                          <span className="text-[11px] text-[#9aab9f]">{lp.zona.colonia}, {lp.zona.municipio}</span>
-                        )}
+                        <span className="text-[13px] font-bold text-[#0F6E56]">Accesibilidad</span>
+                        <span className="text-[11px] text-[#9aab9f]">Población alcanzable en auto</span>
                       </div>
-
-                      <div className="px-5 py-4 flex flex-col gap-4">
-
-                        {/* Precio de suelo */}
-                        {lp?.encontrado ? (
-                          <div>
-                            <p className="text-[10px] font-bold text-[#9aab9f] uppercase tracking-widest mb-2">Precio de suelo zona</p>
-                            <div className="flex items-center gap-2">
-                              <div className="flex-1 bg-[#F7F8F6] rounded-lg px-3 py-2 text-center">
-                                <p className="text-[9px] text-[#9aab9f] uppercase tracking-wide">Mínimo</p>
-                                <p className="text-[13px] font-bold text-[#111d17]">${lp.precio_m2_min?.toLocaleString('es-MX')}/m²</p>
-                              </div>
-                              <div className="flex-1 bg-[#1D9E75] rounded-lg px-3 py-2 text-center">
-                                <p className="text-[9px] text-white/70 uppercase tracking-wide">Cierre est.</p>
-                                <p className="text-[13px] font-bold text-white">${lp.precio_cierre_estimado?.toLocaleString('es-MX')}/m²</p>
-                              </div>
-                              <div className="flex-1 bg-[#F7F8F6] rounded-lg px-3 py-2 text-center">
-                                <p className="text-[9px] text-[#9aab9f] uppercase tracking-wide">Máximo</p>
-                                <p className="text-[13px] font-bold text-[#111d17]">${lp.precio_m2_max?.toLocaleString('es-MX')}/m²</p>
-                              </div>
-                            </div>
-                            {lp.n_muestras != null && (
-                              <p className="text-[10px] text-[#9aab9f] mt-1.5">
-                                {lp.n_muestras} muestras{lp.fuente ? ` · ${lp.fuente}` : ''}
-                              </p>
-                            )}
-                          </div>
-                        ) : (
-                          <div className="bg-[#F7F8F6] rounded-xl px-4 py-3">
-                            <p className="text-[11px] text-[#9aab9f]">
-                              Sin zona de precio registrada para esta ubicación. Agrega polígonos a <code className="text-[10px]">zonas_referencia</code> para habilitar este indicador.
+                      <div className="px-5 py-4 flex gap-2">
+                        {isocronas.map(iso => (
+                          <div key={iso.rango_min} className="flex-1 bg-[#F7F8F6] rounded-xl px-3 py-3 text-center">
+                            <p className="text-[10px] text-[#9aab9f] font-semibold">{iso.rango_min} min</p>
+                            <p className="text-[15px] font-black text-[#111d17] mt-0.5">
+                              {iso.poblacion_alcanzada != null
+                                ? iso.poblacion_alcanzada >= 1_000_000
+                                  ? `${(iso.poblacion_alcanzada / 1_000_000).toFixed(1)}M`
+                                  : iso.poblacion_alcanzada >= 1_000
+                                    ? `${(iso.poblacion_alcanzada / 1_000).toFixed(0)}k`
+                                    : iso.poblacion_alcanzada.toLocaleString()
+                                : '—'}
                             </p>
+                            <p className="text-[9px] text-[#9aab9f]">hab.</p>
                           </div>
-                        )}
-
-                        {/* Isócronas */}
-                        {u.isocronas.length > 0 && (
-                          <div>
-                            <p className="text-[10px] font-bold text-[#9aab9f] uppercase tracking-widest mb-2">Población alcanzable (auto)</p>
-                            <div className="flex gap-2">
-                              {u.isocronas.map(iso => (
-                                <div key={iso.rango_min} className="flex-1 bg-[#F7F8F6] rounded-xl px-3 py-3 text-center">
-                                  <p className="text-[10px] text-[#9aab9f] font-semibold">{iso.rango_min} min</p>
-                                  <p className="text-[15px] font-black text-[#111d17] mt-0.5">
-                                    {iso.poblacion_alcanzada != null
-                                      ? iso.poblacion_alcanzada >= 1_000_000
-                                        ? `${(iso.poblacion_alcanzada / 1_000_000).toFixed(1)}M`
-                                        : iso.poblacion_alcanzada >= 1_000
-                                          ? `${(iso.poblacion_alcanzada / 1_000).toFixed(0)}k`
-                                          : iso.poblacion_alcanzada.toLocaleString()
-                                      : '—'}
-                                  </p>
-                                  <p className="text-[9px] text-[#9aab9f]">hab.</p>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
+                        ))}
                       </div>
                     </div>
                   )
