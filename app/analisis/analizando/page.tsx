@@ -347,12 +347,26 @@ function PipelineContent() {
 
   // ── Preparación: Ubicación (corre primero, al terminar dispara Terreno) ──
   const runUbicacion = async (fd: any) => {
-    const lat: number | null = fd.lat ?? fd.zonaGeo?.lat ?? null
-    const lng: number | null = fd.lng ?? fd.zonaGeo?.lng ?? null
+    let lat: number | null = fd.lat ?? fd.zonaGeo?.lat ?? null
+    let lng: number | null = fd.lng ?? fd.zonaGeo?.lng ?? null
+
+    // Sin pin confirmado → geocodificar la dirección con Google automáticamente
+    if (!lat || !lng) {
+      const address = [fd.direccion, fd.colonia, fd.ciudad, fd.estado].filter(Boolean).join(', ')
+      if (address) {
+        try {
+          const geoRes = await fetch(
+            `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY}`
+          ).then(r => r.json())
+          const loc = geoRes.results?.[0]?.geometry?.location
+          if (loc) { lat = loc.lat; lng = loc.lng }
+        } catch { /* si geocoding falla, continúa sin coords */ }
+      }
+    }
 
     if (!lat || !lng) {
       // Sin coordenadas: saltar ubicación y arrancar terreno directamente
-      setPipe(p => ({ ...p, ubicacion: { status: 'done', data: { landPrice: null, isocronas: [] } } }))
+      setPipe(p => ({ ...p, ubicacion: { status: 'done', data: { isocronas: [] } } }))
       runTerreno(fd, null)
       return
     }
