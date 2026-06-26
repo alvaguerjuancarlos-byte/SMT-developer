@@ -351,14 +351,21 @@ function PipelineContent() {
     if (!raw) { router.push('/prospeccion/flujo-a'); return }
     const fd = JSON.parse(raw)
     setFormData(fd)
-    runTerreno(fd)
+    runUbicacion(fd)   // ubicación primero; al terminar dispara runTerreno con el contexto
   }, [])
 
-  // ── Ubicación (corre en paralelo al aprobar terreno) ──
+  // ── Preparación: Ubicación (corre primero, al terminar dispara Terreno) ──
   const runUbicacion = async (fd: any) => {
     const lat: number | null = fd.lat ?? fd.zonaGeo?.lat ?? null
     const lng: number | null = fd.lng ?? fd.zonaGeo?.lng ?? null
-    if (!lat || !lng) return
+
+    if (!lat || !lng) {
+      // Sin coordenadas: saltar ubicación y arrancar terreno directamente
+      setPipe(p => ({ ...p, ubicacion: { status: 'done', data: { landPrice: null, isocronas: [] } } }))
+      runTerreno(fd, null)
+      return
+    }
+
     setPipe(p => ({ ...p, ubicacion: { status: 'running', data: null } }))
     try {
       const [lpRes, isoRes] = await Promise.allSettled([
@@ -373,25 +380,29 @@ function PipelineContent() {
       ])
       const landPrice = lpRes.status === 'fulfilled' ? lpRes.value : null
       const isocronas = isoRes.status === 'fulfilled' ? (isoRes.value.isocronas ?? []) : []
-      setPipe(p => ({ ...p, ubicacion: { status: 'done', data: { landPrice, isocronas } } }))
+      const ubicacionData: UbicacionData = { landPrice, isocronas }
+      setPipe(p => ({ ...p, ubicacion: { status: 'done', data: ubicacionData } }))
+      runTerreno(fd, ubicacionData)
     } catch {
+      // Degradación: si ubicación falla, terreno corre igual sin ese contexto
       setPipe(p => ({ ...p, ubicacion: { status: 'error', data: null } }))
+      runTerreno(fd, null)
     }
   }
 
   // ── Step 1: Terreno ──
-  const runTerreno = async (fd?: any) => {
+  const runTerreno = async (fd?: any, ubicacion?: UbicacionData | null) => {
     const input = fd || formData
+    const ub = ubicacion !== undefined ? ubicacion : pipe.ubicacion.data
     setPipe(p => ({ ...p, terreno: { ...p.terreno, status: 'running', data: null } }))
     try {
       const res = await fetch('/api/agentes/terreno', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(input),
+        body: JSON.stringify({ ...input, ubicacion: ub }),
       })
       const json = await res.json()
       if (json.error) throw new Error(json.error)
       setPipe(p => ({ ...p, terreno: { ...p.terreno, status: 'done', data: json } }))
-      runUbicacion(input)
     } catch {
       setPipe(p => ({ ...p, terreno: { ...p.terreno, status: 'error' } }))
     }
@@ -581,6 +592,13 @@ function PipelineContent() {
             {/* ══ STEP 1 — TERRENO ══ */}
             <section>
               <p className="text-[10px] font-bold text-[#9aab9f] uppercase tracking-widest mb-3">Paso 1 · Agente de Valuación</p>
+
+              {pipe.ubicacion.status === 'running' && (
+                <RunningCard
+                  label="Preparando contexto de ubicación…"
+                  hint="Obteniendo precio de zona y accesibilidad — el agente Terreno arranca al terminar"
+                />
+              )}
 
               {pipe.terreno.status === 'running' && (
                 <RunningCard label="Agente Terreno analizando…" hint="Buscando comparables, clasificando banda, aplicando factores de ajuste" />

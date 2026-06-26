@@ -40,6 +40,10 @@ export async function POST(req: NextRequest) {
     privada:    'Privada / Andador — acceso cerrado o sin salida (factor -5% a -10%)',
   }
 
+  const ub = data.ubicacion ?? null
+  const lp = ub?.landPrice ?? null
+  const isoData: { rango_min: number; poblacion_alcanzada: number | null }[] = ub?.isocronas ?? []
+
   const prompt = `Eres el Agente de Valuación de Terrenos de SMT Developer.
 Tu única tarea es estimar el valor del suelo con la máxima precisión posible usando metodología formal de avalúos urbanos en México.
 No calculas construcción, mercado, ni finanzas — solo el valor del terreno.
@@ -51,6 +55,29 @@ DATOS DEL PREDIO:
 - Uso de suelo actual: ${usoSueloLabels[data.usoSuelo] || data.usoSuelo}
 - Estado del terreno: ${estadoLabels[data.estadoTerreno] || data.estadoTerreno}
 ${data.lat && data.lng ? `- Coordenadas: ${data.lat}, ${data.lng}` : ''}
+${lp?.encontrado ? `
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+DATOS DE MERCADO REGISTRADOS (ZONA VERIFICADA)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Zona: ${lp.zona?.colonia}, ${lp.zona?.municipio}
+Precio mínimo de zona:   $${lp.precio_m2_min?.toLocaleString('es-MX')}/m²
+Precio base de zona:     $${lp.precio_m2_base?.toLocaleString('es-MX')}/m²
+Precio máximo de zona:   $${lp.precio_m2_max?.toLocaleString('es-MX')}/m²
+Precio cierre estimado:  $${lp.precio_cierre_estimado?.toLocaleString('es-MX')}/m² (asking × ${lp.factor_negociacion})
+Muestras registradas:    ${lp.n_muestras}${lp.fuente ? ` · Fuente: ${lp.fuente}` : ''}
+
+INSTRUCCIÓN CRÍTICA: Estos son datos REALES de mercado para esta zona.
+Úsalos como ANCLA PRINCIPAL de tu valuación — son más confiables que referencias genéricas.
+Tu precio final ajustado DEBE estar dentro del rango min–max registrado, a menos que los
+factores físicos del predio (vialidad, esquina, pendiente, servicios) lo justifiquen.
+Si te sales del rango, EXPLICA en "razonamiento" por qué los ajustes físicos lo justifican.
+Si tu precio coincide con el rango, confirma la coherencia en "razonamiento".
+Suma +10 puntos al componente A del IC por contar con datos de zona verificados.
+` : ''}${isoData.length > 0 ? `
+DEMANDA POTENCIAL (ISÓCRONAS EN AUTO):
+${isoData.map(iso => `- ${iso.rango_min} min de manejo: ${iso.poblacion_alcanzada != null ? iso.poblacion_alcanzada.toLocaleString('es-MX') + ' hab.' : 'no disponible'}`).join('\n')}
+Menciona este dato en "razonamiento" al hablar del potencial de demanda del predio.
+` : ''}
 
 CARACTERÍSTICAS FÍSICAS (pistas de valuación proporcionadas por el usuario):
 - Frente: ${data.frente ? `${data.frente} m` : 'No proporcionado'}
