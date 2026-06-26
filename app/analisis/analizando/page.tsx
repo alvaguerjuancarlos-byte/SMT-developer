@@ -799,37 +799,49 @@ function PipelineContent() {
 
                 {pipe.ubicacion.status === 'done' && pipe.ubicacion.data && (() => {
                   const { isocronas, errorMsg } = pipe.ubicacion.data
-                  if (errorMsg && isocronas.length === 0) return (
-                    <div className="bg-[#FEF3C7] border border-[#FDE68A] rounded-2xl px-5 py-3">
-                      <p className="text-[11px] font-semibold text-[#92400E]">Accesibilidad no disponible</p>
-                      <p className="text-[10px] text-[#92400E] mt-0.5 font-mono">{errorMsg}</p>
-                    </div>
-                  )
-                  if (isocronas.length === 0) return null
                   return (
                     <div className="bg-white rounded-2xl border border-[#9FE1CB] shadow-sm overflow-hidden">
-                      <div className="px-5 py-4 border-b border-[#F0F4F2] flex items-center gap-2">
-                        <CheckIcon />
-                        <span className="text-[13px] font-bold text-[#0F6E56]">Accesibilidad</span>
-                        <span className="text-[11px] text-[#9aab9f]">Población alcanzable en auto</span>
+                      <div className="px-5 py-4 border-b border-[#F0F4F2] flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <CheckIcon />
+                          <span className="text-[13px] font-bold text-[#0F6E56]">Accesibilidad</span>
+                          <span className="text-[11px] text-[#9aab9f]">Contexto enviado al Agente Terreno</span>
+                        </div>
                       </div>
-                      <div className="px-5 py-4 flex gap-2">
-                        {isocronas.map(iso => (
-                          <div key={iso.rango_min} className="flex-1 bg-[#F7F8F6] rounded-xl px-3 py-3 text-center">
-                            <p className="text-[10px] text-[#9aab9f] font-semibold">{iso.rango_min} min</p>
-                            <p className="text-[15px] font-black text-[#111d17] mt-0.5">
-                              {iso.poblacion_alcanzada != null
-                                ? iso.poblacion_alcanzada >= 1_000_000
-                                  ? `${(iso.poblacion_alcanzada / 1_000_000).toFixed(1)}M`
-                                  : iso.poblacion_alcanzada >= 1_000
-                                    ? `${(iso.poblacion_alcanzada / 1_000).toFixed(0)}k`
-                                    : iso.poblacion_alcanzada.toLocaleString()
-                                : '—'}
-                            </p>
-                            <p className="text-[9px] text-[#9aab9f]">hab.</p>
+
+                      {errorMsg ? (
+                        <div className="px-5 py-3">
+                          <p className="text-[11px] text-[#92400E] font-mono bg-[#FEF3C7] px-3 py-2 rounded-lg">{errorMsg}</p>
+                        </div>
+                      ) : isocronas.length === 0 ? (
+                        <div className="px-5 py-3">
+                          <p className="text-[11px] text-[#9aab9f]">ORS no devolvió isócronas para esta ubicación.</p>
+                        </div>
+                      ) : (
+                        <div className="px-5 py-4 flex flex-col gap-3">
+                          <p className="text-[10px] text-[#9aab9f] uppercase tracking-widest font-bold">Población alcanzable en auto</p>
+                          <div className="flex gap-2">
+                            {isocronas.map(iso => (
+                              <div key={iso.rango_min} className="flex-1 bg-[#F7F8F6] rounded-xl px-3 py-3 text-center">
+                                <p className="text-[10px] text-[#9aab9f] font-semibold">{iso.rango_min} min</p>
+                                <p className="text-[15px] font-black text-[#111d17] mt-0.5">
+                                  {iso.poblacion_alcanzada != null
+                                    ? iso.poblacion_alcanzada >= 1_000_000
+                                      ? `${(iso.poblacion_alcanzada / 1_000_000).toFixed(1)}M`
+                                      : iso.poblacion_alcanzada >= 1_000
+                                        ? `${(iso.poblacion_alcanzada / 1_000).toFixed(0)}k`
+                                        : iso.poblacion_alcanzada.toLocaleString()
+                                    : '—'}
+                                </p>
+                                <p className="text-[9px] text-[#9aab9f]">hab.</p>
+                              </div>
+                            ))}
                           </div>
-                        ))}
-                      </div>
+                          <p className="text-[10px] text-[#9aab9f] leading-snug">
+                            Estos datos de demanda potencial fueron compartidos con el Agente Terreno antes de su análisis.
+                          </p>
+                        </div>
+                      )}
                     </div>
                   )
                 })()}
