@@ -30,6 +30,7 @@ interface FinancieroResult {
 
 interface UbicacionData {
   isocronas: { rango_min: number; poblacion_alcanzada: number | null }[]
+  errorMsg?: string
 }
 
 interface PipelineState {
@@ -362,11 +363,13 @@ function PipelineContent() {
         body: JSON.stringify({ lat, lng, perfil: 'driving' }),
       }).then(r => r.json())
       const isocronas = isoRes.isocronas ?? []
-      const ubicacionData: UbicacionData = { isocronas }
+      const errorMsg: string | undefined = isoRes.error
+      const ubicacionData: UbicacionData = { isocronas, errorMsg }
       setPipe(p => ({ ...p, ubicacion: { status: 'done', data: ubicacionData } }))
       runTerreno(fd, ubicacionData)
-    } catch {
-      setPipe(p => ({ ...p, ubicacion: { status: 'error', data: null } }))
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Error desconocido'
+      setPipe(p => ({ ...p, ubicacion: { status: 'done', data: { isocronas: [], errorMsg: msg } } }))
       runTerreno(fd, null)
     }
   }
@@ -795,7 +798,13 @@ function PipelineContent() {
                 )}
 
                 {pipe.ubicacion.status === 'done' && pipe.ubicacion.data && (() => {
-                  const { isocronas } = pipe.ubicacion.data
+                  const { isocronas, errorMsg } = pipe.ubicacion.data
+                  if (errorMsg && isocronas.length === 0) return (
+                    <div className="bg-[#FEF3C7] border border-[#FDE68A] rounded-2xl px-5 py-3">
+                      <p className="text-[11px] font-semibold text-[#92400E]">Accesibilidad no disponible</p>
+                      <p className="text-[10px] text-[#92400E] mt-0.5 font-mono">{errorMsg}</p>
+                    </div>
+                  )
                   if (isocronas.length === 0) return null
                   return (
                     <div className="bg-white rounded-2xl border border-[#9FE1CB] shadow-sm overflow-hidden">

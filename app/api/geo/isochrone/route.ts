@@ -69,6 +69,7 @@ export async function POST(req: NextRequest) {
       fresh = all.filter(iso => pendingRangos.includes(iso.rango_min))
     } catch (err) {
       if (err instanceof OrsError) {
+        console.error(`[isochrone] ORS error ${err.status}:`, err.body)
         if (err.status === 429) {
           return NextResponse.json(
             { error: 'Límite de peticiones ORS alcanzado, intenta en unos segundos' },
@@ -82,10 +83,11 @@ export async function POST(req: NextRequest) {
           )
         }
         return NextResponse.json(
-          { error: `Error de OpenRouteService (${err.status})` },
+          { error: `Error de OpenRouteService (${err.status}): ${err.body.slice(0, 300)}` },
           { status: 502 },
         )
       }
+      console.error('[isochrone] unexpected error:', err)
       throw err
     }
 
