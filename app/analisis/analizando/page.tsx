@@ -341,6 +341,7 @@ function PipelineContent() {
     if (!raw) { router.push('/prospeccion/flujo-a'); return }
     const fd = JSON.parse(raw)
     setFormData(fd)
+    console.log('[ubicacion] lat:', fd.lat, 'lng:', fd.lng, 'zonaGeo:', fd.zonaGeo)
     runUbicacion(fd)   // ubicación primero; al terminar dispara runTerreno con el contexto
   }, [])
 
