@@ -67,25 +67,25 @@ function fmtM(n: number) { return `$${(n / 1_000_000).toFixed(1)} M` }
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
-    <h2 className="text-[11px] font-bold text-[#9aab9f] tracking-[0.14em] uppercase mb-4 flex items-center gap-3">
-      <span className="flex-1 h-px bg-[#E2E8E4]" />{children}<span className="flex-1 h-px bg-[#E2E8E4]" />
+    <h2 className="text-[11px] font-bold text-[#1A7A6E] tracking-[0.14em] uppercase mb-4 flex items-center gap-3">
+      <span className="flex-1 border-t border-[rgba(0,0,0,0.08)]" />{children}<span className="flex-1 border-t border-[rgba(0,0,0,0.08)]" />
     </h2>
   )
 }
 
 function Card({ children, className = '' }: { children: React.ReactNode; className?: string }) {
-  return <div className={`bg-white rounded-2xl border border-[#E2E8E4] shadow-sm ${className}`}>{children}</div>
+  return <div className={`bg-white rounded-2xl border border-[rgba(0,0,0,0.08)] shadow-sm ${className}`}>{children}</div>
 }
 
 function TableRow({ label, value, highlight = false, sub }: { label: string; value: string; highlight?: boolean; sub?: string }) {
   return (
-    <tr className={`${highlight ? 'bg-[#F0FBF6]' : ''} border-b border-[#F0F4F2] last:border-0`}>
+    <tr className={`${highlight ? 'bg-[#E1F5EE]' : ''} border-b border-[rgba(0,0,0,0.06)] last:border-0`}>
       <td className="px-6 py-3">
-        <p className={`text-[13px] ${highlight ? 'font-bold text-[#0F6E56]' : 'text-[#5a7065]'}`}>{label}</p>
+        <p className={`text-[13px] ${highlight ? 'font-bold text-[#04342C]' : 'text-[#5C7186]'}`}>{label}</p>
         {sub && <p className="text-[11px] text-[#9aab9f]">{sub}</p>}
       </td>
-      <td className="px-6 py-3 text-right">
-        <p className={`text-[13px] ${highlight ? 'font-bold text-[#0F6E56]' : 'font-semibold text-[#111d17]'}`}>{value}</p>
+      <td className="px-6 py-3 text-right tabular-nums">
+        <p className={`text-[13px] tabular-nums ${highlight ? 'font-bold text-[#04342C]' : 'font-semibold text-[#111d17]'}`}>{value}</p>
       </td>
     </tr>
   )
@@ -121,14 +121,14 @@ function StressRow({ titulo, escenario, impacto, status }: StressItem) {
     red:   { badge: 'bg-[#FEE2E2] text-[#991B1B]', dot: '#DC2626', label: 'Crítico' },
   }[status]
   return (
-    <div className="flex items-start gap-4 py-4 border-b border-[#F0F4F2] last:border-0">
+    <div className="flex items-start gap-4 py-4 border-b border-[rgba(0,0,0,0.06)] last:border-0">
       <span className="w-2.5 h-2.5 rounded-full mt-1 shrink-0" style={{ backgroundColor: cfg.dot }} />
       <div className="flex-1">
         <div className="flex items-center gap-2 mb-1">
           <p className="text-[13px] font-bold text-[#111d17]">{titulo}</p>
           <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${cfg.badge}`}>{cfg.label}</span>
         </div>
-        <p className="text-[12px] text-[#5a7065] mb-1">{escenario}</p>
+        <p className="text-[12px] text-[#5C7186] mb-1">{escenario}</p>
         <p className="text-[12px] font-semibold text-[#111d17]">{impacto}</p>
       </div>
     </div>
@@ -202,7 +202,7 @@ function PropuestaContent() {
 
   return (
     <div className="min-h-screen bg-[#F7F8F6] flex flex-col">
-      <header className="no-print px-8 py-4 flex items-center gap-3 border-b border-[#E2E8E4] bg-white sticky top-0 z-20">
+      <header className="no-print px-8 py-4 flex items-center gap-3 border-b border-[rgba(0,0,0,0.08)] bg-white sticky top-0 z-20">
         <div className="w-8 h-8 rounded-lg bg-[#1D9E75] flex items-center justify-center shrink-0">
           <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
             <path d="M9 2L16 6V12L9 16L2 12V6L9 2Z" stroke="white" strokeWidth="1.5" fill="none"/>
@@ -219,7 +219,7 @@ function PropuestaContent() {
               IA generado
             </span>
           )}
-          <button onClick={() => router.push('/dashboard')} className="flex items-center gap-1.5 text-[13px] text-[#5a7065] hover:text-[#111d17] border border-[#E2E8E4] hover:border-[#C8D5CF] px-3 py-1.5 rounded-xl transition-colors mr-1">
+          <button onClick={() => router.push('/dashboard')} className="flex items-center gap-1.5 text-[13px] text-[#5C7186] hover:text-[#111d17] border border-[rgba(0,0,0,0.08)] hover:border-[#C8D5CF] px-3 py-1.5 rounded-xl transition-colors mr-1">
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
               <rect x="1" y="1" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.3"/>
               <rect x="8" y="1" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.3"/>
@@ -230,7 +230,7 @@ function PropuestaContent() {
           </button>
           <button
             onClick={() => router.push(`/analisis${proyecto !== 'Proyecto de Inversión' ? `?proyecto=${encodeURIComponent(proyecto)}` : ''}`)}
-            className="flex items-center gap-1.5 text-[13px] text-[#5a7065] hover:text-[#111d17] transition-colors mr-2"
+            className="flex items-center gap-1.5 text-[13px] text-[#5C7186] hover:text-[#111d17] transition-colors mr-2"
           >
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
               <path d="M10 4L6 8L10 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
@@ -266,7 +266,7 @@ function PropuestaContent() {
         <div id="propuesta-print" className="w-full max-w-[800px] mx-auto flex flex-col gap-10">
 
           {/* 1 · Cover */}
-          <div className="rounded-2xl overflow-hidden" style={{ background: 'linear-gradient(135deg, #0a1a12 0%, #111d17 55%, #0c1f15 100%)' }}>
+          <div className="rounded-2xl overflow-hidden" style={{ background: 'linear-gradient(135deg, #091D30 0%, #0D2137 60%, #0a1c2e 100%)' }}>
             <div className="px-8 pt-8 pb-6 border-b border-white/10">
               <div className="flex items-start justify-between mb-6">
                 <div className="flex items-center gap-3">
@@ -289,14 +289,16 @@ function PropuestaContent() {
             </div>
             <div className="grid grid-cols-4 divide-x divide-white/10">
               {[
-                { label: 'TIR Proyectada', value: `${f.tir}%`, green: true },
-                { label: 'Inversión Total', value: fmtM(f.inversionTotal), green: false },
-                { label: 'Utilidad Bruta', value: fmtM(f.utilidadBruta), green: false },
-                { label: 'Score Resiliencia', value: `${d.score.total}/100`, green: true },
+                { label: 'TIR Proyectada',    num: `${f.tir}`,                                       sym: '%'   },
+                { label: 'Inversión Total',   num: `$${(f.inversionTotal  / 1_000_000).toFixed(1)}`, sym: ' M'  },
+                { label: 'Utilidad Bruta',    num: `$${(f.utilidadBruta   / 1_000_000).toFixed(1)}`, sym: ' M'  },
+                { label: 'Score Resiliencia', num: `${d.score.total}`,                               sym: '/100' },
               ].map((m, i) => (
                 <div key={i} className="px-6 py-5">
                   <p className="text-[10px] text-white/40 uppercase tracking-wide mb-1">{m.label}</p>
-                  <p className={`text-[24px] font-black leading-none ${m.green ? 'text-[#4ade80]' : 'text-white'}`}>{m.value}</p>
+                  <p className="text-[24px] font-black leading-none text-white tabular-nums">
+                    {m.num}<span className="text-[#5DCAA5] text-[16px] font-bold">{m.sym}</span>
+                  </p>
                 </div>
               ))}
             </div>
@@ -308,20 +310,22 @@ function PropuestaContent() {
             <Card className="p-6">
               <div className="grid grid-cols-4 gap-4 mb-6">
                 {[
-                  { label: 'TIR Anual', value: `${f.tir}%`, sub: 'caso base', dark: true },
-                  { label: 'Inversión Total', value: fmtM(f.inversionTotal), sub: 'MXN', dark: false },
-                  { label: 'Utilidad Proyectada', value: fmtM(f.utilidadBruta), sub: 'MXN bruto', dark: false },
-                  { label: 'Score Resiliencia', value: `${d.score.total}`, sub: '/ 100 · Viable', dark: false },
+                  { label: 'TIR Anual',           num: `${f.tir}`,   sym: '%',   sub: 'caso base',    dark: true  },
+                  { label: 'Inversión Total',      num: `$${(f.inversionTotal / 1_000_000).toFixed(1)}`, sym: ' M', sub: 'MXN',          dark: false },
+                  { label: 'Utilidad Proyectada',  num: `$${(f.utilidadBruta  / 1_000_000).toFixed(1)}`, sym: ' M', sub: 'MXN bruto',    dark: false },
+                  { label: 'Score Resiliencia',    num: `${d.score.total}`, sym: '',   sub: '/ 100 · Viable', dark: false },
                 ].map((m, i) => (
-                  <div key={i} className={`rounded-2xl p-5 border ${m.dark ? 'bg-[#111d17] border-[#1D9E75]/30' : 'bg-white border-[#E2E8E4]'}`}>
-                    <p className={`text-[10px] font-semibold tracking-[0.14em] uppercase mb-2 ${m.dark ? 'text-[#9FE1CB]' : 'text-[#9aab9f]'}`}>{m.label}</p>
-                    <p className={`text-[24px] font-black leading-none ${m.dark ? 'text-[#4ade80]' : 'text-[#111d17]'}`}>{m.value}</p>
+                  <div key={i} className={`rounded-2xl p-5 border ${m.dark ? 'bg-[#0D2137] border-[#1A7A6E]/40' : 'bg-white border-[rgba(0,0,0,0.08)]'}`}>
+                    <p className={`text-[10px] font-semibold tracking-[0.14em] uppercase mb-2 ${m.dark ? 'text-[#5DCAA5]' : 'text-[#9aab9f]'}`}>{m.label}</p>
+                    <p className={`text-[24px] font-black leading-none tabular-nums ${m.dark ? 'text-white' : 'text-[#111d17]'}`}>
+                      {m.num}{m.sym && <span className={`text-[16px] font-bold ${m.dark ? 'text-[#5DCAA5]' : 'text-[#5C7186]'}`}>{m.sym}</span>}
+                    </p>
                     <p className={`text-[11px] mt-1 ${m.dark ? 'text-white/40' : 'text-[#9aab9f]'}`}>{m.sub}</p>
                   </div>
                 ))}
               </div>
-              <div className="bg-[#F7F8F6] rounded-xl px-5 py-4 border border-[#E2E8E4]">
-                <p className="text-[14px] text-[#5a7065] leading-relaxed">
+              <div className="bg-[#F7F8F6] rounded-xl px-5 py-4 border border-[rgba(0,0,0,0.08)]">
+                <p className="text-[14px] text-[#5C7186] leading-relaxed">
                   El proyecto <strong className="text-[#111d17]">{proyecto}</strong>{form ? ` ubicado en ${form.ciudad}${form.colonia ? `, ${form.colonia}` : ''}` : ''} tiene una tipología recomendada de <strong className="text-[#111d17]">{d.recomendacion.tipologia}</strong>.
                   Con una inversión total de <strong className="text-[#111d17]">{fmt(f.inversionTotal)}</strong> y precio de venta estimado de {fmt(f.precioVentaM2)}/m², el proyecto genera una{' '}
                   <strong className="text-[#0F6E56]">TIR del {f.tir}% anual</strong> y una utilidad bruta de {fmt(f.utilidadBruta)}.
@@ -360,7 +364,7 @@ function PropuestaContent() {
                 <div className="mb-5">
                   <p className="text-[11px] font-bold text-[#9aab9f] uppercase tracking-wide mb-3">Uso de suelo</p>
                   <div className="grid grid-cols-2 gap-3 mb-2">
-                    <div className="bg-[#F7F8F6] border border-[#E2E8E4] rounded-xl px-4 py-3">
+                    <div className="bg-[#F7F8F6] border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3">
                       <p className="text-[10px] text-[#9aab9f] uppercase tracking-wide mb-1">Actual</p>
                       <p className="text-[13px] font-semibold text-[#111d17]">{d.fichaLegal.usoSueloActual || '—'}</p>
                     </div>
@@ -371,7 +375,7 @@ function PropuestaContent() {
                     </div>
                   </div>
                   {d.fichaLegal.densidadAutorizada && (
-                    <p className="text-[12px] text-[#5a7065] px-1">Densidad autorizada: <strong className="text-[#111d17]">{d.fichaLegal.densidadAutorizada}</strong></p>
+                    <p className="text-[12px] text-[#5C7186] px-1">Densidad autorizada: <strong className="text-[#111d17]">{d.fichaLegal.densidadAutorizada}</strong></p>
                   )}
                 </div>
               )}
@@ -387,7 +391,7 @@ function PropuestaContent() {
                   ...(d.fichaLegal.retiros ? [{ label: 'Retiros', value: d.fichaLegal.retiros }] : []),
                   { label: 'Municipio', value: d.fichaLegal.municipio },
                 ].map((item, i) => (
-                  <div key={i} className="bg-[#F7F8F6] border border-[#E2E8E4] rounded-xl px-3 py-2.5">
+                  <div key={i} className="bg-[#F7F8F6] border border-[rgba(0,0,0,0.08)] rounded-xl px-3 py-2.5">
                     <p className="text-[10px] text-[#9aab9f] uppercase tracking-wide mb-0.5">{item.label}</p>
                     <p className="text-[13px] font-semibold text-[#111d17]">{item.value}</p>
                   </div>
@@ -423,7 +427,7 @@ function PropuestaContent() {
 
               {/* Régimen de condominio */}
               {d.fichaLegal.regimenCondominio && (
-                <div className="mb-4 bg-[#F7F8F6] border border-[#E2E8E4] rounded-xl px-4 py-3">
+                <div className="mb-4 bg-[#F7F8F6] border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3">
                   <p className="text-[10px] font-bold text-[#9aab9f] uppercase tracking-wide mb-1">Régimen de condominio</p>
                   <p className="text-[12px] text-[#111d17]">{d.fichaLegal.regimenCondominio}</p>
                 </div>
@@ -466,7 +470,7 @@ function PropuestaContent() {
                             </div>
                             <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${ac.badge}`}>{ac.label}</span>
                           </div>
-                          <p className="text-[12px] text-[#5a7065] mb-1">{a.descripcion}</p>
+                          <p className="text-[12px] text-[#5C7186] mb-1">{a.descripcion}</p>
                           <p className="text-[12px] font-semibold text-[#111d17]">{a.impacto}</p>
                         </div>
                       )
@@ -491,10 +495,10 @@ function PropuestaContent() {
                 <div>
                   <p className="text-[11px] font-bold text-[#1D9E75] tracking-[0.12em] uppercase mb-1">Tipología recomendada</p>
                   <h3 className="text-[22px] font-bold text-[#111d17] mb-1">{d.recomendacion.tipologia}</h3>
-                  <p className="text-[13px] text-[#5a7065]">{d.mercado.zona}</p>
+                  <p className="text-[13px] text-[#5C7186]">{d.mercado.zona}</p>
                 </div>
               </div>
-              <p className="text-[14px] text-[#5a7065] leading-relaxed">{d.recomendacion.descripcion}</p>
+              <p className="text-[14px] text-[#5C7186] leading-relaxed">{d.recomendacion.descripcion}</p>
             </Card>
           </div>
 
@@ -530,7 +534,7 @@ function PropuestaContent() {
                 <span className="inline-flex items-center gap-1.5 text-[12px] font-bold px-3 py-1.5 rounded-full bg-[#E1F5EE] text-[#0F6E56] border border-[#9FE1CB]">
                   <span className="w-2 h-2 rounded-full bg-[#1D9E75]" />Demanda {d.mercado.demanda}
                 </span>
-                <span className="text-[12px] text-[#5a7065]">{d.mercado.zona}</span>
+                <span className="text-[12px] text-[#5C7186]">{d.mercado.zona}</span>
               </div>
               <div className="grid grid-cols-2 gap-x-10 mb-5">
                 {[
@@ -541,8 +545,8 @@ function PropuestaContent() {
                   { label: 'Plusvalía últimos 3 años', value: d.mercado.plusvalia, green: true },
                   { label: 'Inventario promedio activo', value: d.mercado.inventario },
                 ].map((item, i) => (
-                  <div key={i} className="flex items-center justify-between py-2.5 border-b border-[#F0F4F2] last:border-0">
-                    <p className="text-[13px] text-[#5a7065]">{item.label}</p>
+                  <div key={i} className="flex items-center justify-between py-2.5 border-b border-[rgba(0,0,0,0.06)] last:border-0">
+                    <p className="text-[13px] text-[#5C7186]">{item.label}</p>
                     <p className={`text-[13px] font-semibold ${(item as { green?: boolean }).green ? 'text-[#0F6E56]' : 'text-[#111d17]'}`}>{item.value}</p>
                   </div>
                 ))}
@@ -558,16 +562,16 @@ function PropuestaContent() {
                   <p className="text-[11px] font-bold text-[#9aab9f] uppercase tracking-wide mb-3">Proyectos comparables</p>
                   <div className="flex flex-col gap-2">
                     {d.mercado.comparables.map((c, i) => (
-                      <div key={i} className="bg-[#F7F8F6] border border-[#E2E8E4] rounded-xl px-4 py-3">
+                      <div key={i} className="bg-[#F7F8F6] border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3">
                         <div className="flex items-start justify-between gap-2 mb-1">
                           <p className="text-[13px] font-semibold text-[#111d17]">{c.nombre}</p>
                           <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${c.avanceObra === 'Entregado' ? 'bg-[#E1F5EE] text-[#0F6E56]' : c.avanceObra === 'En obra' ? 'bg-[#FEF3C7] text-[#D97706]' : 'bg-[#EEF2FF] text-[#4F46E5]'}`}>{c.avanceObra}</span>
                         </div>
                         <p className="text-[11px] text-[#8a9e92] mb-1.5">{c.direccion} · {c.fechaReferencia}</p>
                         <div className="flex gap-5">
-                          <span className="text-[11px] text-[#5a7065]">Precio: <strong className="text-[#111d17]">${c.precioM2.toLocaleString('es-MX')}/m²</strong></span>
-                          <span className="text-[11px] text-[#5a7065]">{c.tipologia}</span>
-                          <span className="text-[11px] text-[#5a7065]">{c.unidades} unidades</span>
+                          <span className="text-[11px] text-[#5C7186]">Precio: <strong className="text-[#111d17]">${c.precioM2.toLocaleString('es-MX')}/m²</strong></span>
+                          <span className="text-[11px] text-[#5C7186]">{c.tipologia}</span>
+                          <span className="text-[11px] text-[#5C7186]">{c.unidades} unidades</span>
                         </div>
                       </div>
                     ))}
@@ -581,7 +585,7 @@ function PropuestaContent() {
                   <p className="text-[11px] font-bold text-[#9aab9f] uppercase tracking-wide mb-3">Segmentación por tipo de unidad</p>
                   <div className="flex flex-col gap-2">
                     {d.mercado.segmentacion.map((s, i) => (
-                      <div key={i} className="bg-[#F7F8F6] border border-[#E2E8E4] rounded-xl px-4 py-3">
+                      <div key={i} className="bg-[#F7F8F6] border border-[rgba(0,0,0,0.08)] rounded-xl px-4 py-3">
                         <div className="flex items-center justify-between mb-1.5">
                           <p className="text-[13px] font-semibold text-[#111d17]">{s.tipo}</p>
                           <span className="text-[12px] font-bold text-[#0F6E56]">{s.participacion}</span>
@@ -590,8 +594,8 @@ function PropuestaContent() {
                           <div className="h-full bg-[#1D9E75] rounded-full" style={{ width: s.participacion }} />
                         </div>
                         <div className="flex gap-5">
-                          <span className="text-[11px] text-[#5a7065]">Precio: <strong className="text-[#111d17]">${s.precioM2.toLocaleString('es-MX')}/m²</strong></span>
-                          <span className="text-[11px] text-[#5a7065]">Absorción: <strong className="text-[#111d17]">{s.absorcionMensual}</strong></span>
+                          <span className="text-[11px] text-[#5C7186]">Precio: <strong className="text-[#111d17]">${s.precioM2.toLocaleString('es-MX')}/m²</strong></span>
+                          <span className="text-[11px] text-[#5C7186]">Absorción: <strong className="text-[#111d17]">{s.absorcionMensual}</strong></span>
                         </div>
                       </div>
                     ))}
@@ -605,8 +609,8 @@ function PropuestaContent() {
                   <p className="text-[11px] font-bold text-[#9aab9f] uppercase tracking-wide mb-3">Estrategia de pricing por fase</p>
                   <div className="grid grid-cols-3 gap-3">
                     {d.mercado.pricingFases.map((fase, i) => (
-                      <div key={i} className="bg-[#F7F8F6] border border-[#E2E8E4] rounded-xl p-3">
-                        <p className="text-[11px] font-bold text-[#5a7065] mb-1">{fase.fase}</p>
+                      <div key={i} className="bg-[#F7F8F6] border border-[rgba(0,0,0,0.08)] rounded-xl p-3">
+                        <p className="text-[11px] font-bold text-[#5C7186] mb-1">{fase.fase}</p>
                         <p className="text-[18px] font-black text-[#111d17] leading-none">${fase.precioM2.toLocaleString('es-MX')}</p>
                         <p className="text-[10px] text-[#9aab9f] mb-2">/m²</p>
                         <span className="text-[10px] font-bold bg-[#FEF3C7] text-[#92600A] px-2 py-0.5 rounded-full">{fase.descuento}</span>
@@ -623,11 +627,11 @@ function PropuestaContent() {
           <div>
             <SectionTitle>Mitigación y Resiliencia</SectionTitle>
             <Card className="p-6">
-              <div className="flex items-start gap-8 mb-6 pb-6 border-b border-[#F0F4F2]">
+              <div className="flex items-start gap-8 mb-6 pb-6 border-b border-[rgba(0,0,0,0.06)]">
                 <div className="shrink-0"><ScoreArc score={d.score.total} /></div>
                 <div className="flex-1">
                   <p className="text-[14px] font-bold text-[#111d17] mb-2">Score de Resiliencia: {d.score.total}/100</p>
-                  <p className="text-[13px] text-[#5a7065] leading-relaxed mb-4">{d.puntoQuiebre.resumen}</p>
+                  <p className="text-[13px] text-[#5C7186] leading-relaxed mb-4">{d.puntoQuiebre.resumen}</p>
                   <div className="grid grid-cols-3 gap-3">
                     {[
                       { label: 'Solidez financiera', v: d.score.solidezFinanciera },
@@ -636,7 +640,7 @@ function PropuestaContent() {
                     ].map(item => {
                       const color = item.v >= 70 ? '#1D9E75' : '#D97706'
                       return (
-                        <div key={item.label} className="bg-[#F7F8F6] rounded-xl p-3 border border-[#E2E8E4]">
+                        <div key={item.label} className="bg-[#F7F8F6] rounded-xl p-3 border border-[rgba(0,0,0,0.08)]">
                           <p className="text-[10px] text-[#9aab9f] mb-2">{item.label}</p>
                           <div className="h-1.5 bg-[#E2E8E4] rounded-full overflow-hidden mb-1">
                             <div className="h-full rounded-full transition-all duration-700" style={{ width: `${item.v}%`, backgroundColor: color }} />
@@ -658,7 +662,7 @@ function PropuestaContent() {
                   { label: 'Absorción mínima viable', value: d.puntoQuiebre.absorcionMinViable, color: '#D97706' },
                   { label: 'Precio venta mínimo', value: d.puntoQuiebre.precioVentaMinimo, color: '#D97706' },
                 ].map(b => (
-                  <div key={b.label} className="bg-[#F7F8F6] border border-[#E2E8E4] rounded-xl p-4 text-center">
+                  <div key={b.label} className="bg-[#F7F8F6] border border-[rgba(0,0,0,0.08)] rounded-xl p-4 text-center">
                     <p className="text-[10px] text-[#9aab9f] uppercase tracking-wide mb-2">{b.label}</p>
                     <p className="text-[20px] font-black" style={{ color: b.color }}>{b.value}</p>
                   </div>
@@ -682,7 +686,7 @@ function PropuestaContent() {
                     <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 font-black text-[13px] text-white" style={{ backgroundColor: s.color }}>{s.n}</div>
                     <div className="flex-1 pt-0.5">
                       <p className="text-[14px] font-bold text-[#111d17] mb-1">{s.title}</p>
-                      <p className="text-[13px] text-[#5a7065] leading-relaxed">{s.desc}</p>
+                      <p className="text-[13px] text-[#5C7186] leading-relaxed">{s.desc}</p>
                     </div>
                   </div>
                 ))}
@@ -691,8 +695,8 @@ function PropuestaContent() {
           </div>
 
           {/* 9 · Footer */}
-          <div className="rounded-2xl overflow-hidden border border-[#E2E8E4]">
-            <div className="bg-[#111d17] px-8 py-6 flex items-center justify-between">
+          <div className="rounded-2xl overflow-hidden border border-[rgba(0,0,0,0.08)]">
+            <div className="bg-[#0D2137] px-8 py-6 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 rounded-xl bg-[#1D9E75] flex items-center justify-center">
                   <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
@@ -712,7 +716,7 @@ function PropuestaContent() {
             </div>
             <div className="bg-white px-8 py-4">
               <p className="text-[11px] text-[#9aab9f] leading-relaxed">
-                <strong className="text-[#5a7065]">Aviso de confidencialidad:</strong> Este documento ha sido generado por SMT Developer con base en información de mercado disponible al {today} y constituye una proyección con fines informativos para inversionistas calificados. Las cifras presentadas son estimaciones y no garantizan rendimientos futuros.
+                <strong className="text-[#5C7186]">Aviso de confidencialidad:</strong> Este documento ha sido generado por SMT Developer con base en información de mercado disponible al {today} y constituye una proyección con fines informativos para inversionistas calificados. Las cifras presentadas son estimaciones y no garantizan rendimientos futuros.
               </p>
             </div>
           </div>

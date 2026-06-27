@@ -77,7 +77,6 @@ const BANDAS_CONSTRUCCION = [
     sub: 'Interés social · Acabados básicos',
     desc: 'Estructura de block/tabique, acabados estándar, sin amenidades. INFONAVIT / VIS.',
     rango: '$7,000–$10,500/m²',
-    icon: '🧱',
   },
   {
     id: '2',
@@ -85,7 +84,6 @@ const BANDAS_CONSTRUCCION = [
     sub: 'Clase media · Acabados funcionales',
     desc: 'Concreto armado, porcelanato básico, elevador en torre, estacionamiento techado.',
     rango: '$10,500–$16,000/m²',
-    icon: '🏗️',
   },
   {
     id: '3',
@@ -93,7 +91,6 @@ const BANDAS_CONSTRUCCION = [
     sub: 'Residencial · Acabados premium',
     desc: 'Fachada diferenciada, cocinas equipadas, A/C, amenidades (gym, roof garden, alberca).',
     rango: '$16,000–$24,000/m²',
-    icon: '🏢',
   },
   {
     id: '4',
@@ -101,7 +98,6 @@ const BANDAS_CONSTRUCCION = [
     sub: 'Alto standing · Acabados de lujo',
     desc: 'Materiales importados, domótica, concierge, spa, arquitectura de firma.',
     rango: '$24,000–$45,000+/m²',
-    icon: '✨',
   },
 ]
 
@@ -159,13 +155,13 @@ const DISTANCIA_ABASTO = [
 ]
 
 const TIPOS_DESARROLLO = [
-  { id: 'residencial-vertical', label: 'Residencial vertical', icon: '🏢' },
-  { id: 'residencial-horizontal', label: 'Residencial horizontal', icon: '🏘️' },
-  { id: 'unifamiliar', label: 'Unifamiliar', icon: '🏠' },
-  { id: 'comercial', label: 'Comercial', icon: '🏪' },
-  { id: 'mixto', label: 'Uso mixto', icon: '🏗️' },
-  { id: 'industrial', label: 'Industrial / Nave', icon: '🏭' },
-  { id: 'no-definido', label: 'Aún no lo sé', icon: '💡' },
+  { id: 'residencial-vertical', label: 'Residencial vertical' },
+  { id: 'residencial-horizontal', label: 'Residencial horizontal' },
+  { id: 'unifamiliar', label: 'Unifamiliar' },
+  { id: 'comercial', label: 'Comercial' },
+  { id: 'mixto', label: 'Uso mixto' },
+  { id: 'industrial', label: 'Industrial / Nave' },
+  { id: 'no-definido', label: 'Aún no lo sé' },
 ]
 
 const ESTADOS_MX = [
@@ -217,6 +213,7 @@ interface FormData {
   pavimento: string
   distanciaAbasto: string
   precioSolicitado: string
+  cuentaPredial: string
 }
 
 const INITIAL: FormData = {
@@ -250,6 +247,7 @@ const INITIAL: FormData = {
   pavimento: '',
   distanciaAbasto: '',
   precioSolicitado: '',
+  cuentaPredial: '',
 }
 
 const TOTAL_STEPS = 5
@@ -326,18 +324,67 @@ function LeafletPicker({
   return <div ref={containerRef} className="w-full rounded-2xl overflow-hidden border border-[#E2E8E4]" style={{ height: 280 }} />
 }
 
+function TipoIcon({ id }: { id: string }) {
+  const s = { width: 20, height: 20, viewBox: '0 0 20 20', fill: 'none', stroke: '#1D9E75', strokeWidth: 1.5, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const }
+  switch (id) {
+    case 'residencial-vertical': return <svg {...s}><rect x="5" y="2" width="10" height="15" rx="1"/><line x1="5" y1="7" x2="15" y2="7"/><line x1="5" y1="11" x2="15" y2="11"/><rect x="8" y="12" width="4" height="5" strokeWidth={1}/></svg>
+    case 'residencial-horizontal': return <svg {...s}><path d="M1 10l4-4 4 4v7H1v-7z"/><path d="M7 12l4-4 4 4v5H7v-5z"/><path d="M13 10l4-4v11h-4V10z"/></svg>
+    case 'unifamiliar': return <svg {...s}><path d="M2 9l8-7 8 7"/><path d="M4 8v9h12V8"/><rect x="8" y="11" width="4" height="6"/></svg>
+    case 'comercial': return <svg {...s}><path d="M3 9h14l-2-5H5L3 9z"/><rect x="3" y="9" width="14" height="8" rx="1"/><rect x="7" y="11" width="6" height="4"/></svg>
+    case 'mixto': return <svg {...s}><rect x="4" y="4" width="12" height="13"/><line x1="4" y1="10" x2="16" y2="10"/><line x1="8" y1="4" x2="8" y2="10"/><line x1="12" y1="4" x2="12" y2="10"/><rect x="8" y="12" width="4" height="5" strokeWidth={1}/></svg>
+    case 'industrial': return <svg {...s}><path d="M2 17V9l5-4v4l5-4v4l4-4v12H2z"/><rect x="7" y="12" width="6" height="5"/></svg>
+    case 'no-definido': return <svg {...s}><circle cx="10" cy="10" r="8"/><path d="M7 8c0-1.7 1.3-3 3-3s3 1.3 3 3-3 3-3 4"/><circle cx="10" cy="15" r=".75" fill="#1D9E75" stroke="none"/></svg>
+    case 'otro': return <svg {...s}><path d="M14 3l3 3-9 9-4 1 1-4 9-9z"/><line x1="12" y1="5" x2="15" y2="8"/></svg>
+    default: return <svg {...s}><circle cx="10" cy="10" r="8"/></svg>
+  }
+}
+
+function BandaIcon({ id }: { id: string }) {
+  const s = { width: 20, height: 20, viewBox: '0 0 20 20', fill: 'none', stroke: '#1D9E75', strokeWidth: 1.5, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const }
+  switch (id) {
+    case '1': return <svg {...s}><rect x="2" y="5" width="16" height="3.5" rx=".5"/><rect x="2" y="11" width="16" height="3.5" rx=".5"/><line x1="10" y1="5" x2="10" y2="8.5"/><line x1="6" y1="11" x2="6" y2="14.5"/><line x1="14" y1="11" x2="14" y2="14.5"/></svg>
+    case '2': return <svg {...s}><rect x="4" y="8" width="10" height="9"/><path d="M4 8l6-5 6 5"/><line x1="14" y1="2" x2="17" y2="2"/><line x1="17" y1="2" x2="17" y2="7"/></svg>
+    case '3': return <svg {...s}><rect x="4" y="5" width="12" height="12"/><path d="M4 5l6-3 6 3"/><line x1="4" y1="10" x2="16" y2="10"/><rect x="7" y="6" width="2" height="3"/><rect x="11" y="6" width="2" height="3"/><rect x="8" y="12" width="4" height="5" strokeWidth={1}/></svg>
+    case '4': return <svg {...s}><path d="M10 2l2 5h5l-4 3 1.5 5L10 12l-4.5 3L7 10 3 7h5l2-5z"/></svg>
+    default: return <svg {...s}><rect x="4" y="4" width="12" height="12" rx="2"/></svg>
+  }
+}
+
+const STEP_LABELS = ['Proyecto', 'Ubicación', 'Terreno', 'Desarrollo', 'Resumen']
+
 function ProgressBar({ step }: { step: number }) {
   return (
     <div className="mb-8">
-      <div className="flex items-center gap-1.5 mb-3">
-        {Array.from({ length: TOTAL_STEPS }).map((_, i) => (
-          <div
-            key={i}
-            className={`h-1 rounded-full flex-1 transition-all duration-300 ${i < step ? 'bg-[#1D9E75]' : 'bg-[#E2E8E4]'}`}
-          />
-        ))}
+      <div className="flex items-center">
+        {STEP_LABELS.map((label, i) => {
+          const num = i + 1
+          const done = num < step
+          const active = num === step
+          return (
+            <div key={i} className="flex items-center flex-1 last:flex-none">
+              {/* Dot */}
+              <div className="flex flex-col items-center gap-1.5 relative">
+                <div className={`w-7 h-7 rounded-full flex items-center justify-center transition-all duration-300 text-[11px] font-bold
+                  ${done ? 'bg-[#1D9E75] text-white' : active ? 'bg-[#1D9E75] text-white ring-4 ring-[#1D9E75]/20' : 'bg-[#E2E8E4] text-[#9aab9f]'}`}>
+                  {done ? (
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                      <path d="M2 6l3 3 5-5" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  ) : num}
+                </div>
+                <span className={`text-[9px] font-semibold tracking-wide whitespace-nowrap transition-colors duration-300
+                  ${active ? 'text-[#1D9E75]' : done ? 'text-[#9aab9f]' : 'text-[#C8D5CC]'}`}>
+                  {label}
+                </span>
+              </div>
+              {/* Connector */}
+              {i < TOTAL_STEPS - 1 && (
+                <div className={`h-px flex-1 mb-4 mx-1 transition-all duration-300 ${done ? 'bg-[#1D9E75]' : 'bg-[#E2E8E4]'}`} />
+              )}
+            </div>
+          )
+        })}
       </div>
-      <p className="text-[11px] text-[#9aab9f] tracking-wide">Paso {step} de {TOTAL_STEPS}</p>
     </div>
   )
 }
@@ -408,7 +455,7 @@ function ChipOption({
       onClick={onClick}
       className={`text-left rounded-xl border px-4 py-3 transition-all duration-150 w-full ${
         selected
-          ? 'bg-white border-[#1D9E75] shadow-[0_0_0_2px_#1D9E75]'
+          ? 'bg-[#F0FBF6] border-[#1D9E75] shadow-[0_0_0_2px_#1D9E75]'
           : 'bg-white border-[#E2E8E4] hover:border-[#9FE1CB]'
       }`}
     >
@@ -826,6 +873,18 @@ function Step3({ data, setData }: { data: FormData; setData: (d: FormData) => vo
           </div>
         </div>
 
+        <div>
+          <FieldLabel optional>Cuenta predial o clave catastral</FieldLabel>
+          <TextInput
+            value={data.cuentaPredial}
+            onChange={v => setData({ ...data, cuentaPredial: v })}
+            placeholder="Ej. 019-012-045-001-000"
+          />
+          <p className="text-[11px] text-[#9aab9f] mt-1.5">
+            Permite consultar el valor catastral oficial del predio. La encuentras en tu recibo de pago predial o en el portal del catastro municipal.
+          </p>
+        </div>
+
         <div className="pt-2">
           <div className="flex items-center gap-3 mb-1">
             <div className="flex-1 h-px bg-[#E2E8E4]"/>
@@ -875,7 +934,10 @@ function Step3({ data, setData }: { data: FormData; setData: (d: FormData) => vo
                 ? 'bg-[#FEE2E2] border border-[#FECACA]'
                 : 'bg-[#E1F5EE] border border-[#9FE1CB]'
             }`}>
-              <span className="text-sm mt-0.5">{data.clasificacionVial === 'privada' ? '⚠️' : '✅'}</span>
+              {data.clasificacionVial === 'privada'
+                ? <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="shrink-0 mt-0.5"><path d="M8 2L14 13H2L8 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/><line x1="8" y1="6.5" x2="8" y2="9.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/><circle cx="8" cy="11.5" r=".75" fill="currentColor"/></svg>
+                : <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="shrink-0 mt-0.5"><circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.5"/><path d="M5 8l2 2 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              }
               <p className={`text-[11px] ${data.clasificacionVial === 'privada' ? 'text-[#991B1B]' : 'text-[#0F6E56]'}`}>
                 {data.clasificacionVial === 'privada'
                   ? 'Calle privada — el agente aplicará una reducción sobre el valor base. Acceso limitado y menor plusvalía comercial.'
@@ -897,7 +959,7 @@ function Step3({ data, setData }: { data: FormData; setData: (d: FormData) => vo
           </div>
           {(data.pendiente === 'moderada' || data.pendiente === 'pronunciada') && (
             <div className="mt-2 flex items-start gap-2 bg-[#FFF8E6] border border-[#F0D070] rounded-xl px-3 py-2">
-              <span className="text-sm mt-0.5">⚠️</span>
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="shrink-0 mt-0.5"><path d="M8 2L14 13H2L8 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/><line x1="8" y1="6.5" x2="8" y2="9.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/><circle cx="8" cy="11.5" r=".75" fill="currentColor"/></svg>
               <p className="text-[11px] text-[#7a6020]">
                 Pendiente {data.pendiente === 'pronunciada' ? 'pronunciada' : 'moderada'} — puede generar sobrecosto de cimentación de $800k–$1.2M. El análisis lo cuantificará.
               </p>
@@ -1055,14 +1117,14 @@ function Step4({ data, setData }: { data: FormData; setData: (d: FormData) => vo
             {TIPOS_DESARROLLO.map(t => (
               <ChipOption key={t.id} selected={data.tiposDesarrollo.includes(t.id)} onClick={() => toggleTipo(t.id)}>
                 <div className="flex items-center gap-2">
-                  <span className="text-xl">{t.icon}</span>
+                  <TipoIcon id={t.id} />
                   <p className="text-[13px] font-medium text-[#111d17]">{t.label}</p>
                 </div>
               </ChipOption>
             ))}
             <ChipOption selected={data.tiposDesarrollo.includes('otro')} onClick={() => toggleTipo('otro')}>
               <div className="flex items-center gap-2">
-                <span className="text-xl">✏️</span>
+                <TipoIcon id="otro" />
                 <p className="text-[13px] font-medium text-[#111d17]">Otro</p>
               </div>
             </ChipOption>
@@ -1086,7 +1148,7 @@ function Step4({ data, setData }: { data: FormData; setData: (d: FormData) => vo
             {BANDAS_CONSTRUCCION.map(b => (
               <ChipOption key={b.id} selected={data.bandaConstruccion === b.id} onClick={() => setData({ ...data, bandaConstruccion: b.id })}>
                 <div className="flex items-start gap-3">
-                  <span className="text-xl shrink-0 mt-0.5">{b.icon}</span>
+                  <span className="shrink-0 mt-0.5"><BandaIcon id={b.id} /></span>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2 mb-0.5">
                       <p className="text-[13px] font-semibold text-[#111d17]">Banda {b.id} — {b.label}</p>
@@ -1200,11 +1262,12 @@ function Step5({ data }: { data: FormData }) {
           {data.pavimento && <SummaryRow label="Pavimento" value={data.pavimento === 'si' ? 'Sí' : 'No'} />}
           {data.distanciaAbasto && <SummaryRow label="Abasto" value={DISTANCIA_ABASTO.find(o => o.id === data.distanciaAbasto)?.label} />}
           {data.precioSolicitado && <SummaryRow label="Precio solicitado" value={`$${Number(data.precioSolicitado).toLocaleString('es-MX')} MXN`} />}
+          {data.cuentaPredial && <SummaryRow label="Cuenta predial" value={data.cuentaPredial} />}
         </div>
       </div>
 
       <div className="flex items-start gap-2 bg-[#FFF8E6] border border-[#F0D070] rounded-xl px-4 py-3">
-        <span className="text-base mt-0.5">⏱️</span>
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="shrink-0 mt-0.5 text-[#7a6020]"><circle cx="8" cy="9" r="6" stroke="currentColor" strokeWidth="1.5"/><path d="M8 6v3l1.5 1.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/><path d="M5.5 1.5h5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
         <p className="text-[12px] text-[#7a6020]">
           El análisis incluye normativa urbana, mercado comparables y potencial de desarrollo. Toma entre <strong>2 y 4 horas</strong>. Te notificaremos al completarse.
         </p>

@@ -33,6 +33,23 @@ interface UbicacionData {
   errorMsg?: string
 }
 
+interface CatastroData {
+  estado: string
+  municipio: string
+  expediente: string
+  ubicacion: string | null
+  sinAdeudo: boolean | null
+  adeudoTotal: number | null
+  superficieTerreno: number | null
+  costoCertificado: number | null
+  valorSuelo: number | null
+  valorConstruccion: number | null
+  valorCatastral: number | null
+  nota: string | null
+  portalCaido: boolean
+  source: string
+}
+
 interface PipelineState {
   terreno:     { status: AgentStatus; data: TerrenoResult | null;     overrideM2: string }
   construccion:{ status: AgentStatus; data: ConstruccionResult | null; overrideM2: string }
@@ -40,6 +57,7 @@ interface PipelineState {
   mercado:     { status: AgentStatus; data: MercadoResult | null }
   financiero:  { status: AgentStatus; data: FinancieroResult | null }
   ubicacion:   { status: AgentStatus; data: UbicacionData | null }
+  catastro:    { status: AgentStatus; data: CatastroData | null }
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -130,6 +148,18 @@ function EditableM2({
   )
 }
 
+function SectionHeader({ n, label }: { n: number; label: string }) {
+  return (
+    <div className="flex items-center gap-3 mb-3">
+      <div className="w-6 h-6 rounded-full bg-[#1D9E75] text-white text-[10px] font-bold flex items-center justify-center shrink-0">
+        {n}
+      </div>
+      <span className="text-[11px] font-bold text-[#111d17] uppercase tracking-widest">{label}</span>
+      <div className="flex-1 h-px bg-[#E2E8E4]" />
+    </div>
+  )
+}
+
 // ─── Step Cards ──────────────────────────────────────────────────────────────
 
 function RunningCard({ label, hint }: { label: string; hint: string }) {
@@ -157,7 +187,11 @@ function ErrorCard({ label, onRetry }: { label: string; onRetry: () => void }) {
     <div className="bg-white rounded-2xl border border-[#FECACA] p-5 flex items-center justify-between gap-4">
       <div className="flex items-center gap-3">
         <div className="w-8 h-8 rounded-lg bg-[#FEE2E2] flex items-center justify-center shrink-0">
-          <span className="text-sm">⚠️</span>
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path d="M8 2L14 13H2L8 2Z" stroke="#DC2626" strokeWidth="1.5" strokeLinejoin="round"/>
+            <line x1="8" y1="6.5" x2="8" y2="9.5" stroke="#DC2626" strokeWidth="1.5" strokeLinecap="round"/>
+            <circle cx="8" cy="11.5" r=".75" fill="#DC2626"/>
+          </svg>
         </div>
         <div>
           <p className="text-[13px] font-semibold text-[#991B1B]">{label} — Error al conectar</p>
@@ -334,6 +368,7 @@ function PipelineContent() {
     mercado:     { status: 'waiting', data: null },
     financiero:  { status: 'waiting', data: null },
     ubicacion:   { status: 'waiting', data: null },
+    catastro:    { status: 'waiting', data: null },
   })
 
   useEffect(() => {
@@ -342,26 +377,72 @@ function PipelineContent() {
     const fd = JSON.parse(raw)
     setFormData(fd)
     console.log('[ubicacion] lat:', fd.lat, 'lng:', fd.lng, 'zonaGeo:', fd.zonaGeo)
-    runUbicacion(fd)   // ubicación primero; al terminar dispara runTerreno con el contexto
+    runUbicacion(fd)
+    if (fd.cuentaPredial?.trim()) runCatastro(fd)
   }, [])
+
+  const runCatastro = async (fd: any) => {
+    setPipe(p => ({ ...p, catastro: { status: 'running', data: null } }))
+    try {
+      const res = await fetch('/api/catastro', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          cuentaPredial: fd.cuentaPredial,
+          ciudad: fd.ciudad,
+          estado: fd.estado,
+        }),
+      })
+      const json = await res.json()
+      if (!json.found) {
+        setPipe(p => ({ ...p, catastro: { status: 'error', data: null } }))
+        return
+      }
+      setPipe(p => ({
+        ...p,
+        catastro: {
+          status: 'done',
+          data: {
+            estado: json.estado ?? '',
+            municipio: json.municipio ?? '',
+            expediente: json.expediente ?? json.claveCatastral ?? '',
+            ubicacion: json.ubicacion ?? null,
+            sinAdeudo: json.sinAdeudo ?? null,
+            adeudoTotal: json.adeudoTotal ?? null,
+            superficieTerreno: json.superficieTerreno ?? null,
+            costoCertificado: json.costoCertificado ?? null,
+            valorSuelo: json.valorSuelo ?? null,
+            valorConstruccion: json.valorConstruccion ?? null,
+            valorCatastral: json.valorCatastral ?? null,
+            nota: json.nota ?? null,
+            portalCaido: !json.valorCatastral && !json.valorSuelo,
+            source: json.source ?? '',
+          },
+        },
+      }))
+    } catch {
+      setPipe(p => ({ ...p, catastro: { status: 'error', data: null } }))
+    }
+  }
 
   // ── Preparación: Ubicación (corre primero, al terminar dispara Terreno) ──
   const runUbicacion = async (fd: any) => {
     let lat: number | null = fd.lat ?? fd.zonaGeo?.lat ?? null
     let lng: number | null = fd.lng ?? fd.zonaGeo?.lng ?? null
 
-    // Sin pin confirmado → geocodificar la dirección con Google automáticamente
+    // Sin coordenadas → geocodificar via API server-side (maneja Google + Nominatim + Photon)
     if (!lat || !lng) {
-      const address = [fd.direccion, fd.colonia, fd.ciudad, fd.estado].filter(Boolean).join(', ')
-      if (address) {
-        try {
-          const geoRes = await fetch(
-            `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY}`
-          ).then(r => r.json())
-          const loc = geoRes.results?.[0]?.geometry?.location
-          if (loc) { lat = loc.lat; lng = loc.lng }
-        } catch { /* si geocoding falla, continúa sin coords */ }
-      }
+      try {
+        const params = new URLSearchParams()
+        const cp = fd.codigoPostal || fd.cp || ''
+        if (cp) params.set('cp', cp)
+        if (fd.direccion) params.set('direccion', fd.direccion)
+        if (fd.colonia)   params.set('colonia',   fd.colonia)
+        if (fd.ciudad)    params.set('ciudad',    fd.ciudad)
+        if (fd.estado)    params.set('estado',    fd.estado)
+        const geoRes = await fetch(`/api/geocode?${params}`).then(r => r.json())
+        if (geoRes.found) { lat = geoRes.lat; lng = geoRes.lng }
+      } catch { /* continúa sin coords */ }
     }
 
     if (!lat || !lng) {
@@ -570,8 +651,13 @@ function PipelineContent() {
       </header>
 
       {/* Progress bar */}
-      <div className="h-1 bg-[#E2E8E4]">
-        <div className="h-full bg-[#1D9E75] transition-all duration-700" style={{ width: `${pct}%` }} />
+      <div className="bg-white border-b border-[#E2E8E4] px-8 py-2 flex items-center gap-4">
+        <div className="flex-1 h-1.5 bg-[#E2E8E4] rounded-full overflow-hidden">
+          <div className="h-full bg-[#1D9E75] rounded-full transition-all duration-700" style={{ width: `${pct}%` }} />
+        </div>
+        <span className="text-[10px] font-semibold text-[#9aab9f] shrink-0 tabular-nums">
+          {stepsDone} de 4 agentes
+        </span>
       </div>
 
       <main className="flex-1 flex gap-0 overflow-hidden">
@@ -590,7 +676,7 @@ function PipelineContent() {
 
             {/* ══ STEP 1 — TERRENO ══ */}
             <section>
-              <p className="text-[10px] font-bold text-[#9aab9f] uppercase tracking-widest mb-3">Paso 1 · Agente de Valuación</p>
+              <SectionHeader n={1} label="Agente de Valuación" />
 
               {pipe.ubicacion.status === 'running' && (
                 <RunningCard
@@ -778,39 +864,121 @@ function PipelineContent() {
                     <AgentChat agentKey="terreno" agentData={pipe.terreno.data} />
 
                     {/* Accesibilidad ORS — contexto usado por el agente */}
-                    {pipe.ubicacion.data && (() => {
-                      const { isocronas, errorMsg } = pipe.ubicacion.data
-                      return (
-                        <div className="border-t border-[#F0F4F2] px-5 py-4">
-                          <p className="text-[10px] font-bold text-[#9aab9f] uppercase tracking-widest mb-3">
-                            Accesibilidad · contexto enviado al agente
-                          </p>
-                          {errorMsg ? (
-                            <p className="text-[10px] text-[#92400E] font-mono bg-[#FEF3C7] px-3 py-2 rounded-lg">{errorMsg}</p>
-                          ) : isocronas.length === 0 ? (
-                            <p className="text-[11px] text-[#9aab9f]">Sin datos de isócronas — el agente no recibió contexto de demanda.</p>
-                          ) : (
-                            <div className="flex gap-2">
-                              {isocronas.map(iso => (
-                                <div key={iso.rango_min} className="flex-1 bg-[#F7F8F6] rounded-xl px-3 py-3 text-center">
-                                  <p className="text-[10px] text-[#9aab9f] font-semibold">{iso.rango_min} min</p>
-                                  <p className="text-[15px] font-black text-[#111d17] mt-0.5">
-                                    {iso.poblacion_alcanzada != null
-                                      ? iso.poblacion_alcanzada >= 1_000_000
-                                        ? `${(iso.poblacion_alcanzada / 1_000_000).toFixed(1)}M`
-                                        : iso.poblacion_alcanzada >= 1_000
-                                          ? `${(iso.poblacion_alcanzada / 1_000).toFixed(0)}k`
-                                          : iso.poblacion_alcanzada.toLocaleString()
-                                      : '—'}
+                    {pipe.ubicacion.status !== 'waiting' && (
+                      <div className="border-t border-[#F0F4F2] px-5 py-4">
+                        <p className="text-[10px] font-bold text-[#9aab9f] uppercase tracking-widest mb-3">
+                          Accesibilidad · contexto enviado al agente
+                        </p>
+                        {!pipe.ubicacion.data || pipe.ubicacion.data.isocronas.length === 0 && !pipe.ubicacion.data.errorMsg ? (
+                          <p className="text-[11px] text-[#9aab9f]">Sin coordenadas — no se enviaron datos de demanda al agente.</p>
+                        ) : pipe.ubicacion.data.errorMsg ? (
+                          <p className="text-[10px] text-[#92400E] font-mono bg-[#FEF3C7] px-3 py-2 rounded-lg">{pipe.ubicacion.data.errorMsg}</p>
+                        ) : (
+                          <div className="flex gap-2">
+                            {pipe.ubicacion.data.isocronas.map(iso => (
+                              <div key={iso.rango_min} className="flex-1 bg-[#F7F8F6] rounded-xl px-3 py-3 text-center">
+                                <p className="text-[10px] text-[#9aab9f] font-semibold">{iso.rango_min} min</p>
+                                <p className="text-[15px] font-black text-[#111d17] mt-0.5">
+                                  {iso.poblacion_alcanzada != null
+                                    ? iso.poblacion_alcanzada >= 1_000_000
+                                      ? `${(iso.poblacion_alcanzada / 1_000_000).toFixed(1)}M`
+                                      : iso.poblacion_alcanzada >= 1_000
+                                        ? `${(iso.poblacion_alcanzada / 1_000).toFixed(0)}k`
+                                        : iso.poblacion_alcanzada.toLocaleString()
+                                    : '—'}
+                                </p>
+                                <p className="text-[9px] text-[#9aab9f]">hab.</p>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Catastro — solo si el usuario proporcionó cuenta predial */}
+                    {pipe.catastro.status !== 'waiting' && (
+                      <div className="border-t border-[#F0F4F2] px-5 py-4">
+                        <p className="text-[10px] font-bold text-[#9aab9f] uppercase tracking-widest mb-3">
+                          Catastro · verificación predial
+                        </p>
+                        {pipe.catastro.status === 'running' && (
+                          <p className="text-[11px] text-[#9aab9f]">Consultando portal catastral…</p>
+                        )}
+                        {pipe.catastro.status === 'error' && (
+                          <p className="text-[11px] text-[#DC2626]">No se pudo consultar el catastro — verifica el número de cuenta predial.</p>
+                        )}
+                        {pipe.catastro.status === 'done' && pipe.catastro.data && (() => {
+                          const c = pipe.catastro.data
+                          const isNL = c.estado === 'Nuevo León'
+                          const isSinaloa = c.estado === 'Sinaloa'
+                          return (
+                            <div className="space-y-2">
+                              <div className="flex gap-3">
+                                <div className="flex-1 bg-[#F7F8F6] rounded-xl px-3 py-2.5">
+                                  <p className="text-[9px] text-[#9aab9f] font-semibold uppercase tracking-wide">
+                                    {isSinaloa ? 'Clave catastral' : 'Expediente'}
                                   </p>
-                                  <p className="text-[9px] text-[#9aab9f]">hab.</p>
+                                  <p className="text-[12px] font-bold text-[#111d17] font-mono mt-0.5">{c.expediente}</p>
                                 </div>
-                              ))}
+                                {isNL && c.sinAdeudo !== null && (
+                                  <div className="flex-1 bg-[#F7F8F6] rounded-xl px-3 py-2.5">
+                                    <p className="text-[9px] text-[#9aab9f] font-semibold uppercase tracking-wide">Predial</p>
+                                    <p className={`text-[12px] font-bold mt-0.5 ${c.sinAdeudo ? 'text-[#0F6E56]' : 'text-[#DC2626]'}`}>
+                                      {c.sinAdeudo ? 'Al corriente' : `$${(c.adeudoTotal ?? 0).toLocaleString('es-MX')} adeudo`}
+                                    </p>
+                                  </div>
+                                )}
+                                {isSinaloa && (
+                                  <div className="flex-1 bg-[#F0FBF6] border border-[#1D9E75]/30 rounded-xl px-3 py-2.5">
+                                    <p className="text-[9px] text-[#9aab9f] font-semibold uppercase tracking-wide">Estado</p>
+                                    <p className="text-[12px] font-bold text-[#0F6E56] mt-0.5">Registrada</p>
+                                  </div>
+                                )}
+                              </div>
+                              {c.ubicacion && (
+                                <p className="text-[10px] text-[#5a7065] font-mono">{c.ubicacion}</p>
+                              )}
+                              {c.valorCatastral ? (
+                                <div className="flex gap-3">
+                                  {c.valorSuelo && (
+                                    <div className="flex-1 bg-[#F7F8F6] rounded-xl px-3 py-2.5">
+                                      <p className="text-[9px] text-[#9aab9f] font-semibold uppercase tracking-wide">Valor suelo</p>
+                                      <p className="text-[12px] font-bold text-[#111d17] mt-0.5">${(c.valorSuelo ?? 0).toLocaleString('es-MX')}</p>
+                                    </div>
+                                  )}
+                                  <div className="flex-1 bg-[#F7F8F6] rounded-xl px-3 py-2.5">
+                                    <p className="text-[9px] text-[#9aab9f] font-semibold uppercase tracking-wide">Valor catastral</p>
+                                    <p className="text-[13px] font-black text-[#0F6E56] mt-0.5">${c.valorCatastral.toLocaleString('es-MX')}</p>
+                                  </div>
+                                </div>
+                              ) : isSinaloa ? (
+                                <div className="flex items-start gap-2 bg-[#F0F4FF] border border-[#C7D5F0] rounded-xl px-3 py-2">
+                                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" className="shrink-0 mt-0.5 text-[#3B5BDB]">
+                                    <circle cx="8" cy="8" r="6.25" stroke="currentColor" strokeWidth="1.5"/>
+                                    <line x1="8" y1="7" x2="8" y2="11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                                    <circle cx="8" cy="5" r=".75" fill="currentColor"/>
+                                  </svg>
+                                  <p className="text-[10px] text-[#3B5BDB]">
+                                    {c.nota ?? `Clave verificada. El certificado catastral con valor oficial está disponible en pagoscatastro.sinaloa.gob.mx${c.costoCertificado ? ` por $${c.costoCertificado.toLocaleString('es-MX')}` : ''}.`}
+                                  </p>
+                                </div>
+                              ) : (
+                                <div className="flex items-start gap-2 bg-[#FFF8E6] border border-[#F0D070] rounded-xl px-3 py-2">
+                                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" className="shrink-0 mt-0.5 text-[#92400E]">
+                                    <path d="M8 2L14 13H2L8 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
+                                    <line x1="8" y1="6.5" x2="8" y2="9.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                                    <circle cx="8" cy="11.5" r=".75" fill="currentColor"/>
+                                  </svg>
+                                  <p className="text-[10px] text-[#7a6020]">
+                                    Portal IRCNL no disponible — valor catastral no consultado. El análisis continúa sin este dato.
+                                  </p>
+                                </div>
+                              )}
                             </div>
-                          )}
-                        </div>
-                      )
-                    })()}
+                          )
+                        })()}
+                      </div>
+                    )}
 
                     {pipe.construccion.status === 'waiting' && (
                       <div className="px-5 pb-5">
@@ -839,7 +1007,7 @@ function PipelineContent() {
             {/* ══ STEP 2 — CONSTRUCCIÓN ══ */}
             {(pipe.construccion.status !== 'waiting') && (
               <section>
-                <p className="text-[10px] font-bold text-[#9aab9f] uppercase tracking-widest mb-3">Paso 2 · Agente de Construcción</p>
+                <SectionHeader n={2} label="Agente de Construcción" />
 
                 {pipe.construccion.status === 'running' && (
                   <RunningCard label="Agente Construcción analizando…" hint="Consultando índices CMIC, calculando partidas y materiales principales" />
@@ -984,7 +1152,7 @@ function PipelineContent() {
             {/* ══ STEP 3 — LEGAL + MERCADO ══ */}
             {(pipe.legal.status !== 'waiting' || pipe.mercado.status !== 'waiting') && (
               <section>
-                <p className="text-[10px] font-bold text-[#9aab9f] uppercase tracking-widest mb-3">Paso 3 · Legal + Mercado (paralelo)</p>
+                <SectionHeader n={3} label="Legal + Mercado (paralelo)" />
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {/* Legal */}
@@ -1101,7 +1269,7 @@ function PipelineContent() {
             {/* ══ STEP 4 — FINANCIERO ══ */}
             {pipe.financiero.status !== 'waiting' && (
               <section>
-                <p className="text-[10px] font-bold text-[#9aab9f] uppercase tracking-widest mb-3">Paso 4 · Agente Financiero</p>
+                <SectionHeader n={4} label="Agente Financiero" />
 
                 {pipe.financiero.status === 'running' && (
                   <RunningCard label="Agente Financiero modelando…" hint="Calculando TIR, flujo de caja, stress test y score de resiliencia" />
