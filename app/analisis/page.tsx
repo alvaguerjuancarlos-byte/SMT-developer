@@ -3,141 +3,7 @@
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Suspense, useEffect, useRef, useState } from 'react'
 import FuentesConsultadas from '@/app/components/FuentesConsultadas'
-
-interface StressItem {
-  titulo: string
-  escenario: string
-  impacto: string
-  status: 'green' | 'amber' | 'red'
-}
-
-interface Fuente { nombre: string; tipo: string }
-interface Fuentes { legal?: Fuente[]; mercado?: Fuente[] }
-
-interface Comparable { nombre: string; direccion: string; fechaReferencia: string; precioM2: number; avanceObra: string; unidades: number; tipologia: string }
-interface OfertaActiva { proyectosEnPreventa: number; proyectosEnObra: number; proyectosEntregados24m: number; unidadesDisponibles: number; rangoPrecios: string; saturacion: string }
-interface SegmentoUnidad { tipo: string; absorcionMensual: string; precioM2: number; participacion: string; perfilComprador: string }
-interface PricingFase { fase: string; precioM2: number; descuento: string; meta: string }
-
-interface Factibilidad { status: 'Disponible' | 'Con condicionante' | 'No disponible'; nota: string }
-interface AlertaLegal { tipo: string; descripcion: string; impacto: string; status: 'green' | 'amber' | 'red' }
-
-interface EstructuraCapital {
-  equity: number; deuda: number; montoEquity: number; montoDeuda: number
-  tipoDeuda: string; tasaDeuda: string; costoFinanciero: number
-  preventa: { unidadesMinimas: number; porcentajeMinimo: string; montoMinimo: number; condicion: string }
-  tasaDescuento: string; isrEstimado: number; utilidadNeta: number; descripcion: string
-}
-interface FlujoMes { mes: number; fase: string; egresos: number; ingresos: number; acumulado: number; nota: string }
-interface FactorScore { factor: string; contribucion: string }
-interface DimensionScore { nombre: string; peso: string; score: number; factores: FactorScore[]; interpretacion: string }
-interface MetodologiaScore { descripcion: string; dimensiones: DimensionScore[] }
-
-interface AjusteTerreno {
-  concepto: string
-  descripcion: string
-  factorAjuste: string
-  impactoM2: number
-}
-
-interface BitacoraTerreno {
-  metodologia: string
-  bandaTerreno?: number
-  nombreBanda?: string
-  justificacionBanda?: string
-  nseReferencias?: string
-  precioM2Referencia: number
-  fuenteReferencia: string
-  ajustes: AjusteTerreno[]
-  precioM2Final: number
-  superficieM2: number
-  costoTotalTerreno: number
-  formula: string
-  razonamiento: string
-  supuestos: string[]
-  rangoValoracion: { minimo: number; maximo: number; interpretacion: string }
-}
-
-interface AjusteConstruccion {
-  concepto: string
-  descripcion: string
-  factorAjuste: string
-  impactoM2: number
-}
-
-interface PartidaConstruccion {
-  partida: string
-  porcentaje: number
-  costoPorM2: number
-  descripcion: string
-}
-
-interface MaterialClave {
-  material: string
-  unidad: string
-  cantidadPorM2: number
-  precioUnitario: number
-  costoPorM2: number
-  nota: string
-}
-
-interface BitacoraConstruccion {
-  bandaElegida: number
-  nombreBanda: string
-  descripcionBanda: string
-  costoPorM2Base: number
-  ciudadAjuste: string
-  tipologiaAjuste: string
-  ajustes: AjusteConstruccion[]
-  costoPorM2Final: number
-  superficieConstruccionM2: number
-  costoTotalConstruccion: number
-  formula: string
-  fuenteReferencia: string
-  razonamiento: string
-  supuestos: string[]
-  rangoReferencia: { minimo: number; maximo: number; interpretacion: string }
-  desglosePorPartidas?: PartidaConstruccion[]
-  materialesPrincipales?: MaterialClave[]
-}
-
-interface AnalisisData {
-  proyecto?: string
-  bitacoraTerreno?: BitacoraTerreno
-  bitacoraConstruccion?: BitacoraConstruccion
-  recomendacion: { tipologia: string; descripcion: string }
-  fichaLegal: {
-    usoSueloActual?: string; usoSueloPermitido?: string; usoSuelo?: string
-    compatible?: boolean; densidadAutorizada?: string
-    cos: string; cus: string; altura: string; cajones: string
-    retiros?: string; municipio: string; restriccion: string
-    factibilidades?: { agua: Factibilidad; drenaje: Factibilidad; cfe: Factibilidad }
-    regimenCondominio?: string; restriccionesAmbientales?: string
-    nivelRiesgo?: 'Bajo' | 'Medio' | 'Alto'; alertasLegales?: AlertaLegal[]
-  }
-  financiero: {
-    costoTerreno: number; costoTerrenoM2: number; construccionM2: number
-    costoTotalConstruccion: number; indirectos: number; honorarios: number
-    imprevistos: number; inversionTotal: number; precioVentaM2: number
-    ingresosProyectados: number; utilidadBruta: number; margenBruto: number; tir: number
-  }
-  mercado: {
-    demanda: string; zona: string; absorcion: string; proyectosActivos: string
-    precioPromedioZona: string; perfilNSE: string; plusvalia: string; inventario: string
-    productoRecomendado: string
-    comparables?: Comparable[]
-    ofertaActiva?: OfertaActiva
-    segmentacion?: SegmentoUnidad[]
-    pricingFases?: PricingFase[]
-  }
-  estructuraCapital?: EstructuraCapital
-  flujoMensual?: FlujoMes[]
-  score: { total: number; solidezFinanciera: number; riesgoRegulatorio: number; exposicionMercado: number }
-  metodologiaScore?: MetodologiaScore
-  stressTest: StressItem[]
-  puntoQuiebre: { desviacionMaxCostos: string; absorcionMinViable: string; precioVentaMinimo: string; resumen: string }
-  fuentes?: Fuentes
-}
+import type { AnalisisData, StressItem, FlujoMes } from '@/lib/analisis/tipos'
 
 const FALLBACK: AnalisisData = {
   recomendacion: {
@@ -205,6 +71,93 @@ function ScoreGauge({ score }: { score: number }) {
       </div>
       <span className={`text-[12px] font-bold mt-2 ${labelColor}`}>{label}</span>
     </div>
+  )
+}
+
+function CashFlowChart({ data }: { data: FlujoMes[] }) {
+  const W = 680, H = 220
+  const pad = { top: 24, right: 16, bottom: 36, left: 72 }
+  const iW = W - pad.left - pad.right
+  const iH = H - pad.top - pad.bottom
+
+  const maxEgreso  = Math.max(...data.map(d => d.egresos),  1)
+  const maxIngreso = Math.max(...data.map(d => d.ingresos), 1)
+  const maxBar     = Math.max(maxEgreso, maxIngreso)
+  const minAcum    = Math.min(...data.map(d => d.acumulado))
+  const maxAcum    = Math.max(...data.map(d => d.acumulado))
+  const acumRange  = maxAcum - minAcum || 1
+
+  const barW  = Math.max(4, iW / data.length - 3)
+  const xPos  = (i: number) => pad.left + (i + 0.5) * (iW / data.length)
+  const yBar  = (v: number) => iH - (v / maxBar) * iH
+  const yLine = (v: number) => pad.top + ((maxAcum - v) / acumRange) * iH
+
+  const zeroY = yLine(0)
+
+  const linePts = data.map((d, i) => `${xPos(i)},${yLine(d.acumulado)}`).join(' ')
+
+  const fmt = (n: number) =>
+    Math.abs(n) >= 1_000_000 ? `$${(n / 1_000_000).toFixed(1)}M` : `$${(n / 1_000).toFixed(0)}k`
+
+  // y-axis ticks (acumulado)
+  const ticks = [minAcum, minAcum + acumRange * 0.25, minAcum + acumRange * 0.5, minAcum + acumRange * 0.75, maxAcum]
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} width="100%" className="overflow-visible">
+      {/* Grid lines */}
+      {ticks.map((t, i) => (
+        <g key={i}>
+          <line x1={pad.left} y1={yLine(t)} x2={W - pad.right} y2={yLine(t)} stroke="#F0F4F2" strokeWidth="1" />
+          <text x={pad.left - 6} y={yLine(t) + 4} textAnchor="end" fontSize="9" fill="#b0bdb6">{fmt(t)}</text>
+        </g>
+      ))}
+
+      {/* Zero line */}
+      {minAcum < 0 && maxAcum > 0 && (
+        <line x1={pad.left} y1={zeroY} x2={W - pad.right} y2={zeroY} stroke="#E2E8E4" strokeWidth="1.5" strokeDasharray="4 3" />
+      )}
+
+      {/* Bars: egresos (red, pointing down from bottom) and ingresos (green, pointing up) */}
+      {data.map((d, i) => {
+        const cx   = xPos(i)
+        const half = barW / 2
+        const hE   = (d.egresos  / maxBar) * (iH * 0.45)
+        const hI   = (d.ingresos / maxBar) * (iH * 0.45)
+        const midY = pad.top + iH * 0.5
+        return (
+          <g key={i}>
+            {d.egresos  > 0 && <rect x={cx - half} y={midY}          width={barW} height={hE} rx="2" fill="#FCA5A5" />}
+            {d.ingresos > 0 && <rect x={cx - half} y={midY - hI}     width={barW} height={hI} rx="2" fill="#6EE7B7" />}
+          </g>
+        )
+      })}
+
+      {/* Acumulado line */}
+      <polyline points={linePts} fill="none" stroke="#1D9E75" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
+
+      {/* Dots on line */}
+      {data.map((d, i) => (
+        <circle key={i} cx={xPos(i)} cy={yLine(d.acumulado)} r="3"
+          fill={d.acumulado >= 0 ? '#1D9E75' : '#DC2626'} stroke="white" strokeWidth="1.5" />
+      ))}
+
+      {/* X-axis month labels */}
+      {data.map((d, i) => (
+        (i === 0 || (i + 1) % Math.ceil(data.length / 8) === 0 || i === data.length - 1) && (
+          <text key={i} x={xPos(i)} y={H - 6} textAnchor="middle" fontSize="9" fill="#9aab9f">M{d.mes}</text>
+        )
+      ))}
+
+      {/* Legend */}
+      <g transform={`translate(${pad.left}, ${H - 8})`}>
+        <rect x="0" y="-7" width="8" height="8" rx="1" fill="#6EE7B7" />
+        <text x="11" y="0" fontSize="9" fill="#5a7065">Ingresos</text>
+        <rect x="64" y="-7" width="8" height="8" rx="1" fill="#FCA5A5" />
+        <text x="75" y="0" fontSize="9" fill="#5a7065">Egresos</text>
+        <line x1="128" y1="-3" x2="140" y2="-3" stroke="#1D9E75" strokeWidth="2.5" />
+        <text x="143" y="0" fontSize="9" fill="#5a7065">Acumulado</text>
+      </g>
+    </svg>
   )
 }
 
@@ -782,8 +735,8 @@ function AnalisisContent() {
     <>
     {showBitacora && <BitacoraModal />}
     {showBitacoraConstruccion && <BitacoraConstruccionModal />}
-    <div className="min-h-screen bg-[#F7F8F6] flex flex-col">
-      <header className="px-8 py-5 flex items-center gap-3 border-b border-[#E2E8E4] bg-white sticky top-0 z-10">
+    <div className="min-h-screen bg-[#0C0F0E] flex flex-col">
+      <header className="px-8 py-5 flex items-center gap-3 border-b border-white/10 bg-[#0C0F0E] sticky top-0 z-10">
         <div className="w-8 h-8 rounded-lg bg-[#1D9E75] flex items-center justify-center">
           <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
             <path d="M9 2L16 6V12L9 16L2 12V6L9 2Z" stroke="white" strokeWidth="1.5" fill="none"/>
@@ -791,8 +744,8 @@ function AnalisisContent() {
           </svg>
         </div>
         <div>
-          <span className="text-[15px] font-medium text-[#1a1a1a] tracking-wide">SMT Developer</span>
-          <span className="block text-[10px] text-[#6b7c74] tracking-[0.12em] uppercase">Inteligencia inmobiliaria</span>
+          <span className="text-[15px] font-medium text-white tracking-wide">SMT Developer</span>
+          <span className="block text-[10px] text-white/40 tracking-[0.12em] uppercase">Inteligencia inmobiliaria</span>
         </div>
         <div className="ml-auto flex items-center gap-3">
           {aiGenerated && (
@@ -800,6 +753,18 @@ function AnalisisContent() {
               IA generado
             </span>
           )}
+          <button
+            onClick={() => window.print()}
+            className="flex items-center gap-1.5 text-[13px] text-[#5a7065] hover:text-[#111d17] border border-[#E2E8E4] hover:border-[#C8D5CF] px-3 py-1.5 rounded-xl transition-colors print:hidden"
+          >
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <path d="M3 4V2h8v2" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+              <rect x="1" y="4" width="12" height="6" rx="1" stroke="currentColor" strokeWidth="1.3"/>
+              <path d="M3 8v4h8V8" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+              <path d="M5 10h4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+            </svg>
+            Imprimir / PDF
+          </button>
           <button onClick={() => router.push('/dashboard')} className="flex items-center gap-1.5 text-[13px] text-[#5a7065] hover:text-[#111d17] border border-[#E2E8E4] hover:border-[#C8D5CF] px-3 py-1.5 rounded-xl transition-colors">
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
               <rect x="1" y="1" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.3"/>
@@ -1077,6 +1042,22 @@ function AnalisisContent() {
             </Card>
           </div>
 
+          {/* Entrada a Mastermind */}
+          <div className="bg-[#0A1F13] rounded-2xl p-5 flex items-center justify-between gap-4">
+            <div>
+              <p className="text-white font-semibold text-[14px] mb-0.5">¿Quieres ajustar los números en vivo?</p>
+              <p className="text-white/50 text-[12px]">
+                Abre Mastermind para editar el proyecto y ver la TIR recalcularse al instante, o fija una TIR objetivo y calcula qué necesitas para alcanzarla.
+              </p>
+            </div>
+            <button
+              onClick={() => router.push('/mastermind')}
+              className="flex-shrink-0 bg-[#1D9E75] text-white text-[13px] font-medium px-5 py-2.5 rounded-xl hover:bg-[#0F6E56] transition-colors whitespace-nowrap"
+            >
+              Abrir Mastermind →
+            </button>
+          </div>
+
           {/* Estructura de Capital */}
           {d.estructuraCapital && (
             <div>
@@ -1135,7 +1116,10 @@ function AnalisisContent() {
           {d.flujoMensual && d.flujoMensual.length > 0 && (
             <div>
               <SectionTitle>Flujo de Caja Proyectado</SectionTitle>
-              <Card className="p-0 overflow-hidden">
+              <Card className="pb-4 mb-0">
+                <CashFlowChart data={d.flujoMensual} />
+              </Card>
+              <Card className="p-0 overflow-hidden mt-3">
                 <table className="w-full text-[12px]">
                   <thead>
                     <tr className="bg-[#F7F8F6] border-b border-[#E2E8E4]">
@@ -1593,7 +1577,7 @@ function AnalisisContent() {
 
 export default function AnalisisPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-[#F7F8F6] flex items-center justify-center"><p className="text-[#9aab9f]">Cargando análisis…</p></div>}>
+    <Suspense fallback={<div className="min-h-screen bg-[#0C0F0E] flex items-center justify-center"><p className="text-white/30">Cargando análisis…</p></div>}>
       <AnalisisContent />
     </Suspense>
   )
