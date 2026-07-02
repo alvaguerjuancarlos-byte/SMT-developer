@@ -1,8 +1,8 @@
-async function buildPDF(filename: string) {
+async function buildPDF(filename: string, elementId = 'propuesta-print') {
   const { toCanvas } = await import('html-to-image')
   const { jsPDF } = await import('jspdf')
 
-  const source = document.getElementById('propuesta-print')
+  const source = document.getElementById(elementId)
   if (!source) return null
 
   // Suppress cross-origin stylesheet access errors
@@ -87,8 +87,8 @@ function uploadPDF(pdf: import('jspdf').jsPDF, proyectoId: string) {
 }
 
 /** Descarga el PDF localmente y lo sube a Mis Proyectos */
-export async function downloadPDF(filename = 'propuesta-smt.pdf', proyectoId?: string) {
-  const result = await buildPDF(filename)
+export async function downloadPDF(filename = 'propuesta-smt.pdf', proyectoId?: string, elementId = 'propuesta-print') {
+  const result = await buildPDF(filename, elementId)
   if (!result) return
   result.pdf.save(filename)
   if (proyectoId) uploadPDF(result.pdf, proyectoId)
