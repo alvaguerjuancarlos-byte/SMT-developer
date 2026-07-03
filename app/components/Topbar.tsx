@@ -19,7 +19,7 @@ export default function Topbar() {
           <span className="text-white/60 text-sm">Plataforma de Análisis Inmobiliario</span>
         </div>
         <div className="flex items-center gap-4">
-          <span className="text-white/70 text-xs">v2.2 · 8 Jun 2026</span>
+          <span className="text-white/70 text-xs">v3.0 · Jul 2026</span>
           <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
             <span className="text-white text-xs font-semibold">JC</span>
           </div>
