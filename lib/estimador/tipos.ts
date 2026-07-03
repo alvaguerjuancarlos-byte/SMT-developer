@@ -67,6 +67,8 @@ export interface EnvolventeNormativo {
   nivelesTeóricos: number   // CUS / COS — intuición de la forma del edificio
   unidadesMax?: number      // (S_terreno/10000) × densidad si densidad provista
   bindingConstraint: string // cuál restricción limita realmente el proyecto
+  cumple: boolean           // el programa (Σ m²Bruto) cabe dentro de construibleMax (y unidadesMax si aplica)
+  excesoPct?: number        // % por el que excede el límite más restrictivo, solo si !cumple
 }
 
 export interface DesgloseCajonPorUso {

@@ -67,7 +67,39 @@ export function envolventeNormativo(
     normativos, { huellaMax, construibleMax, unidadesMax }, totalSobreRasante, proyecto,
   )
 
-  return { huellaMax, construibleMax, permeableMin, nivelesTeóricos, unidadesMax, bindingConstraint }
+  const { cumple, excesoPct } = _evaluarCumplimiento(
+    { construibleMax, unidadesMax }, totalSobreRasante, proyecto,
+  )
+
+  return { huellaMax, construibleMax, permeableMin, nivelesTeóricos, unidadesMax, bindingConstraint, cumple, excesoPct }
+}
+
+// Chequeo de cumplimiento explícito (booleano) — bindingConstraint arriba es solo texto
+// descriptivo para el reporte; esto es lo que la UI usa para el banner cumple/no cumple.
+function _evaluarCumplimiento(
+  env: { construibleMax: number; unidadesMax?: number },
+  totalSobreRasante: number,
+  proyecto: InputsProyecto,
+): { cumple: boolean; excesoPct?: number } {
+  if (env.unidadesMax !== undefined) {
+    const totalUnidades = proyecto.usos
+      .filter(u => isVivienda(u.genero))
+      .reduce((s, u) => {
+        const units = u.unidades
+          ?? Math.round(u.m2Bruto / RATIOS_CAJONES_REFERENCIA.vivienda.m2PorUnidadDefault)
+        return s + units
+      }, 0)
+
+    if (totalUnidades > env.unidadesMax) {
+      return { cumple: false, excesoPct: ((totalUnidades - env.unidadesMax) / env.unidadesMax) * 100 }
+    }
+  }
+
+  if (totalSobreRasante > env.construibleMax) {
+    return { cumple: false, excesoPct: ((totalSobreRasante - env.construibleMax) / env.construibleMax) * 100 }
+  }
+
+  return { cumple: true }
 }
 
 function _determinarBindingConstraint(
