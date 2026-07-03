@@ -60,8 +60,9 @@ PASO 2 — DESGLOSE POR ZONAS DE CONSTRUCCIÓN
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 La superficie construida bruta NO es toda vendible. Divídela en las siguientes zonas con su participación típica y costo diferenciado:
 
-ZONA 1 — ÁREA VENDIBLE (departamentos / unidades habitacionales / locales)
-  Participación típica: 60–72% de superficie bruta (residencial vertical)
+ZONA 1 — ÁREA VENDIBLE (casa habitación / departamentos / locales según tipología)
+  IMPORTANTE: Para desarrollo UNIFAMILIAR, esta zona es la vivienda completa (1 sola unidad). No estimes múltiples unidades.
+  Participación típica: 60–72% de superficie bruta (residencial vertical); para unifamiliar puede llegar a 80–85% sin circulaciones de edificio.
   Costo/m²: 100% del costo de banda (el más alto — acabados completos)
   Qué incluye: muros, losa, cancelería, instalaciones completas, acabados de banda
 

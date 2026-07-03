@@ -61,7 +61,8 @@ MERCADO (Agente Mercado):
 INSTRUCCIONES FINANCIERAS:
 1. Calcula indirectos (15–18% de costoTotalConstruccion), honorarios de proyecto (8–10%), imprevistos (5%)
 2. inversionTotal = costoTerreno + costoTotalConstruccion + indirectos + honorarios + imprevistos
-3. Estima el número de unidades vendibles según superficieConstruida, COS/CUS y tipología
+3. Estima el número de unidades vendibles según superficieConstruida, COS/CUS y tipología.
+   REGLA CRÍTICA: Si el tipo de desarrollo incluye "unifamiliar" o "Unifamiliar", el número de unidades es EXACTAMENTE 1 — una sola vivienda. No importa la superficie. NUNCA recomiendes 2 o más casas para un desarrollo unifamiliar.
 4. ingresosProyectados = unidades × precio promedio ponderado de las fases de venta
 5. utilidadBruta = ingresosProyectados − inversionTotal
 6. margenBruto = (utilidadBruta / inversionTotal) × 100
@@ -202,6 +203,7 @@ REGLAS:
 - financiero.costoTerrenoM2 DEBE ser exactamente ${costoTerrenoM2} (no lo cambies)
 - financiero.construccionM2 DEBE ser exactamente ${construccionM2} (no lo cambies)
 - financiero.costoTotalConstruccion DEBE ser exactamente ${costoTotalConstruccion} (no lo cambies)
+- UNIFAMILIAR: si tiposDesarrollo incluye "unifamiliar", recomendacion.tipologia DEBE decir "Casa Unifamiliar · 1 vivienda" (nunca más de 1). Los ingresos son el precio de venta de 1 sola vivienda.
 - Todos los valores financieros son números sin formato (sin $, sin comas)
 - tir y margenBruto son números decimales (ej: 22.4, no "22.4%")
 - scores son números enteros 0–100
