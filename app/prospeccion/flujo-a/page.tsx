@@ -1,264 +1,154 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
-import { useRouter } from 'next/navigation'
+export const dynamic = 'force-dynamic'
 
-const CIUDADES = [...new Set([
-  'Acapulco', 'Acuña', 'Agua Prieta', 'Aguascalientes', 'Ahome', 'Allende',
-  'Altamira', 'Apatzingán', 'Apodaca', 'Atlacomulco',
-  'Bacalar', 'Bahía de Banderas',
-  'Cadereyta Jiménez', 'Campeche', 'Cancún', 'Cárdenas', 'Celaya', 'Chetumal',
-  'Chihuahua', 'Chilpancingo', 'Chimalhuacán', 'Cholula', 'Ciudad del Carmen',
-  'Ciudad Juárez', 'Ciudad Obregón', 'Ciudad Valles', 'Ciudad Victoria',
-  'Coatzacoalcos', 'Coacalco', 'Colima', 'Córdoba', 'Corregidora', 'Cozumel',
-  'Cuauhtémoc', 'Cuautitlán Izcalli', 'Cuautla', 'Cuernavaca', 'Culiacán',
-  'Delicias', 'Durango',
-  'Ecatepec', 'El Marqués', 'Ensenada', 'Escobedo',
-  'Fresnillo',
-  'García', 'Gómez Palacio', 'Guadalajara', 'Guadalupe', 'Guanajuato',
-  'Guasave', 'Guaymas',
-  'Hermosillo', 'Hidalgo del Parral', 'Huatulco',
-  'Irapuato',
-  'Jiutepec', 'Juárez',
-  'La Paz', 'Lázaro Cárdenas', 'León', 'Linares', 'Loreto', 'Los Cabos', 'Los Mochis',
-  'Manzanillo', 'Matamoros', 'Mazatlán', 'Mérida', 'Metepec', 'Mexicali',
-  'Monclova', 'Montemorelos', 'Monterrey', 'Morelia',
-  'Naucalpan', 'Navojoa', 'Nezahualcóyotl', 'Nogales', 'Nuevo Laredo',
-  'Oaxaca de Juárez', 'Orizaba',
-  'Pachuca', 'Piedras Negras', 'Playa del Carmen', 'Poza Rica', 'Progreso',
-  'Puebla', 'Puerto Escondido', 'Puerto Peñasco', 'Puerto Vallarta',
-  'Querétaro',
-  'Reynosa', 'Rioverde', 'Rosarito',
-  'Salamanca', 'Saltillo', 'San Cristóbal de las Casas', 'San Juan del Río',
-  'San Luis Potosí', 'San Luis Río Colorado', 'San Miguel de Allende',
-  'San Nicolás de los Garza', 'San Pedro Garza García', 'Santa Catarina',
-  'Silao',
-  'Tampico', 'Tapachula', 'Tehuacán', 'Temixco', 'Tepic', 'Texcoco', 'Tijuana',
-  'Tizayuca', 'Tlajomulco de Zúñiga', 'Tlalnepantla', 'Tlaquepaque', 'Tlaxcala',
-  'Toluca', 'Tonalá', 'Torreón', 'Tultitlán', 'Tulancingo', 'Tulum',
-  'Tuxtla Gutiérrez',
-  'Uruapan',
-  'Valladolid', 'Veracruz', 'Villahermosa',
-  'Xalapa',
-  'Zacatecas', 'Zamora', 'Zapopan', 'Zihuatanejo', 'Zinacantepec',
-  'Ciudad de México', 'Atizapán de Zaragoza', 'Chalco', 'Cuautitlán',
-  'Ixtapaluca', 'Nicolás Romero', 'Tecámac',
-])].sort((a, b) => a.localeCompare(b, 'es'))
+import { useState, useRef, useEffect, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 
-const USOS_SUELO = [
-  { id: 'habitacional', label: 'Habitacional' },
-  { id: 'comercial', label: 'Comercial' },
-  { id: 'mixto', label: 'Mixto' },
-  { id: 'industrial', label: 'Industrial' },
-  { id: 'agricola', label: 'Agrícola' },
-  { id: 'sin-uso', label: 'Sin uso definido' },
+// ─── Constants ───────────────────────────────────────────────────────────────
+
+const ESTADOS_MX = [
+  'Aguascalientes','Baja California','Baja California Sur','Campeche','Chiapas','Chihuahua',
+  'Ciudad de México','Coahuila de Zaragoza','Colima','Durango','Guanajuato','Guerrero','Hidalgo',
+  'Jalisco','México','Michoacán de Ocampo','Morelos','Nayarit','Nuevo León','Oaxaca','Puebla',
+  'Querétaro','Quintana Roo','San Luis Potosí','Sinaloa','Sonora','Tabasco','Tamaulipas',
+  'Tlaxcala','Veracruz de Ignacio de la Llave','Yucatán','Zacatecas',
 ]
 
-const ESTADOS_TERRENO = [
-  { id: 'baldio-limpio', label: 'Baldío limpio' },
-  { id: 'baldio-escombro', label: 'Baldío con escombro' },
-  { id: 'construccion', label: 'Construcción existente' },
-  { id: 'vegetacion', label: 'Vegetación densa' },
+const CIUDADES_POR_ESTADO: Record<string, string[]> = {
+  'Aguascalientes':              ['Aguascalientes','Calvillo','Jesús María','Pabellón de Arteaga','Rincón de Romos','San Francisco de los Romo','Tepezalá'],
+  'Baja California':             ['Ensenada','Mexicali','Playas de Rosarito','Tecate','Tijuana'],
+  'Baja California Sur':         ['Comondú','La Paz','Loreto','Los Cabos','Mulegé'],
+  'Campeche':                    ['Calkiní','Campeche','Candelaria','Carmen','Champotón','Escárcega','Hecelchakán','Hopelchén','Palizada','Tenabo'],
+  'Chiapas':                     ['Berriozábal','Chiapa de Corzo','Comitán de Domínguez','Huixtla','Ocosingo','Ocozocuautla','San Cristóbal de las Casas','Tapachula','Tonalá','Tuxtla Gutiérrez','Villaflores'],
+  'Chihuahua':                   ['Aldama','Camargo','Ciudad Juárez','Chihuahua','Cuauhtémoc','Delicias','Guachochi','Hidalgo del Parral','Jiménez','Meoqui','Nuevo Casas Grandes'],
+  'Ciudad de México':            ['Álvaro Obregón','Azcapotzalco','Benito Juárez','Coyoacán','Cuajimalpa','Cuauhtémoc','Gustavo A. Madero','Iztacalco','Iztapalapa','Magdalena Contreras','Miguel Hidalgo','Milpa Alta','Tláhuac','Tlalpan','Venustiano Carranza','Xochimilco'],
+  'Coahuila de Zaragoza':        ['Acuña','Monclova','Nava','Piedras Negras','Ramos Arizpe','Saltillo','San Pedro','Torreón'],
+  'Colima':                      ['Armería','Colima','Comala','Coquimatlán','Cuauhtémoc','Ixtlahuacán','Manzanillo','Minatitlán','Tecomán','Villa de Álvarez'],
+  'Durango':                     ['Canatlán','Durango','El Salto','Gómez Palacio','Lerdo','Pueblo Nuevo','Santiago Papasquiaro','Vicente Guerrero'],
+  'Guanajuato':                  ['Celaya','Cortazar','Dolores Hidalgo','Guanajuato','Irapuato','Lagos de Moreno','León','Pénjamo','Salamanca','San Francisco del Rincón','San Miguel de Allende','Silao','Uriangato','Valle de Santiago'],
+  'Guerrero':                    ['Acapulco','Chilpancingo','Iguala','Taxco de Alarcón','Zihuatanejo','Tlapa de Comonfort','Chilapa de Álvarez'],
+  'Hidalgo':                     ['Actopan','Huejutla de Reyes','Ixmiquilpan','Mineral de la Reforma','Pachuca','Tizayuca','Tula de Allende','Tulancingo'],
+  'Jalisco':                     ['Autlán de Navarro','El Salto','Guadalajara','Lagos de Moreno','Ocotlán','Puerto Vallarta','San Pedro Tlaquepaque','Tepatitlán de Morelos','Tlajomulco de Zúñiga','Tlaquepaque','Tonalá','Zapopan','Zapotlanejo'],
+  'México':                      ['Atizapán de Zaragoza','Chalco','Chimalhuacán','Cuautitlán','Cuautitlán Izcalli','Ecatepec','Huixquilucan','Ixtapaluca','Metepec','Naucalpan','Nezahualcóyotl','Nicolás Romero','Tecámac','Texcoco','Tlalnepantla','Toluca','Tultitlán','Valle de Bravo','Zinacantepec'],
+  'Michoacán de Ocampo':         ['Apatzingán','Hidalgo','La Piedad','Lázaro Cárdenas','Los Reyes','Morelia','Pátzcuaro','Sahuayo','Uruapan','Zamora','Zitácuaro'],
+  'Morelos':                     ['Cuernavaca','Cuautla','Jiutepec','Jojutla','Temixco','Yautepec','Zacatepec'],
+  'Nayarit':                     ['Bahía de Banderas','Compostela','Ixtlán del Río','Santiago Ixcuintla','Tecuala','Tepic','Tuxpan'],
+  'Nuevo León':                  ['Apodaca','Cadereyta Jiménez','Escobedo','García','Guadalupe','Juárez','Linares','Montemorelos','Monterrey','Pesquería','San Nicolás de los Garza','San Pedro Garza García','Santa Catarina'],
+  'Oaxaca':                      ['Huajuapan de León','Juchitán de Zaragoza','Miahuatlán de Porfirio Díaz','Oaxaca de Juárez','Puerto Escondido','Salina Cruz','San Juan Bautista Tuxtepec','Tehuantepec'],
+  'Puebla':                      ['Atlixco','Cholula','Ciudad Serdán','Izúcar de Matamoros','Puebla','San Martín Texmelucan','San Pedro Cholula','Tehuacán','Teziutlán'],
+  'Querétaro':                   ['Corregidora','El Marqués','Jalpan de Serra','Pedro Escobedo','Querétaro','San Juan del Río','Tequisquiapan'],
+  'Quintana Roo':                ['Bacalar','Benito Juárez','Cancún','Cozumel','Felipe Carrillo Puerto','Isla Mujeres','José María Morelos','Lázaro Cárdenas','Othón P. Blanco','Playa del Carmen','Solidaridad','Tulum'],
+  'San Luis Potosí':             ['Cárdenas','Ciudad Valles','Matehuala','Mexquitic de Carmona','Rioverde','San Luis Potosí','Soledad de Graciano Sánchez','Tamazunchale'],
+  'Sinaloa':                     ['Ahome','Culiacán','El Fuerte','Guasave','Los Mochis','Mazatlán','Navolato','Salvador Alvarado'],
+  'Sonora':                      ['Agua Prieta','Cajeme','Ciudad Obregón','Empalme','Guaymas','Hermosillo','Huatabampo','Navojoa','Nogales','Puerto Peñasco','San Luis Río Colorado'],
+  'Tabasco':                     ['Cárdenas','Comalcalco','Cunduacán','Huimanguillo','Macuspana','Paraíso','Villahermosa'],
+  'Tamaulipas':                  ['Altamira','Ciudad Madero','Ciudad Victoria','Matamoros','Nuevo Laredo','Reynosa','Tampico','Tula'],
+  'Tlaxcala':                    ['Apizaco','Chiautempan','Huamantla','Tlaxcala','Xaltocan','Zacatelco'],
+  'Veracruz de Ignacio de la Llave': ['Boca del Río','Coatzacoalcos','Córdoba','Cosoleacaque','Minatitlán','Orizaba','Papantla','Poza Rica','San Andrés Tuxtla','Tuxpan','Veracruz','Xalapa'],
+  'Yucatán':                     ['Kanasín','Mérida','Progreso','Tizimín','Umán','Valladolid'],
+  'Zacatecas':                   ['Calera','Fresnillo','Guadalupe','Jerez','Loreto','Río Grande','Zacatecas'],
+}
+
+function ciudadesPorEstado(estado: string): string[] {
+  const key = Object.keys(CIUDADES_POR_ESTADO).find(k => k.toLowerCase() === estado.toLowerCase()) ?? ''
+  return (CIUDADES_POR_ESTADO[key] ?? []).sort((a, b) => a.localeCompare(b, 'es'))
+}
+
+const TIPOS_DESARROLLO = [
+  { id: 'residencial-vertical',   label: 'Residencial vertical',   sub: 'Torre o edificio de departamentos' },
+  { id: 'residencial-horizontal', label: 'Residencial horizontal', sub: 'Fraccionamiento o privada' },
+  { id: 'unifamiliar',            label: 'Unifamiliar',            sub: 'Una sola casa habitación' },
+  { id: 'comercial',              label: 'Comercial',              sub: 'Local, plaza o strip center' },
+  { id: 'mixto',                  label: 'Uso mixto',              sub: 'Comercio + vivienda' },
+  { id: 'industrial',             label: 'Industrial / Nave',      sub: 'Bodega, manufactura o logística' },
+  { id: 'otro',                    label: 'Otra idea…',             sub: 'Descríbela y el análisis la evaluará' },
 ]
 
 const RANGOS_PRESUPUESTO = [
-  { id: 'menos-5m', label: 'Menos de $5 MDP' },
-  { id: '5-15m', label: '$5 – $15 MDP' },
-  { id: '15-50m', label: '$15 – $50 MDP' },
-  { id: '50-150m', label: '$50 – $150 MDP' },
-  { id: 'mas-150m', label: 'Más de $150 MDP' },
+  { id: 'menos-5m',    label: 'Menos de $5 MDP' },
+  { id: '5-15m',       label: '$5 – $15 MDP' },
+  { id: '15-50m',      label: '$15 – $50 MDP' },
+  { id: '50-150m',     label: '$50 – $150 MDP' },
+  { id: 'mas-150m',    label: 'Más de $150 MDP' },
   { id: 'por-definir', label: 'Por definir con socios' },
 ]
 
-const BANDAS_CONSTRUCCION = [
-  {
-    id: '1',
-    label: 'Económica',
-    sub: 'Interés social · Acabados básicos',
-    desc: 'Estructura de block/tabique, acabados estándar, sin amenidades. INFONAVIT / VIS.',
-    rango: '$7,000–$10,500/m²',
-  },
-  {
-    id: '2',
-    label: 'Media Estándar',
-    sub: 'Clase media · Acabados funcionales',
-    desc: 'Concreto armado, porcelanato básico, elevador en torre, estacionamiento techado.',
-    rango: '$10,500–$16,000/m²',
-  },
-  {
-    id: '3',
-    label: 'Media Alta',
-    sub: 'Residencial · Acabados premium',
-    desc: 'Fachada diferenciada, cocinas equipadas, A/C, amenidades (gym, roof garden, alberca).',
-    rango: '$16,000–$24,000/m²',
-  },
-  {
-    id: '4',
-    label: 'Premium / Lujo',
-    sub: 'Alto standing · Acabados de lujo',
-    desc: 'Materiales importados, domótica, concierge, spa, arquitectura de firma.',
-    rango: '$24,000–$45,000+/m²',
-  },
+const BANDAS = [
+  { id: '1', label: 'Económica',      sub: 'Interés social / VIS',            rango: '$7k–$10.5k/m²' },
+  { id: '2', label: 'Media Estándar', sub: 'Concreto armado · Acabados medios', rango: '$10.5k–$16k/m²' },
+  { id: '3', label: 'Media Alta',     sub: 'Residencial · Amenidades',          rango: '$16k–$24k/m²' },
+  { id: '4', label: 'Premium / Lujo', sub: 'Materiales importados · Domótica',  rango: '$24k–$45k+/m²' },
 ]
 
-const CLASIFICACION_VIAL = [
-  { id: 'arterial',   label: 'Arterial / Primaria',    sub: 'Avenida principal, boulevard o acceso a ciudad', factor: '+20% a +28%' },
-  { id: 'colectora',  label: 'Colectora',               sub: 'Conecta arteriales con calles locales',          factor: '+10% a +15%' },
-  { id: 'secundaria', label: 'Secundaria',              sub: 'Calle secundaria con servicios consolidados',     factor: '+5% a +8%'   },
-  { id: 'local',      label: 'Local / Habitacional',   sub: 'Calle interior de colonia (valor base)',          factor: 'Base'         },
-  { id: 'privada',    label: 'Privada / Andador',       sub: 'Acceso cerrado, sin salida o privada',           factor: '-5% a -10%'  },
+const USOS_SUELO = [
+  { id: 'habitacional', label: 'Habitacional' },
+  { id: 'comercial',    label: 'Comercial' },
+  { id: 'mixto',        label: 'Mixto' },
+  { id: 'industrial',   label: 'Industrial' },
+  { id: 'agricola',     label: 'Agrícola' },
+  { id: 'sin-uso',      label: 'Sin uso definido' },
 ]
 
-const PENDIENTE_OPTIONS = [
-  { id: 'plano', label: 'Plano (< 5%)' },
-  { id: 'suave', label: 'Suave (5–10%)' },
-  { id: 'moderada', label: 'Moderada (10–20%)' },
-  { id: 'pronunciada', label: 'Pronunciada (> 20%)' },
+const VIALIDAD_LABELS: Record<string, string> = {
+  arterial: 'Arterial / Primaria', colectora: 'Colectora', secundaria: 'Secundaria',
+  local: 'Local / Habitacional', privada: 'Privada / Andador',
+}
+const PENDIENTE_LABELS: Record<string, string> = {
+  plano: 'Plano (< 5%)', suave: 'Suave (5–10%)', moderada: 'Moderada (10–20%)', pronunciada: 'Pronunciada (> 20%)',
+}
+const AGUA_OPTS =         [{ id: 'red-municipal', label: 'Red municipal' }, { id: 'pozo', label: 'Pozo' }, { id: 'pipa', label: 'Pipa' }, { id: 'sin-servicio', label: 'Sin servicio' }]
+const DRENAJE_OPTS =      [{ id: 'red-municipal', label: 'Red municipal' }, { id: 'fosa-septica', label: 'Fosa séptica' }, { id: 'sin-servicio', label: 'Sin servicio' }]
+const ELEC_OPTS =         [{ id: 'cfe-frente', label: 'CFE frente' }, { id: 'extension', label: 'Extensión requerida' }, { id: 'sin-servicio', label: 'Sin servicio' }]
+const VIALIDAD_OPTS =     Object.entries(VIALIDAD_LABELS).map(([id, label]) => ({ id, label }))
+const PENDIENTE_OPTS =    Object.entries(PENDIENTE_LABELS).map(([id, label]) => ({ id, label }))
+const ESTADOS_TERRENO =   [
+  { id: 'baldio-limpio',   label: 'Baldío limpio' },
+  { id: 'baldio-escombro', label: 'Con escombro' },
+  { id: 'construccion',    label: 'Construcción existente' },
+  { id: 'vegetacion',      label: 'Vegetación densa' },
 ]
 
-const FORMA_TERRENO = [
-  { id: 'regular', label: 'Regular' },
-  { id: 'irregular', label: 'Irregular' },
-]
+// ─── Types ────────────────────────────────────────────────────────────────────
 
-const VISTA_DESTACADA = [
-  { id: 'ninguna', label: 'Sin vista especial' },
-  { id: 'sierra', label: 'Sierra / montaña' },
-  { id: 'valle', label: 'Valle' },
-  { id: 'lago', label: 'Lago / presa' },
-  { id: 'canon', label: 'Cañón' },
-]
-
-const SERVICIOS_AGUA = [
-  { id: 'red-municipal', label: 'Red municipal' },
-  { id: 'pozo', label: 'Pozo' },
-  { id: 'pipa', label: 'Pipa' },
-  { id: 'sin-servicio', label: 'Sin servicio' },
-]
-
-const SERVICIOS_DRENAJE = [
-  { id: 'red-municipal', label: 'Red municipal' },
-  { id: 'fosa-septica', label: 'Fosa séptica' },
-  { id: 'sin-servicio', label: 'Sin servicio' },
-]
-
-const SERVICIOS_ELECTRICIDAD = [
-  { id: 'cfe-frente', label: 'CFE frente al predio' },
-  { id: 'extension', label: 'Extensión requerida' },
-  { id: 'sin-servicio', label: 'Sin servicio' },
-]
-
-const DISTANCIA_ABASTO = [
-  { id: 'menos-20', label: 'Menos de 20 km' },
-  { id: '20-40', label: '20–40 km' },
-  { id: 'mas-40', label: 'Más de 40 km' },
-]
-
-const TIPOS_DESARROLLO = [
-  { id: 'residencial-vertical', label: 'Residencial vertical' },
-  { id: 'residencial-horizontal', label: 'Residencial horizontal' },
-  { id: 'unifamiliar', label: 'Unifamiliar' },
-  { id: 'comercial', label: 'Comercial' },
-  { id: 'mixto', label: 'Uso mixto' },
-  { id: 'industrial', label: 'Industrial / Nave' },
-  { id: 'no-definido', label: 'Aún no lo sé' },
-]
-
-const ESTADOS_MX = [
-  'Aguascalientes', 'Baja California', 'Baja California Sur', 'Campeche',
-  'Chiapas', 'Chihuahua', 'Ciudad de México', 'Coahuila de Zaragoza', 'Colima',
-  'Durango', 'Guanajuato', 'Guerrero', 'Hidalgo', 'Jalisco', 'México',
-  'Michoacán de Ocampo', 'Morelos', 'Nayarit', 'Nuevo León', 'Oaxaca',
-  'Puebla', 'Querétaro', 'Quintana Roo', 'San Luis Potosí', 'Sinaloa',
-  'Sonora', 'Tabasco', 'Tamaulipas', 'Tlaxcala', 'Veracruz de Ignacio de la Llave',
-  'Yucatán', 'Zacatecas',
-]
-
-interface ZonaGeo {
-  lat: number
-  lng: number
-  nombre: string
-  municipio: string
-  estado?: string
+interface Inferred {
+  clasificacionVial?: string; pavimento?: string; esEsquina?: string
+  usoSuelo?: string; agua?: string; electricidad?: string
+  pendiente?: string; elevacionDelta?: number
+  direccion?: string; colonia?: string; ciudad?: string; estado?: string; codigoPostal?: string
 }
 
 interface FormData {
   nombreProyecto: string
-  estado: string
-  ciudad: string
-  colonia: string
-  direccion: string
-  codigoPostal: string
-  zonaGeo: ZonaGeo | null
-  zonaConfirmada: boolean
-  lat: number | null
-  lng: number | null
-  superficie: string
-  usoSuelo: string
-  estadoTerreno: string
-  presupuesto: string
+  lat: number | null; lng: number | null; mapsLink: string
+  direccion: string; colonia: string; ciudad: string; estado: string; codigoPostal: string
+  superficie: string; frente: string
   tiposDesarrollo: string[]
   tipoOtroTexto: string
-  bandaConstruccion: string
-  mapsLink: string
-  frente: string
-  clasificacionVial: string
-  pendiente: string
-  formaTerreno: string
-  vistaDestacada: string
-  esEsquina: string
-  agua: string
-  drenaje: string
-  electricidad: string
-  pavimento: string
-  distanciaAbasto: string
-  precioSolicitado: string
-  cuentaPredial: string
+  presupuesto: string; bandaConstruccion: string
+  // Ajuste fino (inferred or overridden)
+  clasificacionVial: string; pendiente: string; formaTerreno: string
+  esEsquina: string; vistaDestacada: string; estadoTerreno: string
+  agua: string; drenaje: string; electricidad: string; pavimento: string
+  usoSuelo: string; precioSolicitado: string; cuentaPredial: string
 }
 
 const INITIAL: FormData = {
-  nombreProyecto: '',
-  estado: '',
-  ciudad: '',
-  colonia: '',
-  direccion: '',
-  codigoPostal: '',
-  zonaGeo: null,
-  zonaConfirmada: false,
-  lat: null,
-  lng: null,
-  superficie: '',
-  usoSuelo: '',
-  estadoTerreno: '',
-  presupuesto: '',
+  nombreProyecto: '', lat: null, lng: null, mapsLink: '',
+  direccion: '', colonia: '', ciudad: '', estado: '', codigoPostal: '',
+  superficie: '', frente: '',
   tiposDesarrollo: [],
   tipoOtroTexto: '',
-  bandaConstruccion: '',
-  mapsLink: '',
-  frente: '',
-  clasificacionVial: '',
-  pendiente: '',
-  formaTerreno: '',
-  vistaDestacada: '',
-  esEsquina: '',
-  agua: '',
-  drenaje: '',
-  electricidad: '',
-  pavimento: '',
-  distanciaAbasto: '',
-  precioSolicitado: '',
-  cuentaPredial: '',
+  presupuesto: '', bandaConstruccion: '',
+  clasificacionVial: '', pendiente: '', formaTerreno: '', esEsquina: '', vistaDestacada: '',
+  estadoTerreno: '', agua: '', drenaje: '', electricidad: '', pavimento: '', usoSuelo: '',
+  precioSolicitado: '', cuentaPredial: '',
 }
 
-const TOTAL_STEPS = 5
+// ─── LeafletPicker ────────────────────────────────────────────────────────────
 
-
-function LeafletPicker({
-  lat, lng, onMove,
-}: {
-  lat: number; lng: number; onMove: (lat: number, lng: number) => void
-}) {
-  const containerRef = useRef<HTMLDivElement>(null)
+function LeafletPicker({ lat, lng, onMove }: { lat: number; lng: number; onMove: (lat: number, lng: number) => void }) {
+  const ref = useRef<HTMLDivElement>(null)
   const mapRef = useRef<any>(null)
   const markerRef = useRef<any>(null)
   const [ready, setReady] = useState(false)
@@ -266,8 +156,7 @@ function LeafletPicker({
   useEffect(() => {
     if (!document.querySelector('#leaflet-css')) {
       const link = document.createElement('link')
-      link.id = 'leaflet-css'
-      link.rel = 'stylesheet'
+      link.id = 'leaflet-css'; link.rel = 'stylesheet'
       link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'
       document.head.appendChild(link)
     }
@@ -279,32 +168,18 @@ function LeafletPicker({
   }, [])
 
   useEffect(() => {
-    if (!ready || !containerRef.current || mapRef.current) return
+    if (!ready || !ref.current || mapRef.current) return
     const L = (window as any).L
-    const map = L.map(containerRef.current).setView([lat, lng], 17)
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© <a href="https://www.openstreetmap.org/copyright">OSM</a>',
-    }).addTo(map)
+    const map = L.map(ref.current).setView([lat, lng], 17)
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OSM' }).addTo(map)
     const icon = L.divIcon({
-      html: `<div style="width:22px;height:32px;display:flex;align-items:center;justify-content:center">
-               <svg viewBox="0 0 24 36" width="22" height="32" xmlns="http://www.w3.org/2000/svg">
-                 <path d="M12 0C5.37 0 0 5.37 0 12c0 9 12 24 12 24s12-15 12-24C24 5.37 18.63 0 12 0z" fill="#1D9E75"/>
-                 <circle cx="12" cy="12" r="5" fill="white"/>
-               </svg>
-             </div>`,
-      className: '', iconAnchor: [11, 32], popupAnchor: [0, -34],
+      html: `<div><svg viewBox="0 0 24 36" width="22" height="32"><path d="M12 0C5.37 0 0 5.37 0 12c0 9 12 24 12 24s12-15 12-24C24 5.37 18.63 0 12 0z" fill="#1D9E75"/><circle cx="12" cy="12" r="5" fill="white"/></svg></div>`,
+      className: '', iconAnchor: [11, 32],
     })
     const marker = L.marker([lat, lng], { draggable: true, icon }).addTo(map)
-    marker.on('dragend', () => {
-      const p = marker.getLatLng()
-      onMove(p.lat, p.lng)
-    })
-    map.on('click', (e: any) => {
-      marker.setLatLng(e.latlng)
-      onMove(e.latlng.lat, e.latlng.lng)
-    })
-    mapRef.current = map
-    markerRef.current = marker
+    marker.on('dragend', () => { const p = marker.getLatLng(); onMove(p.lat, p.lng) })
+    map.on('click', (e: any) => { marker.setLatLng(e.latlng); onMove(e.latlng.lat, e.latlng.lng) })
+    mapRef.current = map; markerRef.current = marker
     return () => { map.remove(); mapRef.current = null; markerRef.current = null }
   }, [ready])
 
@@ -314,415 +189,362 @@ function LeafletPicker({
     mapRef.current?.setView([lat, lng], 17)
   }, [lat, lng])
 
-  if (!ready) {
-    return (
-      <div className="w-full rounded-xl border border-[#E2E8E4] bg-[#F7F8F6] flex items-center justify-center" style={{ height: 280 }}>
-        <p className="text-[13px] text-[#9aab9f]">Cargando mapa…</p>
-      </div>
-    )
-  }
-  return <div ref={containerRef} className="w-full rounded-2xl overflow-hidden border border-[#E2E8E4]" style={{ height: 280 }} />
+  if (!ready) return <div className="w-full h-[220px] rounded-2xl bg-[#F0F4F2] flex items-center justify-center"><p className="text-[13px] text-[#9aab9f]">Cargando mapa…</p></div>
+  return <div ref={ref} className="w-full h-[220px] rounded-2xl overflow-hidden border border-[#E2E8E4]" />
 }
 
-function TipoIcon({ id }: { id: string }) {
-  const s = { width: 20, height: 20, viewBox: '0 0 20 20', fill: 'none', stroke: '#1D9E75', strokeWidth: 1.5, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const }
-  switch (id) {
-    case 'residencial-vertical': return <svg {...s}><rect x="5" y="2" width="10" height="15" rx="1"/><line x1="5" y1="7" x2="15" y2="7"/><line x1="5" y1="11" x2="15" y2="11"/><rect x="8" y="12" width="4" height="5" strokeWidth={1}/></svg>
-    case 'residencial-horizontal': return <svg {...s}><path d="M1 10l4-4 4 4v7H1v-7z"/><path d="M7 12l4-4 4 4v5H7v-5z"/><path d="M13 10l4-4v11h-4V10z"/></svg>
-    case 'unifamiliar': return <svg {...s}><path d="M2 9l8-7 8 7"/><path d="M4 8v9h12V8"/><rect x="8" y="11" width="4" height="6"/></svg>
-    case 'comercial': return <svg {...s}><path d="M3 9h14l-2-5H5L3 9z"/><rect x="3" y="9" width="14" height="8" rx="1"/><rect x="7" y="11" width="6" height="4"/></svg>
-    case 'mixto': return <svg {...s}><rect x="4" y="4" width="12" height="13"/><line x1="4" y1="10" x2="16" y2="10"/><line x1="8" y1="4" x2="8" y2="10"/><line x1="12" y1="4" x2="12" y2="10"/><rect x="8" y="12" width="4" height="5" strokeWidth={1}/></svg>
-    case 'industrial': return <svg {...s}><path d="M2 17V9l5-4v4l5-4v4l4-4v12H2z"/><rect x="7" y="12" width="6" height="5"/></svg>
-    case 'no-definido': return <svg {...s}><circle cx="10" cy="10" r="8"/><path d="M7 8c0-1.7 1.3-3 3-3s3 1.3 3 3-3 3-3 4"/><circle cx="10" cy="15" r=".75" fill="#1D9E75" stroke="none"/></svg>
-    case 'otro': return <svg {...s}><path d="M14 3l3 3-9 9-4 1 1-4 9-9z"/><line x1="12" y1="5" x2="15" y2="8"/></svg>
-    default: return <svg {...s}><circle cx="10" cy="10" r="8"/></svg>
-  }
-}
+// ─── Shared UI ────────────────────────────────────────────────────────────────
 
-function BandaIcon({ id }: { id: string }) {
-  const s = { width: 20, height: 20, viewBox: '0 0 20 20', fill: 'none', stroke: '#1D9E75', strokeWidth: 1.5, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const }
-  switch (id) {
-    case '1': return <svg {...s}><rect x="2" y="5" width="16" height="3.5" rx=".5"/><rect x="2" y="11" width="16" height="3.5" rx=".5"/><line x1="10" y1="5" x2="10" y2="8.5"/><line x1="6" y1="11" x2="6" y2="14.5"/><line x1="14" y1="11" x2="14" y2="14.5"/></svg>
-    case '2': return <svg {...s}><rect x="4" y="8" width="10" height="9"/><path d="M4 8l6-5 6 5"/><line x1="14" y1="2" x2="17" y2="2"/><line x1="17" y1="2" x2="17" y2="7"/></svg>
-    case '3': return <svg {...s}><rect x="4" y="5" width="12" height="12"/><path d="M4 5l6-3 6 3"/><line x1="4" y1="10" x2="16" y2="10"/><rect x="7" y="6" width="2" height="3"/><rect x="11" y="6" width="2" height="3"/><rect x="8" y="12" width="4" height="5" strokeWidth={1}/></svg>
-    case '4': return <svg {...s}><path d="M10 2l2 5h5l-4 3 1.5 5L10 12l-4.5 3L7 10 3 7h5l2-5z"/></svg>
-    default: return <svg {...s}><rect x="4" y="4" width="12" height="12" rx="2"/></svg>
-  }
-}
-
-const STEP_LABELS = ['Proyecto', 'Ubicación', 'Terreno', 'Desarrollo', 'Resumen']
-
-function ProgressBar({ step }: { step: number }) {
+function Q({ title, sub }: { title: string; sub?: string }) {
   return (
-    <div className="mb-8">
-      <div className="flex items-center">
-        {STEP_LABELS.map((label, i) => {
-          const num = i + 1
-          const done = num < step
-          const active = num === step
-          return (
-            <div key={i} className="flex items-center flex-1 last:flex-none">
-              {/* Dot */}
-              <div className="flex flex-col items-center gap-1.5 relative">
-                <div className={`w-7 h-7 rounded-full flex items-center justify-center transition-all duration-300 text-[11px] font-bold
-                  ${done ? 'bg-[#1D9E75] text-white' : active ? 'bg-[#1D9E75] text-white ring-4 ring-[#1D9E75]/20' : 'bg-[#E2E8E4] text-[#9aab9f]'}`}>
-                  {done ? (
-                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                      <path d="M2 6l3 3 5-5" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                  ) : num}
-                </div>
-                <span className={`text-[9px] font-semibold tracking-wide whitespace-nowrap transition-colors duration-300
-                  ${active ? 'text-[#1D9E75]' : done ? 'text-[#9aab9f]' : 'text-[#C8D5CC]'}`}>
-                  {label}
-                </span>
-              </div>
-              {/* Connector */}
-              {i < TOTAL_STEPS - 1 && (
-                <div className={`h-px flex-1 mb-4 mx-1 transition-all duration-300 ${done ? 'bg-[#1D9E75]' : 'bg-[#E2E8E4]'}`} />
-              )}
-            </div>
-          )
-        })}
-      </div>
+    <div className="mb-7">
+      <h2 className="text-[28px] md:text-[32px] font-black text-white leading-tight tracking-tight mb-2">{title}</h2>
+      {sub && <p className="text-[15px] text-white/55 leading-relaxed">{sub}</p>}
     </div>
   )
 }
 
-function FieldLabel({ children, optional }: { children: React.ReactNode; optional?: boolean }) {
+function Chip({ label, sub, selected, onClick }: { label: string; sub?: string; selected: boolean; onClick: () => void }) {
   return (
-    <label className="block text-[12px] text-[#5a7065] mb-2">
-      {children}
-      {optional && <span className="text-[#9aab9f] ml-1">(opcional)</span>}
-    </label>
-  )
-}
-
-function TextInput({
-  value,
-  onChange,
-  placeholder,
-}: {
-  value: string
-  onChange: (v: string) => void
-  placeholder?: string
-}) {
-  return (
-    <input
-      type="text"
-      value={value}
-      onChange={e => onChange(e.target.value)}
-      placeholder={placeholder}
-      className="w-full border border-[#E2E8E4] rounded-xl px-4 py-3 text-[14px] text-[#111d17] bg-white focus:outline-none focus:border-[#1D9E75] focus:ring-2 focus:ring-[#1D9E75]/20 placeholder:text-[#c5d0cb]"
-    />
-  )
-}
-
-function SelectInput({
-  value,
-  onChange,
-  options,
-  placeholder,
-}: {
-  value: string
-  onChange: (v: string) => void
-  options: { id: string; label: string }[]
-  placeholder?: string
-}) {
-  return (
-    <select
-      value={value}
-      onChange={e => onChange(e.target.value)}
-      className="w-full border border-[#E2E8E4] rounded-xl px-4 py-3 text-[14px] text-[#111d17] bg-white focus:outline-none focus:border-[#1D9E75] focus:ring-2 focus:ring-[#1D9E75]/20 appearance-none cursor-pointer"
-    >
-      {placeholder && <option value="">{placeholder}</option>}
-      {options.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
-    </select>
-  )
-}
-
-function ChipOption({
-  selected,
-  onClick,
-  children,
-}: {
-  selected: boolean
-  onClick: () => void
-  children: React.ReactNode
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`text-left rounded-xl border px-4 py-3 transition-all duration-150 w-full ${
-        selected
-          ? 'bg-[#F0FBF6] border-[#1D9E75] shadow-[0_0_0_2px_#1D9E75]'
-          : 'bg-white border-[#E2E8E4] hover:border-[#9FE1CB]'
-      }`}
-    >
-      {children}
+    <button onClick={onClick} className={`w-full text-left flex items-center justify-between gap-3 px-4 py-3.5 rounded-2xl border-2 transition-all duration-150 ${
+      selected ? 'border-[#1D9E75] bg-[#F0FBF6] shadow-[0_0_0_1px_#1D9E75]' : 'border-[#E2E8E4] bg-white hover:border-[#9FE1CB]'
+    }`}>
+      <div className="min-w-0">
+        <p className={`text-[14px] font-semibold leading-tight ${selected ? 'text-[#0F6E56]' : 'text-[#111d17]'}`}>{label}</p>
+        {sub && <p className="text-[12px] text-[#9aab9f] mt-0.5">{sub}</p>}
+      </div>
+      {selected && (
+        <svg className="shrink-0" width="18" height="18" viewBox="0 0 18 18" fill="none">
+          <circle cx="9" cy="9" r="9" fill="#1D9E75"/>
+          <path d="M5 9l3 3 5-5" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      )}
     </button>
   )
 }
 
-function Step1({ data, setData }: { data: FormData; setData: (d: FormData) => void }) {
+function SmallChips({ options, value, onChange }: { options: { id: string; label: string }[]; value: string; onChange: (v: string) => void }) {
   return (
-    <div>
-      <p className="text-[12px] font-semibold text-[#1D9E75] tracking-[0.12em] uppercase mb-2">Flujo A · Captura</p>
-      <h2 className="text-[24px] font-semibold text-[#111d17] mb-2">Nombre del proyecto</h2>
-      <p className="text-[14px] text-[#5a7065] mb-6">
-        Este nombre identificará el proyecto a lo largo del análisis y aparecerá en el reporte final.
-      </p>
-      <div>
-        <FieldLabel>Nombre del proyecto</FieldLabel>
-        <TextInput
-          value={data.nombreProyecto}
-          onChange={v => setData({ ...data, nombreProyecto: v })}
-          placeholder="Ej. Torre Cumbres 2026, Plaza San Pedro, Residencial Montaña"
-        />
-        <p className="text-[11px] text-[#9aab9f] mt-2">
-          Puedes usar el nombre del terreno, la zona o el concepto de desarrollo que tienes en mente.
-        </p>
-      </div>
+    <div className="flex flex-wrap gap-2">
+      {options.map(o => (
+        <button key={o.id} onClick={() => onChange(value === o.id ? '' : o.id)}
+          className={`px-3 py-1.5 rounded-xl text-[12px] font-semibold border transition-all ${
+            value === o.id ? 'border-[#1D9E75] bg-[#F0FBF6] text-[#0F6E56]' : 'border-[#E2E8E4] bg-white text-[#5a7065] hover:border-[#9FE1CB]'
+          }`}>
+          {o.label}
+        </button>
+      ))}
     </div>
   )
 }
 
-function Step2({ data, setData }: { data: FormData; setData: (d: FormData) => void }) {
-  const [subStep, setSubStep] = useState<1 | 2 | 3>(1)
-  const [cpInput, setCpInput] = useState(data.codigoPostal)
-  const [verifying, setVerifying] = useState(false)
-  const [verifyError, setVerifyError] = useState('')
-  const [markerLat, setMarkerLat] = useState(data.lat ?? 0)
-  const [markerLng, setMarkerLng] = useState(data.lng ?? 0)
-  const [refineQuery, setRefineQuery] = useState('')
-  const [refineSuggestions, setRefineSuggestions] = useState<{ lat: number; lng: number; label: string }[]>([])
-  const [refineSearching, setRefineSearching] = useState(false)
-  const [fromMapsLink, setFromMapsLink] = useState(false)
+function InferredRow({ label, children, ai }: { label: string; children: React.ReactNode; ai?: boolean }) {
+  return (
+    <div className="border border-[#E2E8E4] rounded-2xl p-4 bg-white">
+      <div className="flex items-center gap-2 mb-3">
+        <p className="text-[11px] font-bold text-[#9aab9f] tracking-widest uppercase">{label}</p>
+        {ai && (
+          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-[#E1F5EE] text-[#0F6E56] tracking-wider">AUTO</span>
+        )}
+      </div>
+      {children}
+    </div>
+  )
+}
 
-  function extractCoordsFromMapsLink(url: string): { lat: number; lng: number } | null {
-    // @lat,lng,zoom — most Google Maps share URLs
+// ─── Address history (localStorage) ──────────────────────────────────────────
+
+const HISTORY_KEY = 'smt_addr_history'
+const MAX_PER_FIELD = 8
+
+function loadHistory(): Record<string, string[]> {
+  try { return JSON.parse(localStorage.getItem(HISTORY_KEY) ?? '{}') } catch { return {} }
+}
+
+function saveToHistory(field: string, value: string) {
+  if (!value.trim()) return
+  const h = loadHistory()
+  const prev = h[field] ?? []
+  h[field] = [value, ...prev.filter(v => v.toLowerCase() !== value.toLowerCase())].slice(0, MAX_PER_FIELD)
+  localStorage.setItem(HISTORY_KEY, JSON.stringify(h))
+}
+
+function useFieldHistory(field: string) {
+  const [suggestions, setSuggestions] = useState<string[]>([])
+  useEffect(() => { setSuggestions(loadHistory()[field] ?? []) }, [field])
+  const save = (value: string) => { saveToHistory(field, value); setSuggestions(loadHistory()[field] ?? []) }
+  return { suggestions, save }
+}
+
+// ─── Main ─────────────────────────────────────────────────────────────────────
+
+const TOTAL = 6
+
+function canAdvance(step: number, form: FormData): boolean {
+  switch (step) {
+    case 0: return form.nombreProyecto.trim().length >= 2
+    case 1: return !!(form.lat && form.lng)
+    case 2: return Number(form.superficie) > 0
+    case 3: return form.tiposDesarrollo.length > 0
+    case 4: return form.presupuesto !== '' && form.bandaConstruccion !== ''
+    case 5: return true
+    default: return true
+  }
+}
+
+function FluidoAContent() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const [step, setStep] = useState(0)
+  const [visible, setVisible] = useState(true)
+  const [dir, setDir] = useState<'fwd' | 'bck'>('fwd')
+  const [form, setForm] = useState<FormData>(INITIAL)
+  const set = (patch: Partial<FormData>) => setForm(f => ({ ...f, ...patch }))
+  const [scoutOrigen, setScoutOrigen] = useState(false)
+
+  // Pre-cargar datos si venimos del Scout
+  useEffect(() => {
+    if (searchParams.get('origen') !== 'scout') return
+    const raw = localStorage.getItem('smt_scout_prefill')
+    if (!raw) return
+    try {
+      const p = JSON.parse(raw)
+      setForm(f => ({
+        ...f,
+        nombreProyecto: p.nombreProyecto ?? f.nombreProyecto,
+        lat: p.lat ?? f.lat,
+        lng: p.lng ?? f.lng,
+        direccion: p.direccion ?? f.direccion,
+        colonia: p.colonia ?? f.colonia,
+        ciudad: p.ciudad ?? f.ciudad,
+        estado: p.estado ?? f.estado,
+        codigoPostal: p.codigoPostal ?? f.codigoPostal,
+        superficie: p.superficie ?? f.superficie,
+        frente: p.frente ?? f.frente,
+        precioSolicitado: p.precioSolicitado ?? f.precioSolicitado,
+      }))
+      setScoutOrigen(true)
+      setMEstado(p.estado ?? '')
+      setMCiudad(p.ciudad ?? '')
+      setMColonia(p.colonia ?? '')
+      setMCP(p.codigoPostal ?? '')
+      setShowManual(true)
+      localStorage.removeItem('smt_scout_prefill')
+    } catch { /* ignore */ }
+  }, [])
+
+  // Screen 1 — inference state
+  const [mapsInput, setMapsInput]       = useState('')
+  const [inferring, setInferring]       = useState(false)
+  const [expanding, setExpanding]       = useState(false)
+  const [inferError, setInferError]     = useState('')
+  const [inferred, setInferred]         = useState<Inferred | null>(null)
+  const [mapConfirmed, setMapConfirmed] = useState(false)
+  const expandAbortRef = useRef<AbortController | null>(null)
+
+  // Manual address fallback (screen 1) — progressive fields
+  const [showManual, setShowManual]           = useState(false)
+  const [manualGeocoding, setManualGeocoding] = useState(false)
+  const [manualError, setManualError]         = useState('')
+  const [mEstado,   setMEstado]   = useState('')
+  const [mCiudad,   setMCiudad]   = useState('')
+  const [mCP,       setMCP]       = useState('')
+  const [mCpOmitido, setMCpOmitido] = useState(false)
+  const [mCalle,    setMCalle]    = useState('')
+  const [mColonia,  setMColonia]  = useState('')
+  const canShowMap = !!(form.lat && form.lng && !mapsInput)
+
+  const coloniaHistory = useFieldHistory('colonia')
+  const calleHistory   = useFieldHistory('calle')
+  const cpHistory      = useFieldHistory('cp')
+
+  function extractCoords(url: string) {
+    // @lat,lng — URLs estándar y de lugar con zoom
     let m = url.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/)
     if (m) return { lat: parseFloat(m[1]), lng: parseFloat(m[2]) }
-    // ?q=lat,lng
+    // q=lat,lng — búsquedas por coordenada
     m = url.match(/[?&]q=(-?\d+\.\d+),(-?\d+\.\d+)/)
     if (m) return { lat: parseFloat(m[1]), lng: parseFloat(m[2]) }
-    // ll=lat,lng
+    // !3dlat!4dlng — URLs de lugar con data layer
+    m = url.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/)
+    if (m) return { lat: parseFloat(m[1]), lng: parseFloat(m[2]) }
+    // ll=lat,lng — formato legacy
     m = url.match(/[?&]ll=(-?\d+\.\d+),(-?\d+\.\d+)/)
     if (m) return { lat: parseFloat(m[1]), lng: parseFloat(m[2]) }
     return null
   }
 
-  const geocodeCP = async (cp: string) => {
-    setVerifying(true)
-    setVerifyError('')
-    try {
-      // Si el usuario pegó un link de Google Maps, extraemos coords exactas directamente
-      if (data.mapsLink) {
-        const coords = extractCoordsFromMapsLink(data.mapsLink)
-        if (coords) {
-          setMarkerLat(coords.lat)
-          setMarkerLng(coords.lng)
-          setFromMapsLink(true)
-          setData({
-            ...data,
-            codigoPostal: cp,
-            zonaGeo: { lat: coords.lat, lng: coords.lng, nombre: data.colonia || data.ciudad, municipio: data.ciudad, estado: data.estado },
-            zonaConfirmada: false,
-            lat: coords.lat,
-            lng: coords.lng,
-          })
-          setSubStep(3)
-          return
+  function isMapsUrl(url: string) {
+    return /maps\.app\.goo\.gl|goo\.gl\/maps|google\.[a-z.]+\/maps|maps\.google\.com/.test(url)
+  }
+
+  async function handleMapsLink(url: string) {
+    setMapsInput(url)
+    setInferError('')
+
+    // Cancelar cualquier expansión de link anterior en curso (evita que una
+    // respuesta tardía de una URL a medio escribir pise un resultado ya exitoso)
+    if (expandAbortRef.current) {
+      expandAbortRef.current.abort()
+      expandAbortRef.current = null
+      setExpanding(false)
+    }
+
+    // Intentar extraer coords directamente (URLs largas)
+    const directCoords = extractCoords(url)
+    if (directCoords) {
+      await resolveWithCoords(directCoords, url)
+      return
+    }
+
+    // Si es una URL de Maps pero sin coords visibles, expandir en servidor
+    if (isMapsUrl(url) && url.length > 20) {
+      const controller = new AbortController()
+      expandAbortRef.current = controller
+      setExpanding(true)
+      setInferred(null)
+      try {
+        const res = await fetch(`/api/geo/expand-maps-url?url=${encodeURIComponent(url)}`, { signal: controller.signal })
+        const json = await res.json()
+        if (json.lat && json.lng) {
+          setExpanding(false)
+          await resolveWithCoords({ lat: json.lat, lng: json.lng }, json.expandedUrl || url)
+        } else {
+          setInferError(json.error || 'No se pudieron extraer coordenadas. Intenta con un enlace largo de Google Maps.')
+          setExpanding(false)
         }
+      } catch (err) {
+        if ((err as Error).name === 'AbortError') return
+        setInferError('No se pudo acceder al enlace. Verifica tu conexión e intenta de nuevo.')
+        setExpanding(false)
       }
-
-      const params = new URLSearchParams({
-        cp,
-        ciudad: data.ciudad,
-        estado: data.estado,
-        ...(data.direccion && { direccion: data.direccion }),
-        ...(data.colonia && { colonia: data.colonia }),
-      })
-      const res = await fetch(`/api/geocode?${params}`)
-      const json = await res.json()
-      if (!json.found) {
-        setVerifyError('No se encontró ese código postal en México. Verifica e intenta de nuevo.')
-        return
-      }
-      setFromMapsLink(false)
-      const zonaGeo: ZonaGeo = {
-        lat: json.lat,
-        lng: json.lng,
-        nombre: json.colonia || data.colonia || json.municipio,
-        municipio: json.municipio || data.ciudad,
-        estado: json.estado,
-      }
-      setMarkerLat(json.lat)
-      setMarkerLng(json.lng)
-      setData({
-        ...data,
-        codigoPostal: cp,
-        zonaGeo,
-        zonaConfirmada: false,
-        lat: json.lat,
-        lng: json.lng,
-        ciudad: data.ciudad || json.municipio,
-        estado: data.estado || json.estado,
-      })
-      setSubStep(3)
-    } catch {
-      setVerifyError('Error de conexión. Verifica tu red e intenta de nuevo.')
-    } finally {
-      setVerifying(false)
     }
+    // Si no parece URL de Maps aún, no hacer nada (el usuario puede seguir escribiendo)
   }
 
-  const searchRefine = async (q: string) => {
-    if (!q.trim()) return
-    setRefineSearching(true)
+  async function resolveWithCoords(coords: { lat: number; lng: number }, sourceUrl: string) {
+    // Setear coordenadas de inmediato — el mapa aparece sin esperar la API
+    set({ lat: coords.lat, lng: coords.lng, mapsLink: sourceUrl })
+    setMapConfirmed(false)
+
+    setInferring(true)
+    setInferred(null)
     try {
-      const query = [q, data.ciudad, data.estado, 'México'].filter(Boolean).join(', ')
-      const res = await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&lang=es&limit=5`)
+      const res = await fetch(`/api/inferir-predio?lat=${coords.lat}&lng=${coords.lng}`)
       const json = await res.json()
-      const feats: any[] = json.features ?? []
-      setRefineSuggestions(feats.map(f => ({
-        lat: f.geometry.coordinates[1],
-        lng: f.geometry.coordinates[0],
-        label: [f.properties.name, f.properties.street, f.properties.housenumber, f.properties.city, f.properties.state]
-          .filter(Boolean).join(', '),
-      })))
-    } catch { /* ignore */ } finally {
-      setRefineSearching(false)
+      if (json.ok) {
+        const inf: Inferred = json.inferred
+        setInferred(inf)
+        set({
+          lat: coords.lat, lng: coords.lng, mapsLink: sourceUrl,
+          direccion:    inf.direccion    || form.direccion,
+          colonia:      inf.colonia      || form.colonia,
+          ciudad:       inf.ciudad       || form.ciudad,
+          estado:       inf.estado       || form.estado,
+          codigoPostal: inf.codigoPostal || form.codigoPostal,
+          clasificacionVial: inf.clasificacionVial || '',
+          pendiente:    inf.pendiente    || '',
+          pavimento:    inf.pavimento    || '',
+          esEsquina:    inf.esEsquina    || '',
+          usoSuelo:     inf.usoSuelo     || '',
+          agua:         inf.agua         || '',
+          electricidad: inf.electricidad || '',
+        })
+      }
+      // Si la API falla, igual tenemos lat/lng — no bloqueamos al usuario
+    } catch { /* no-op — coordenadas ya están seteadas */ }
+    finally { setInferring(false) }
+  }
+
+  async function geocodeManual(refine = false) {
+    if (!mCiudad && !mEstado) { setManualError('Ingresa al menos el estado y la ciudad.'); return }
+    // Guardar en historial antes de geocodificar
+    if (mColonia) coloniaHistory.save(mColonia)
+    if (mCalle)   calleHistory.save(mCalle)
+    if (mCP)      cpHistory.save(mCP)
+    setManualGeocoding(true); setManualError('')
+    try {
+      // Use CP if available, otherwise free-text query
+      let res: Response
+      if (mCP.length === 5) {
+        const params = new URLSearchParams({ cp: mCP, ciudad: mCiudad, estado: mEstado, ...(mCalle && { direccion: mCalle }), ...(mColonia && { colonia: mColonia }) })
+        res = await fetch(`/api/geocode?${params}`)
+      } else {
+        const q = [mCalle, mColonia, mCiudad, mEstado, 'México'].filter(Boolean).join(', ')
+        res = await fetch(`/api/geocode?q=${encodeURIComponent(q)}`)
+      }
+      const json = await res.json()
+      if (json.found) {
+        setInferred({ ciudad: json.municipio, estado: json.estado, colonia: json.colonia })
+        set({
+          lat: json.lat, lng: json.lng,
+          direccion: mCalle || form.direccion,
+          colonia: mColonia || json.colonia,   // usuario primero, geocode como fallback
+          ciudad: json.municipio || mCiudad,
+          estado: json.estado || mEstado,
+          codigoPostal: mCP || form.codigoPostal,
+        })
+        setMapConfirmed(false)
+      } else {
+        setManualError('No encontré esa ubicación. Intenta agregar la calle o el código postal.')
+      }
+    } catch {
+      setManualError('Error de conexión. Verifica tu internet e intenta de nuevo.')
+    } finally {
+      setManualGeocoding(false)
     }
   }
 
-  const handleCPChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value.replace(/\D/g, '').slice(0, 5)
-    setCpInput(val)
-    setVerifyError('')
-    if (val.length === 5) geocodeCP(val)
+  // Navigation
+  const goTo = (target: number) => {
+    setDir(target > step ? 'fwd' : 'bck')
+    setVisible(false)
+    setTimeout(() => { setStep(target); setVisible(true) }, 200)
+  }
+  const next = () => { if (step < TOTAL - 1) goTo(step + 1) }
+  const back = () => { if (step > 0) goTo(step - 1) }
+
+  const submit = () => {
+    localStorage.setItem('smt_flujo_a_data', JSON.stringify(form))
+    router.push(`/analisis/analizando?proyecto=${encodeURIComponent(form.nombreProyecto || 'Proyecto')}`)
   }
 
-  /* ── SUB-PASO 1: datos de ubicación ── */
-  if (subStep === 1) {
-    const canContinue = data.estado.trim() !== '' && data.ciudad.trim() !== '' && data.direccion.trim() !== ''
-    return (
-      <div>
-        <p className="text-[12px] font-semibold text-[#1D9E75] tracking-[0.12em] uppercase mb-2">Flujo A · Captura</p>
-        <h2 className="text-[24px] font-semibold text-[#111d17] mb-2">Ubicación del terreno</h2>
-        <p className="text-[14px] text-[#5a7065] mb-6">Ingresa el estado, ciudad, colonia y dirección del predio.</p>
+  // ── Screen renderers ──────────────────────────────────────────────────────
 
-        <div className="flex flex-col gap-4">
-          <div>
-            <FieldLabel>Estado</FieldLabel>
-            <input
-              type="text"
-              list="estados-list-a"
-              value={data.estado}
-              onChange={e => setData({ ...data, estado: e.target.value })}
-              placeholder="Selecciona un estado…"
-              className="w-full border border-[#E2E8E4] rounded-xl px-4 py-3 text-[14px] text-[#111d17] bg-white focus:outline-none focus:border-[#1D9E75] focus:ring-2 focus:ring-[#1D9E75]/20 placeholder:text-[#c5d0cb]"
-            />
-            <datalist id="estados-list-a">
-              {ESTADOS_MX.map(e => <option key={e} value={e} />)}
-            </datalist>
-          </div>
+  const renderScreen = () => {
+    switch (step) {
 
-          <div>
-            <FieldLabel>Ciudad o municipio</FieldLabel>
-            <input
-              type="text"
-              list="ciudades-list"
-              value={data.ciudad}
-              onChange={e => setData({ ...data, ciudad: e.target.value })}
-              placeholder="Escribe o selecciona una ciudad…"
-              className="w-full border border-[#E2E8E4] rounded-xl px-4 py-3 text-[14px] text-[#111d17] bg-white focus:outline-none focus:border-[#1D9E75] focus:ring-2 focus:ring-[#1D9E75]/20 placeholder:text-[#c5d0cb]"
-            />
-            <datalist id="ciudades-list">
-              {CIUDADES.map(c => <option key={c} value={c} />)}
-            </datalist>
-          </div>
-
-          <div>
-            <FieldLabel>Colonia o zona</FieldLabel>
-            <TextInput
-              value={data.colonia}
-              onChange={v => setData({ ...data, colonia: v })}
-              placeholder="Ej. Valle Oriente, Del Valle, Polanco…"
-            />
-          </div>
-
-          <div>
-            <FieldLabel>Calle y número</FieldLabel>
-            <TextInput
-              value={data.direccion}
-              onChange={v => setData({ ...data, direccion: v })}
-              placeholder="Ej. Av. Insurgentes 250"
-            />
-          </div>
-
-          <div>
-            <FieldLabel optional>Link de Google Maps del predio</FieldLabel>
-            <TextInput
-              value={data.mapsLink}
-              onChange={v => setData({ ...data, mapsLink: v })}
-              placeholder="https://maps.app.goo.gl/… o pega el enlace de compartir"
-            />
-            <p className="text-[11px] mt-1.5 font-medium text-[#1D9E75]">
-              Recomendado — pega aquí el link "Compartir" de Google Maps y el pin caerá exacto sobre el predio.
-            </p>
-          </div>
-        </div>
-
-        <button
-          onClick={() => setSubStep(2)}
-          disabled={!canContinue}
-          className={`mt-6 w-full flex items-center justify-center gap-2 py-3.5 rounded-xl text-[14px] font-semibold transition-colors ${
-            canContinue ? 'bg-[#1D9E75] text-white hover:bg-[#0F6E56]' : 'bg-[#E2E8E4] text-[#9aab9f] cursor-not-allowed'
-          }`}
-        >
-          Confirmar con código postal
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-            <path d="M6 4L10 8L6 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-          </svg>
-        </button>
-      </div>
-    )
-  }
-
-  /* ── SUB-PASO 2: código postal ── */
-  if (subStep === 2) {
-    return (
-      <div>
-        <p className="text-[12px] font-semibold text-[#1D9E75] tracking-[0.12em] uppercase mb-2">Flujo A · Captura</p>
-        <h2 className="text-[24px] font-semibold text-[#111d17] mb-2">Confirma con el código postal</h2>
-        <p className="text-[14px] text-[#5a7065] mb-2">El código postal ancla las coordenadas GPS exactas del predio.</p>
-
-        <div className="mb-6">
-          <button onClick={() => setSubStep(1)} className="text-[11px] text-[#5a9078] hover:text-[#0F6E56] underline underline-offset-2">
-            ← {data.estado && `${data.estado} · `}{data.ciudad}{data.colonia ? ` · ${data.colonia}` : ''}{data.direccion ? ` · ${data.direccion}` : ''}
-          </button>
-        </div>
-
+      // 0 — Nombre
+      case 0: return (
         <div>
-          <FieldLabel>Código postal</FieldLabel>
-          <div className="relative">
-            <input
-              type="text"
-              inputMode="numeric"
-              maxLength={5}
-              value={cpInput}
-              onChange={handleCPChange}
-              placeholder="Ej. 64630"
-              autoFocus
-              className={`w-full border rounded-xl px-4 py-3 text-[18px] tracking-[0.2em] font-mono text-[#111d17] bg-white focus:outline-none focus:ring-2 placeholder:text-[#c5d0cb] placeholder:tracking-normal placeholder:font-sans placeholder:text-[14px] pr-12 ${
-                verifyError
-                  ? 'border-red-400 focus:border-red-400 focus:ring-red-100'
-                  : 'border-[#E2E8E4] focus:border-[#1D9E75] focus:ring-[#1D9E75]/20'
-              }`}
+          <Q title="¿Cómo se llama este proyecto?" sub="Este nombre aparecerá en el análisis y en el reporte." />
+          <input autoFocus type="text" value={form.nombreProyecto}
+            onChange={e => set({ nombreProyecto: e.target.value })}
+            placeholder="Ej. Torre Cumbres, Casa Pedregal, Plaza Oriente…"
+            className="w-full border-2 border-[#E2E8E4] rounded-2xl px-4 py-4 text-[16px] text-[#111d17] bg-white focus:outline-none focus:border-[#1D9E75] placeholder:text-[#c5d0cb] transition-colors"
+          />
+          <p className="text-[12px] text-[#9aab9f] mt-3">Usa el nombre del terreno, zona o el concepto que tienes en mente.</p>
+        </div>
+      )
+
+      // 1 — Ubicación inteligente
+      case 1: return (
+        <div>
+          <Q title="¿Dónde está el terreno?" sub="Pega el link de Google Maps y detectamos la ubicación y características automáticamente." />
+
+          {/* Maps link input */}
+          <div className="relative mb-4">
+            <div className="flex items-center gap-2 mb-2">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1C4.24 1 2 3.24 2 6c0 3.75 5 8 5 8s5-4.25 5-8c0-2.76-2.24-5-5-5zm0 6.5A1.5 1.5 0 1 1 7 4.5a1.5 1.5 0 0 1 0 3z" fill="#1D9E75"/></svg>
+              <p className="text-[12px] font-bold text-[#1D9E75] uppercase tracking-wider">Google Maps link</p>
+            </div>
+            <input autoFocus type="text" value={mapsInput}
+              onChange={e => handleMapsLink(e.target.value)}
+              placeholder="https://maps.app.goo.gl/… o https://www.google.com/maps/…"
+              className={`w-full border-2 rounded-2xl px-4 py-4 text-[14px] text-[#111d17] bg-white focus:outline-none placeholder:text-[#c5d0cb] transition-colors ${inferError ? 'border-red-400' : 'border-[#E2E8E4] focus:border-[#1D9E75]'}`}
             />
-            {verifying && (
-              <div className="absolute right-4 top-1/2 -translate-y-1/2">
+            {(inferring || expanding) && (
+              <div className="absolute right-4 top-[calc(50%+6px)] -translate-y-1/2">
                 <svg className="animate-spin w-5 h-5 text-[#1D9E75]" viewBox="0 0 24 24" fill="none">
                   <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeOpacity="0.25"/>
                   <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round"/>
@@ -730,649 +552,482 @@ function Step2({ data, setData }: { data: FormData; setData: (d: FormData) => vo
               </div>
             )}
           </div>
-          {verifyError && <p className="text-[11px] text-red-500 mt-2">{verifyError}</p>}
-          {verifying && <p className="text-[11px] text-[#1D9E75] mt-2">Buscando en Google Maps…</p>}
-          {!verifyError && !verifying && (
-            <p className="text-[11px] text-[#9aab9f] mt-2">Al completar 5 dígitos verificamos y mostramos el mapa para confirmar.</p>
+
+          {expanding && <p className="text-[12px] text-[#1D9E75] mb-4">Leyendo enlace corto de Maps…</p>}
+          {inferring && !expanding && <p className="text-[12px] text-[#1D9E75] mb-4">Detectando ubicación y características del predio…</p>}
+          {!inferring && !expanding && !form.lat && !showManual && (
+            <p className="text-[12px] text-[#9aab9f] mb-4">Pega el link de Maps o captura la dirección manualmente.</p>
+          )}
+          {inferError && <p className="text-[12px] text-red-500 mb-4">{inferError}</p>}
+
+          {/* Confirmation card — aparece en cuanto hay coordenadas, con o sin inferencia */}
+          {form.lat && form.lng && mapsInput && (
+            <div className="rounded-2xl border border-[#9FE1CB] bg-[#F0FBF6] p-4 mb-4">
+              {/* Datos detectados — editables inline */}
+              <div className="flex flex-col gap-2 mb-3">
+                <div className="flex items-center gap-2">
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" className="shrink-0"><path d="M7 1C4.24 1 2 3.24 2 6c0 3.75 5 8 5 8s5-4.25 5-8c0-2.76-2.24-5-5-5z" fill="#1D9E75"/></svg>
+                  <p className="text-[12px] font-bold text-[#0F6E56]">
+                    {[form.ciudad, form.estado].filter(Boolean).join(', ') || 'Ubicación detectada'}
+                    {form.codigoPostal ? ` · CP ${form.codigoPostal}` : ''}
+                  </p>
+                </div>
+
+                {/* Dirección editable */}
+                <div>
+                  <p className="text-[10px] font-bold text-[#9aab9f] uppercase tracking-wider mb-1">Calle y número</p>
+                  <input type="text" value={form.direccion}
+                    onChange={e => set({ direccion: e.target.value })}
+                    placeholder="Calle y número (opcional)"
+                    className="w-full border border-[#9FE1CB] bg-white rounded-xl px-3 py-2 text-[13px] text-[#111d17] focus:outline-none focus:border-[#1D9E75] placeholder:text-[#c5d0cb]"
+                  />
+                </div>
+
+                {/* Colonia editable — campo más propenso a errores de Nominatim */}
+                <div>
+                  <p className="text-[10px] font-bold text-[#9aab9f] uppercase tracking-wider mb-1">
+                    Colonia <span className="font-normal normal-case tracking-normal text-[#1D9E75]">— corrige si es incorrecto</span>
+                  </p>
+                  <input type="text" value={form.colonia}
+                    onChange={e => set({ colonia: e.target.value })}
+                    placeholder="Nombre de la colonia"
+                    className="w-full border border-[#9FE1CB] bg-white rounded-xl px-3 py-2 text-[13px] text-[#111d17] focus:outline-none focus:border-[#1D9E75] placeholder:text-[#c5d0cb]"
+                  />
+                </div>
+              </div>
+
+              {/* Mini inference tags */}
+              {(form.clasificacionVial || form.pendiente || form.esEsquina === 'si' || form.usoSuelo) && (
+                <div className="flex flex-wrap gap-1.5 mb-3">
+                  {form.clasificacionVial && (
+                    <span className="text-[10px] font-semibold px-2 py-1 rounded-lg bg-white border border-[#9FE1CB] text-[#0F6E56]">
+                      {VIALIDAD_LABELS[form.clasificacionVial] ?? form.clasificacionVial}
+                    </span>
+                  )}
+                  {form.pendiente && (
+                    <span className="text-[10px] font-semibold px-2 py-1 rounded-lg bg-white border border-[#9FE1CB] text-[#0F6E56]">
+                      {PENDIENTE_LABELS[form.pendiente] ?? form.pendiente}
+                    </span>
+                  )}
+                  {form.esEsquina === 'si' && (
+                    <span className="text-[10px] font-semibold px-2 py-1 rounded-lg bg-white border border-[#9FE1CB] text-[#0F6E56]">Esquina</span>
+                  )}
+                  {form.usoSuelo && (
+                    <span className="text-[10px] font-semibold px-2 py-1 rounded-lg bg-white border border-[#9FE1CB] text-[#0F6E56]">
+                      {form.usoSuelo.charAt(0).toUpperCase() + form.usoSuelo.slice(1)}
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {/* Map */}
+              <LeafletPicker lat={form.lat!} lng={form.lng!}
+                onMove={(lat, lng) => set({ lat, lng })} />
+              <p className="text-[10px] text-[#9aab9f] font-mono mt-2">{form.lat!.toFixed(5)}, {form.lng!.toFixed(5)}</p>
+            </div>
+          )}
+
+          {/* Manual fallback toggle */}
+          <button onClick={() => setShowManual(v => !v)}
+            className="text-[12px] text-[#9aab9f] hover:text-[#5a7065] underline underline-offset-2 transition-colors">
+            {showManual ? 'Ocultar captura manual' : '¿No tienes link? Ingresa la dirección'}
+          </button>
+
+          {showManual && (
+            <div className="mt-5 flex flex-col gap-4">
+
+              {scoutOrigen && (
+                <div className="flex items-start gap-2.5 px-3.5 py-2.5 rounded-xl bg-[#F0FBF6] border border-[#9FE1CB]">
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" className="shrink-0 mt-0.5"><path d="M7 1C4.24 1 2 3.24 2 6c0 3.75 5 8 5 8s5-4.25 5-8c0-2.76-2.24-5-5-5z" fill="#1D9E75"/></svg>
+                  <div>
+                    <p className="text-[12px] font-semibold text-[#0F6E56]">Ubicación cargada desde Scout</p>
+                    <p className="text-[11px] text-[#5a7065] mt-0.5">Los campos en verde están pre-llenados. Confirma en el mapa para continuar.</p>
+                  </div>
+                </div>
+              )}
+
+              {/* 1 — Estado */}
+              <div>
+                <p className="text-[11px] font-bold text-[#9aab9f] uppercase tracking-wider mb-1.5">
+                  Estado{scoutOrigen && mEstado && <span className="ml-1.5 text-[#1D9E75] normal-case font-normal tracking-normal text-[10px]">● Scout</span>}
+                </p>
+                <input type="text" list="estados-list" value={mEstado}
+                  onChange={e => { setMEstado(e.target.value); setMCiudad('') }} autoFocus={!scoutOrigen}
+                  placeholder="Selecciona o escribe un estado…"
+                  className={`w-full border-2 rounded-xl px-4 py-3 text-[14px] text-[#111d17] focus:outline-none focus:border-[#1D9E75] placeholder:text-[#c5d0cb] transition-colors ${scoutOrigen && mEstado ? 'border-[#1D9E75] bg-[#F0FBF6]' : 'border-[#E2E8E4] bg-white'}`}
+                />
+                <datalist id="estados-list">{ESTADOS_MX.map(e => <option key={e} value={e} />)}</datalist>
+              </div>
+
+              {/* 2 — Ciudad filtrada por estado */}
+              {mEstado.length > 2 && (
+                <div>
+                  <p className="text-[11px] font-bold text-[#9aab9f] uppercase tracking-wider mb-1.5">
+                    Ciudad o municipio{scoutOrigen && mCiudad && <span className="ml-1.5 text-[#1D9E75] normal-case font-normal tracking-normal text-[10px]">● Scout</span>}
+                  </p>
+                  <input type="text" list="ciudades-estado-list" value={mCiudad}
+                    onChange={e => setMCiudad(e.target.value)}
+                    placeholder="Escribe o selecciona…"
+                    className={`w-full border-2 rounded-xl px-4 py-3 text-[14px] text-[#111d17] focus:outline-none focus:border-[#1D9E75] placeholder:text-[#c5d0cb] transition-colors ${scoutOrigen && mCiudad ? 'border-[#1D9E75] bg-[#F0FBF6]' : 'border-[#E2E8E4] bg-white'}`}
+                  />
+                  <datalist id="ciudades-estado-list">
+                    {ciudadesPorEstado(mEstado).map(c => <option key={c} value={c} />)}
+                  </datalist>
+                </div>
+              )}
+
+              {/* 3 — Colonia */}
+              {mCiudad.length > 2 && (
+                <div>
+                  <p className="text-[11px] font-bold text-[#9aab9f] uppercase tracking-wider mb-1.5">
+                    Colonia{scoutOrigen && mColonia && <span className="ml-1.5 text-[#1D9E75] normal-case font-normal tracking-normal text-[10px]">● Scout</span>}
+                  </p>
+                  <input type="text" list="colonia-hist" value={mColonia}
+                    onChange={e => setMColonia(e.target.value)}
+                    placeholder="Nombre de la colonia"
+                    className={`w-full border-2 rounded-xl px-4 py-3 text-[14px] text-[#111d17] focus:outline-none focus:border-[#1D9E75] placeholder:text-[#c5d0cb] transition-colors ${scoutOrigen && mColonia ? 'border-[#1D9E75] bg-[#F0FBF6]' : 'border-[#E2E8E4] bg-white'}`}
+                  />
+                  <datalist id="colonia-hist">{coloniaHistory.suggestions.map(s => <option key={s} value={s} />)}</datalist>
+                </div>
+              )}
+
+              {/* 4 — Calle y número */}
+              {mCiudad.length > 2 && (
+                <div>
+                  <p className="text-[11px] font-bold text-[#9aab9f] uppercase tracking-wider mb-1.5">Calle y número <span className="font-normal normal-case tracking-normal">(opcional)</span></p>
+                  <input type="text" list="calle-hist" value={mCalle}
+                    onChange={e => setMCalle(e.target.value)}
+                    placeholder="Av. Insurgentes 250"
+                    className="w-full border-2 border-[#E2E8E4] rounded-xl px-4 py-3 text-[14px] text-[#111d17] bg-white focus:outline-none focus:border-[#1D9E75] placeholder:text-[#c5d0cb] transition-colors"
+                  />
+                  <datalist id="calle-hist">{calleHistory.suggestions.map(s => <option key={s} value={s} />)}</datalist>
+                </div>
+              )}
+
+              {/* 5 — CP */}
+              {mCiudad.length > 2 && (
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <p className="text-[11px] font-bold text-[#9aab9f] uppercase tracking-wider">Código postal <span className="font-normal normal-case tracking-normal">(opcional)</span>{scoutOrigen && mCP && <span className="ml-1.5 text-[#1D9E75] normal-case font-normal tracking-normal text-[10px]">● Scout</span>}</p>
+                    {!mCpOmitido && mCP === '' && (
+                      <button onClick={() => setMCpOmitido(true)}
+                        className="text-[11px] text-[#9aab9f] hover:text-[#5a7065] underline underline-offset-2">
+                        No lo sé
+                      </button>
+                    )}
+                  </div>
+                  {!mCpOmitido && (
+                    <input type="text" inputMode="numeric" maxLength={5} list="cp-hist" value={mCP}
+                      onChange={e => { setMCP(e.target.value.replace(/\D/g, '').slice(0, 5)); setMCpOmitido(false) }}
+                      onKeyDown={e => { if (e.key === 'Enter') geocodeManual() }}
+                      placeholder="5 dígitos"
+                      className={`w-full border-2 rounded-xl px-4 py-3 text-[16px] tracking-[0.3em] font-mono text-[#111d17] focus:outline-none focus:border-[#1D9E75] placeholder:tracking-normal placeholder:font-sans placeholder:text-[14px] placeholder:text-[#c5d0cb] transition-colors ${scoutOrigen && mCP ? 'border-[#1D9E75] bg-[#F0FBF6]' : 'border-[#E2E8E4] bg-white'}`}
+                    />
+                  )}
+                  <datalist id="cp-hist">{cpHistory.suggestions.map(s => <option key={s} value={s} />)}</datalist>
+                </div>
+              )}
+
+              {/* 6 — Botón Ver en mapa */}
+              {mCiudad.length > 2 && !canShowMap && (
+                <div>
+                  {manualError && <p className="text-[12px] text-red-500 mb-2">{manualError}</p>}
+                  <button onClick={() => geocodeManual()} disabled={manualGeocoding}
+                    className="flex items-center gap-2 px-5 py-3 rounded-xl text-[13px] font-semibold bg-[#1D9E75] text-white hover:bg-[#0F6E56] disabled:opacity-60 transition-colors">
+                    {manualGeocoding
+                      ? <><svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="white" strokeWidth="3" strokeOpacity="0.3"/><path d="M12 2a10 10 0 0 1 10 10" stroke="white" strokeWidth="3" strokeLinecap="round"/></svg>Buscando…</>
+                      : <>Ver en mapa <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1C4.24 1 2 3.24 2 6c0 3.75 5 8 5 8s5-4.25 5-8c0-2.76-2.24-5-5-5z" fill="white"/></svg></>
+                    }
+                  </button>
+                </div>
+              )}
+
+              {/* 7 — Mapa */}
+              {canShowMap && (
+                <div className="rounded-2xl border border-[#9FE1CB] bg-[#F0FBF6] p-4">
+                  <p className="text-[13px] font-bold text-[#0F6E56] mb-0.5">
+                    {[mColonia || form.colonia, mCiudad, mEstado].filter(Boolean).join(', ')}
+                  </p>
+                  <p className="text-[12px] text-[#5a7065] mb-3">Arrastra el pin al terreno exacto</p>
+                  <LeafletPicker lat={form.lat!} lng={form.lng!}
+                    onMove={(lat, lng) => set({ lat, lng })} />
+                  <p className="text-[10px] text-[#9aab9f] font-mono mt-2">{form.lat!.toFixed(5)}, {form.lng!.toFixed(5)}</p>
+                  <button onClick={() => geocodeManual(true)} disabled={manualGeocoding}
+                    className="mt-2 text-[12px] font-semibold text-[#1D9E75] hover:text-[#0F6E56] underline underline-offset-2 disabled:opacity-50 transition-colors">
+                    {manualGeocoding ? 'Afinando…' : 'Afinar con dirección →'}
+                  </button>
+                </div>
+              )}
+
+            </div>
           )}
         </div>
-      </div>
-    )
-  }
+      )
 
-  /* ── SUB-PASO 3: ajuste preciso en mapa interactivo ── */
-  return (
-    <div>
-      <p className="text-[12px] font-semibold text-[#1D9E75] tracking-[0.12em] uppercase mb-2">Flujo A · Captura</p>
-      <h2 className="text-[24px] font-semibold text-[#111d17] mb-2">Ubica el predio en el mapa</h2>
-      <p className="text-[14px] text-[#5a7065] mb-1">Arrastra el pin o toca el mapa para colocarlo exactamente sobre el terreno.</p>
-      {fromMapsLink
-        ? <p className="text-[11px] text-[#1D9E75] font-medium mb-4">Coordenadas obtenidas desde tu enlace de Google Maps — pin exacto sobre el predio.</p>
-        : <p className="text-[11px] text-[#9aab9f] mb-4">El mapa inició en las coordenadas del código postal — ajústalo hasta el predio exacto.</p>
-      }
+      // 2 — Superficie
+      case 2: return (
+        <div>
+          <Q title="¿Cuántos m² tiene el terreno?" sub="Superficie total del predio (sin contar construcción existente)." />
+          <div className="relative">
+            <input autoFocus type="number" value={form.superficie}
+              onChange={e => set({ superficie: e.target.value })}
+              placeholder="0"
+              className="w-full border-2 border-[#E2E8E4] rounded-2xl px-4 py-4 text-[20px] text-[#111d17] bg-white focus:outline-none focus:border-[#1D9E75] placeholder:text-[#c5d0cb] transition-colors pr-14"
+            />
+            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[14px] text-[#9aab9f] font-medium pointer-events-none">m²</span>
+          </div>
 
-      {/* Buscador de refinación */}
-      <div className="relative mb-3">
-        <div className="flex gap-2">
-          <input
-            type="text"
-            value={refineQuery}
-            onChange={e => setRefineQuery(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') { searchRefine(refineQuery); setRefineSuggestions([]) } }}
-            placeholder={`${data.direccion}${data.colonia ? ', ' + data.colonia : ''}`}
-            className="flex-1 border border-[#E2E8E4] rounded-xl px-4 py-2.5 text-[13px] text-[#111d17] bg-white focus:outline-none focus:border-[#1D9E75] focus:ring-2 focus:ring-[#1D9E75]/20 placeholder:text-[#9aab9f]"
-          />
-          <button
-            onClick={() => { searchRefine(refineQuery || data.direccion); setRefineSuggestions([]) }}
-            disabled={refineSearching}
-            className="shrink-0 px-4 py-2.5 rounded-xl text-[13px] font-medium bg-[#1D9E75] text-white hover:bg-[#0F6E56] disabled:opacity-50 transition-colors"
-          >
-            {refineSearching ? '…' : 'Buscar'}
-          </button>
+          {Number(form.superficie) > 0 && (
+            <div className="mt-5">
+              <p className="text-[12px] font-bold text-[#9aab9f] uppercase tracking-wider mb-2">Frente del predio (opcional)</p>
+              <div className="relative">
+                <input type="number" value={form.frente} onChange={e => set({ frente: e.target.value })}
+                  placeholder="0"
+                  className="w-full border-2 border-[#E2E8E4] rounded-2xl px-4 py-3.5 text-[16px] text-[#111d17] bg-white focus:outline-none focus:border-[#1D9E75] placeholder:text-[#c5d0cb] transition-colors pr-10"
+                />
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[13px] text-[#9aab9f] font-medium pointer-events-none">m</span>
+              </div>
+            </div>
+          )}
         </div>
-        {refineSuggestions.length > 0 && (
-          <div className="absolute top-full left-0 right-0 z-50 bg-white border border-[#E2E8E4] rounded-xl shadow-lg mt-1 overflow-hidden">
-            {refineSuggestions.map((s, i) => (
-              <button
-                key={i}
-                onClick={() => {
-                  setMarkerLat(s.lat)
-                  setMarkerLng(s.lng)
-                  setRefineQuery(s.label)
-                  setRefineSuggestions([])
-                }}
-                className="w-full text-left px-4 py-2.5 text-[12px] text-[#111d17] hover:bg-[#F0FBF6] border-b border-[#F0F4F2] last:border-0"
-              >
-                {s.label}
+      )
+
+      // 3 — Tipo de desarrollo
+      case 3: return (
+        <div>
+          <Q title="¿Qué tipo de desarrollo tienes en mente?" sub="Puedes elegir más de uno. El análisis evaluará cada opción." />
+          <div className="flex flex-col gap-3">
+            {TIPOS_DESARROLLO.map(t => (
+              <Chip key={t.id} label={t.label} sub={t.sub}
+                selected={form.tiposDesarrollo.includes(t.id)}
+                onClick={() => set({
+                  tiposDesarrollo: form.tiposDesarrollo.includes(t.id)
+                    ? form.tiposDesarrollo.filter(x => x !== t.id)
+                    : [...form.tiposDesarrollo, t.id],
+                })}
+              />
+            ))}
+            {form.tiposDesarrollo.includes('otro') && (
+              <textarea
+                autoFocus
+                value={form.tipoOtroTexto}
+                onChange={e => set({ tipoOtroTexto: e.target.value })}
+                placeholder="Describe tu idea: tipo de inmueble, concepto, perfil de usuario, lo que tengas en mente…"
+                rows={3}
+                className="w-full border-2 border-[#1D9E75] bg-[#F0FBF6] rounded-2xl px-4 py-3.5 text-[14px] text-[#111d17] focus:outline-none placeholder:text-[#9aab9f] resize-none transition-colors"
+              />
+            )}
+          </div>
+        </div>
+      )
+
+      // 4 — Presupuesto + Banda
+      case 4: return (
+        <div>
+          <Q title="Presupuesto y nivel de acabados" sub="Dos preguntas rápidas para calibrar el modelo financiero." />
+
+          <p className="text-[13px] font-bold text-[#111d17] mb-3">¿Cuánto presupuesto tienes para invertir?</p>
+          <div className="grid grid-cols-2 gap-2.5 mb-7">
+            {RANGOS_PRESUPUESTO.map(r => (
+              <Chip key={r.id} label={r.label} selected={form.presupuesto === r.id} onClick={() => set({ presupuesto: r.id })} />
+            ))}
+          </div>
+
+          <p className="text-[13px] font-bold text-[#111d17] mb-3">¿Qué nivel de acabados buscas?</p>
+          <div className="flex flex-col gap-2.5">
+            {BANDAS.map(b => (
+              <button key={b.id} onClick={() => set({ bandaConstruccion: b.id })}
+                className={`w-full text-left flex items-center justify-between gap-3 px-4 py-3.5 rounded-2xl border-2 transition-all ${
+                  form.bandaConstruccion === b.id ? 'border-[#1D9E75] bg-[#F0FBF6]' : 'border-[#E2E8E4] bg-white hover:border-[#9FE1CB]'
+                }`}>
+                <div>
+                  <p className={`text-[14px] font-bold ${form.bandaConstruccion === b.id ? 'text-[#0F6E56]' : 'text-[#111d17]'}`}>{b.label}</p>
+                  <p className="text-[11px] text-[#9aab9f] mt-0.5">{b.sub}</p>
+                </div>
+                <span className={`text-[10px] font-bold px-2 py-1 rounded-lg shrink-0 ${
+                  form.bandaConstruccion === b.id ? 'bg-[#1D9E75] text-white' : 'bg-[#F0F4F2] text-[#5a7065]'
+                }`}>{b.rango}</span>
               </button>
             ))}
           </div>
-        )}
-      </div>
-
-      <LeafletPicker
-        lat={markerLat}
-        lng={markerLng}
-        onMove={(lat, lng) => {
-          setMarkerLat(lat)
-          setMarkerLng(lng)
-        }}
-      />
-
-      <div className="flex items-center justify-between mt-3 mb-5 px-1">
-        <p className="text-[10px] text-[#9aab9f] font-mono">{markerLat.toFixed(6)}, {markerLng.toFixed(6)}</p>
-        <button
-          onClick={() => { setCpInput(''); setSubStep(2); setData({ ...data, codigoPostal: '', zonaGeo: null, zonaConfirmada: false, lat: null, lng: null }) }}
-          className="text-[11px] text-[#5a9078] hover:text-[#0F6E56] underline underline-offset-2"
-        >
-          Cambiar CP
-        </button>
-      </div>
-
-      <button
-        onClick={() => setData({ ...data, lat: markerLat, lng: markerLng, zonaConfirmada: true })}
-        className="w-full bg-[#1D9E75] text-white rounded-xl py-3.5 text-[14px] font-semibold hover:bg-[#0F6E56] transition-colors mb-3"
-      >
-        Confirmar esta ubicación
-      </button>
-      <button
-        onClick={() => {
-          setSubStep(1)
-          setCpInput('')
-          setData({ ...data, codigoPostal: '', zonaGeo: null, zonaConfirmada: false, lat: null, lng: null })
-        }}
-        className="w-full border border-[#E2E8E4] text-[#5a7065] rounded-xl py-3 text-[13px] hover:border-[#9FE1CB] hover:text-[#111d17] transition-colors"
-      >
-        Cambiar ubicación
-      </button>
-    </div>
-  )
-}
-
-function Step3({ data, setData }: { data: FormData; setData: (d: FormData) => void }) {
-  return (
-    <div>
-      <p className="text-[12px] font-semibold text-[#1D9E75] tracking-[0.12em] uppercase mb-2">Flujo A · Captura</p>
-      <h2 className="text-[24px] font-semibold text-[#111d17] mb-2">Datos del terreno</h2>
-      <p className="text-[14px] text-[#5a7065] mb-6">Características físicas y condición actual del predio.</p>
-
-      <div className="flex flex-col gap-5">
-        <div>
-          <FieldLabel>Superficie total</FieldLabel>
-          <div className="relative">
-            <input
-              type="number"
-              value={data.superficie}
-              onChange={e => setData({ ...data, superficie: e.target.value })}
-              placeholder="0"
-              className="w-full border border-[#E2E8E4] rounded-xl px-4 py-3 pr-14 text-[14px] text-[#111d17] bg-white focus:outline-none focus:border-[#1D9E75] focus:ring-2 focus:ring-[#1D9E75]/20 placeholder:text-[#c5d0cb]"
-            />
-            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[12px] text-[#9aab9f] font-medium">m²</span>
-          </div>
         </div>
+      )
 
+      // 5 — Ajuste fino
+      case 5: return (
         <div>
-          <FieldLabel>Uso de suelo actual</FieldLabel>
-          <div className="grid grid-cols-2 gap-2">
-            {USOS_SUELO.map(u => (
-              <ChipOption key={u.id} selected={data.usoSuelo === u.id} onClick={() => setData({ ...data, usoSuelo: u.id })}>
-                <p className="text-[13px] font-medium text-[#111d17]">{u.label}</p>
-              </ChipOption>
-            ))}
-          </div>
-        </div>
+          <Q title="Revisa y ajusta los detalles" sub="Detectamos estos datos automáticamente. Puedes corregirlos si algo no es exacto." />
 
-        <div>
-          <FieldLabel>Estado actual del terreno</FieldLabel>
-          <div className="grid grid-cols-2 gap-2">
-            {ESTADOS_TERRENO.map(e => (
-              <ChipOption key={e.id} selected={data.estadoTerreno === e.id} onClick={() => setData({ ...data, estadoTerreno: e.id })}>
-                <p className="text-[13px] font-medium text-[#111d17]">{e.label}</p>
-              </ChipOption>
-            ))}
-          </div>
-        </div>
+          <div className="flex flex-col gap-3">
 
-        <div>
-          <FieldLabel optional>Cuenta predial o clave catastral</FieldLabel>
-          <TextInput
-            value={data.cuentaPredial}
-            onChange={v => setData({ ...data, cuentaPredial: v })}
-            placeholder="Ej. 019-012-045-001-000"
-          />
-          <p className="text-[11px] text-[#9aab9f] mt-1.5">
-            Permite consultar el valor catastral oficial del predio. La encuentras en tu recibo de pago predial o en el portal del catastro municipal.
-          </p>
-        </div>
+            <InferredRow label="Vialidad" ai>
+              <SmallChips options={VIALIDAD_OPTS} value={form.clasificacionVial} onChange={v => set({ clasificacionVial: v })} />
+            </InferredRow>
 
-        <div className="pt-2">
-          <div className="flex items-center gap-3 mb-1">
-            <div className="flex-1 h-px bg-[#E2E8E4]"/>
-            <p className="text-[11px] font-semibold text-[#9aab9f] tracking-[0.1em] uppercase">Características adicionales</p>
-            <div className="flex-1 h-px bg-[#E2E8E4]"/>
-          </div>
-          <p className="text-[11px] text-[#9aab9f] mb-3">Opcionales — cada campo mejora la precisión del análisis</p>
-        </div>
+            <InferredRow label="Pendiente del terreno" ai>
+              <SmallChips options={PENDIENTE_OPTS} value={form.pendiente} onChange={v => set({ pendiente: v })} />
+            </InferredRow>
 
-        <div>
-          <FieldLabel optional>Frente del terreno</FieldLabel>
-          <div className="relative">
-            <input
-              type="number"
-              value={data.frente}
-              onChange={e => setData({ ...data, frente: e.target.value })}
-              placeholder="0"
-              className="w-full border border-[#E2E8E4] rounded-xl px-4 py-3 pr-14 text-[14px] text-[#111d17] bg-white focus:outline-none focus:border-[#1D9E75] focus:ring-2 focus:ring-[#1D9E75]/20 placeholder:text-[#c5d0cb]"
-            />
-            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[12px] text-[#9aab9f] font-medium">m</span>
-          </div>
-        </div>
+            <InferredRow label="Uso de suelo" ai>
+              <SmallChips options={USOS_SUELO} value={form.usoSuelo} onChange={v => set({ usoSuelo: v })} />
+            </InferredRow>
 
-        <div>
-          <FieldLabel optional>Clasificación vial de la calle</FieldLabel>
-          <p className="text-[11px] text-[#9aab9f] mb-2 -mt-1">Tipo de vía según el Plan de Desarrollo Urbano — impacta directamente el valor del terreno.</p>
-          <div className="flex flex-col gap-2">
-            {CLASIFICACION_VIAL.map(v => (
-              <ChipOption key={v.id} selected={data.clasificacionVial === v.id} onClick={() => setData({ ...data, clasificacionVial: data.clasificacionVial === v.id ? '' : v.id })}>
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-[13px] font-semibold text-[#111d17]">{v.label}</p>
-                    <p className="text-[11px] text-[#9aab9f] mt-0.5">{v.sub}</p>
-                  </div>
-                  <span className={`text-[10px] font-bold shrink-0 px-2 py-0.5 rounded-full ${
-                    v.id === 'local' ? 'bg-[#F0F4F2] text-[#9aab9f]' :
-                    v.id === 'privada' ? 'bg-[#FEE2E2] text-[#DC2626]' :
-                    'bg-[#E1F5EE] text-[#0F6E56]'
-                  }`}>{v.factor}</span>
+            <InferredRow label="Estado del predio">
+              <SmallChips options={ESTADOS_TERRENO} value={form.estadoTerreno} onChange={v => set({ estadoTerreno: v })} />
+            </InferredRow>
+
+            <InferredRow label="Esquina" ai>
+              <SmallChips options={[{ id: 'si', label: 'Sí es esquina (+8%)' }, { id: 'no', label: 'No es esquina' }]} value={form.esEsquina} onChange={v => set({ esEsquina: v })} />
+            </InferredRow>
+
+            <InferredRow label="Servicios">
+              <div className="flex flex-col gap-3">
+                <div>
+                  <p className="text-[10px] text-[#9aab9f] font-semibold mb-1.5">Agua</p>
+                  <SmallChips options={AGUA_OPTS} value={form.agua} onChange={v => set({ agua: v })} />
                 </div>
-              </ChipOption>
-            ))}
-          </div>
-          {data.clasificacionVial && data.clasificacionVial !== 'local' && (
-            <div className={`mt-2 flex items-start gap-2 rounded-xl px-3 py-2 ${
-              data.clasificacionVial === 'privada'
-                ? 'bg-[#FEE2E2] border border-[#FECACA]'
-                : 'bg-[#E1F5EE] border border-[#9FE1CB]'
-            }`}>
-              {data.clasificacionVial === 'privada'
-                ? <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="shrink-0 mt-0.5"><path d="M8 2L14 13H2L8 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/><line x1="8" y1="6.5" x2="8" y2="9.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/><circle cx="8" cy="11.5" r=".75" fill="currentColor"/></svg>
-                : <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="shrink-0 mt-0.5"><circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.5"/><path d="M5 8l2 2 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-              }
-              <p className={`text-[11px] ${data.clasificacionVial === 'privada' ? 'text-[#991B1B]' : 'text-[#0F6E56]'}`}>
-                {data.clasificacionVial === 'privada'
-                  ? 'Calle privada — el agente aplicará una reducción sobre el valor base. Acceso limitado y menor plusvalía comercial.'
-                  : `Vía ${CLASIFICACION_VIAL.find(v => v.id === data.clasificacionVial)?.label?.toLowerCase()} — el agente aplicará un incremento de ${CLASIFICACION_VIAL.find(v => v.id === data.clasificacionVial)?.factor} sobre el valor base del terreno.`
-                }
-              </p>
-            </div>
-          )}
-        </div>
-
-        <div>
-          <FieldLabel optional>Pendiente del terreno</FieldLabel>
-          <div className="grid grid-cols-2 gap-2">
-            {PENDIENTE_OPTIONS.map(p => (
-              <ChipOption key={p.id} selected={data.pendiente === p.id} onClick={() => setData({ ...data, pendiente: data.pendiente === p.id ? '' : p.id })}>
-                <p className="text-[13px] font-medium text-[#111d17]">{p.label}</p>
-              </ChipOption>
-            ))}
-          </div>
-          {(data.pendiente === 'moderada' || data.pendiente === 'pronunciada') && (
-            <div className="mt-2 flex items-start gap-2 bg-[#FFF8E6] border border-[#F0D070] rounded-xl px-3 py-2">
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="shrink-0 mt-0.5"><path d="M8 2L14 13H2L8 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/><line x1="8" y1="6.5" x2="8" y2="9.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/><circle cx="8" cy="11.5" r=".75" fill="currentColor"/></svg>
-              <p className="text-[11px] text-[#7a6020]">
-                Pendiente {data.pendiente === 'pronunciada' ? 'pronunciada' : 'moderada'} — puede generar sobrecosto de cimentación de $800k–$1.2M. El análisis lo cuantificará.
-              </p>
-            </div>
-          )}
-        </div>
-
-        <div>
-          <FieldLabel optional>Forma del terreno</FieldLabel>
-          <div className="grid grid-cols-2 gap-2">
-            {FORMA_TERRENO.map(f => (
-              <ChipOption key={f.id} selected={data.formaTerreno === f.id} onClick={() => setData({ ...data, formaTerreno: data.formaTerreno === f.id ? '' : f.id })}>
-                <p className="text-[13px] font-medium text-[#111d17]">{f.label}</p>
-              </ChipOption>
-            ))}
-          </div>
-        </div>
-
-        <div>
-          <FieldLabel optional>Vista destacada</FieldLabel>
-          <div className="grid grid-cols-2 gap-2">
-            {VISTA_DESTACADA.map(v => (
-              <ChipOption key={v.id} selected={data.vistaDestacada === v.id} onClick={() => setData({ ...data, vistaDestacada: data.vistaDestacada === v.id ? '' : v.id })}>
-                <p className="text-[13px] font-medium text-[#111d17]">{v.label}</p>
-              </ChipOption>
-            ))}
-          </div>
-        </div>
-
-        <div>
-          <FieldLabel optional>¿El terreno es esquina?</FieldLabel>
-          <div className="grid grid-cols-2 gap-2">
-            {[{ id: 'si', label: 'Sí, es esquina' }, { id: 'no', label: 'No es esquina' }].map(o => (
-              <ChipOption key={o.id} selected={data.esEsquina === o.id} onClick={() => setData({ ...data, esEsquina: data.esEsquina === o.id ? '' : o.id })}>
-                <p className="text-[13px] font-medium text-[#111d17]">{o.label}</p>
-              </ChipOption>
-            ))}
-          </div>
-        </div>
-
-        <div className="pt-2">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="flex-1 h-px bg-[#E2E8E4]"/>
-            <p className="text-[11px] font-semibold text-[#9aab9f] tracking-[0.1em] uppercase">Servicios disponibles</p>
-            <div className="flex-1 h-px bg-[#E2E8E4]"/>
-          </div>
-        </div>
-
-        <div>
-          <FieldLabel optional>Agua</FieldLabel>
-          <div className="grid grid-cols-2 gap-2">
-            {SERVICIOS_AGUA.map(o => (
-              <ChipOption key={o.id} selected={data.agua === o.id} onClick={() => setData({ ...data, agua: data.agua === o.id ? '' : o.id })}>
-                <p className="text-[13px] font-medium text-[#111d17]">{o.label}</p>
-              </ChipOption>
-            ))}
-          </div>
-        </div>
-
-        <div>
-          <FieldLabel optional>Drenaje</FieldLabel>
-          <div className="grid grid-cols-2 gap-2">
-            {SERVICIOS_DRENAJE.map(o => (
-              <ChipOption key={o.id} selected={data.drenaje === o.id} onClick={() => setData({ ...data, drenaje: data.drenaje === o.id ? '' : o.id })}>
-                <p className="text-[13px] font-medium text-[#111d17]">{o.label}</p>
-              </ChipOption>
-            ))}
-          </div>
-        </div>
-
-        <div>
-          <FieldLabel optional>Electricidad</FieldLabel>
-          <div className="grid grid-cols-2 gap-2">
-            {SERVICIOS_ELECTRICIDAD.map(o => (
-              <ChipOption key={o.id} selected={data.electricidad === o.id} onClick={() => setData({ ...data, electricidad: data.electricidad === o.id ? '' : o.id })}>
-                <p className="text-[13px] font-medium text-[#111d17]">{o.label}</p>
-              </ChipOption>
-            ))}
-          </div>
-        </div>
-
-        <div>
-          <FieldLabel optional>¿Pavimento frente al predio?</FieldLabel>
-          <div className="grid grid-cols-2 gap-2">
-            {[{ id: 'si', label: 'Sí' }, { id: 'no', label: 'No' }].map(o => (
-              <ChipOption key={o.id} selected={data.pavimento === o.id} onClick={() => setData({ ...data, pavimento: data.pavimento === o.id ? '' : o.id })}>
-                <p className="text-[13px] font-medium text-[#111d17]">{o.label}</p>
-              </ChipOption>
-            ))}
-          </div>
-        </div>
-
-        <div>
-          <FieldLabel optional>Distancia a ciudad de abasto</FieldLabel>
-          <div className="flex flex-col gap-2">
-            {DISTANCIA_ABASTO.map(o => (
-              <ChipOption key={o.id} selected={data.distanciaAbasto === o.id} onClick={() => setData({ ...data, distanciaAbasto: data.distanciaAbasto === o.id ? '' : o.id })}>
-                <p className="text-[13px] font-medium text-[#111d17]">{o.label}</p>
-              </ChipOption>
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function Step4({ data, setData }: { data: FormData; setData: (d: FormData) => void }) {
-  const toggleTipo = (id: string) => {
-    const curr = data.tiposDesarrollo
-    setData({
-      ...data,
-      tiposDesarrollo: curr.includes(id) ? curr.filter(t => t !== id) : [...curr, id],
-    })
-  }
-
-  return (
-    <div>
-      <p className="text-[12px] font-semibold text-[#1D9E75] tracking-[0.12em] uppercase mb-2">Flujo A · Captura</p>
-      <h2 className="text-[24px] font-semibold text-[#111d17] mb-2">Intención de desarrollo</h2>
-      <p className="text-[14px] text-[#5a7065] mb-6">Define el presupuesto y el tipo de proyecto que tienes en mente.</p>
-
-      <div className="flex flex-col gap-6">
-        <div>
-          <p className="text-[13px] font-semibold text-[#111d17] mb-3">Presupuesto aproximado</p>
-          <div className="grid grid-cols-2 gap-2">
-            {RANGOS_PRESUPUESTO.map(r => (
-              <ChipOption key={r.id} selected={data.presupuesto === r.id} onClick={() => setData({ ...data, presupuesto: r.id })}>
-                <p className="text-[13px] font-medium text-[#111d17]">{r.label}</p>
-              </ChipOption>
-            ))}
-          </div>
-        </div>
-
-        <div>
-          <FieldLabel optional>Precio solicitado por el terreno</FieldLabel>
-          <div className="relative">
-            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[14px] text-[#9aab9f] font-medium">$</span>
-            <input
-              type="number"
-              value={data.precioSolicitado}
-              onChange={e => setData({ ...data, precioSolicitado: e.target.value })}
-              placeholder="0"
-              className="w-full border border-[#E2E8E4] rounded-xl pl-8 pr-16 py-3 text-[14px] text-[#111d17] bg-white focus:outline-none focus:border-[#1D9E75] focus:ring-2 focus:ring-[#1D9E75]/20 placeholder:text-[#c5d0cb]"
-            />
-            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[12px] text-[#9aab9f] font-medium">MXN</span>
-          </div>
-          <p className="text-[11px] text-[#9aab9f] mt-1.5">El análisis validará este precio contra el mercado y emitirá un semáforo de confiabilidad.</p>
-        </div>
-
-        <div>
-          <p className="text-[13px] font-semibold text-[#111d17] mb-1">Tipo de desarrollo deseado</p>
-          <p className="text-[12px] text-[#9aab9f] mb-3">Puedes elegir más de uno.</p>
-          <div className="grid grid-cols-2 gap-2">
-            {TIPOS_DESARROLLO.map(t => (
-              <ChipOption key={t.id} selected={data.tiposDesarrollo.includes(t.id)} onClick={() => toggleTipo(t.id)}>
-                <div className="flex items-center gap-2">
-                  <TipoIcon id={t.id} />
-                  <p className="text-[13px] font-medium text-[#111d17]">{t.label}</p>
+                <div>
+                  <p className="text-[10px] text-[#9aab9f] font-semibold mb-1.5">Drenaje</p>
+                  <SmallChips options={DRENAJE_OPTS} value={form.drenaje} onChange={v => set({ drenaje: v })} />
                 </div>
-              </ChipOption>
-            ))}
-            <ChipOption selected={data.tiposDesarrollo.includes('otro')} onClick={() => toggleTipo('otro')}>
-              <div className="flex items-center gap-2">
-                <TipoIcon id="otro" />
-                <p className="text-[13px] font-medium text-[#111d17]">Otro</p>
+                <div>
+                  <p className="text-[10px] text-[#9aab9f] font-semibold mb-1.5">Electricidad</p>
+                  <SmallChips options={ELEC_OPTS} value={form.electricidad} onChange={v => set({ electricidad: v })} />
+                </div>
+                <div>
+                  <p className="text-[10px] text-[#9aab9f] font-semibold mb-1.5">Pavimento frente al predio</p>
+                  <SmallChips options={[{ id: 'si', label: 'Sí' }, { id: 'no', label: 'No' }]} value={form.pavimento} onChange={v => set({ pavimento: v })} />
+                </div>
               </div>
-            </ChipOption>
-          </div>
-          {data.tiposDesarrollo.includes('otro') && (
-            <input
-              autoFocus
-              type="text"
-              value={data.tipoOtroTexto}
-              onChange={e => setData({ ...data, tipoOtroTexto: e.target.value })}
-              placeholder="Describe la vocación del proyecto…"
-              className="mt-3 w-full text-[13px] bg-white border border-[#1D9E75] rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-[#1D9E75]/20 placeholder:text-[#c0cdc7]"
-            />
-          )}
-        </div>
+            </InferredRow>
 
-        <div>
-          <p className="text-[13px] font-semibold text-[#111d17] mb-1">Nivel de construcción deseado</p>
-          <p className="text-[12px] text-[#9aab9f] mb-3">Define la calidad y acabados del desarrollo. Esto calibra el costo de construcción por m².</p>
-          <div className="flex flex-col gap-2">
-            {BANDAS_CONSTRUCCION.map(b => (
-              <ChipOption key={b.id} selected={data.bandaConstruccion === b.id} onClick={() => setData({ ...data, bandaConstruccion: b.id })}>
-                <div className="flex items-start gap-3">
-                  <span className="shrink-0 mt-0.5"><BandaIcon id={b.id} /></span>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-2 mb-0.5">
-                      <p className="text-[13px] font-semibold text-[#111d17]">Banda {b.id} — {b.label}</p>
-                      <span className="text-[10px] font-bold text-[#1D9E75] shrink-0">{b.rango}</span>
-                    </div>
-                    <p className="text-[11px] text-[#9aab9f] mb-0.5">{b.sub}</p>
-                    <p className="text-[11px] text-[#5a7065]">{b.desc}</p>
+            <InferredRow label="Datos opcionales">
+              <div className="flex flex-col gap-3">
+                <div>
+                  <p className="text-[10px] text-[#9aab9f] font-semibold mb-1.5">Precio solicitado por el terreno</p>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[12px] text-[#9aab9f]">$</span>
+                    <input type="number" value={form.precioSolicitado} onChange={e => set({ precioSolicitado: e.target.value })}
+                      placeholder="0"
+                      className="w-full border border-[#E2E8E4] rounded-xl pl-6 pr-14 py-2.5 text-[13px] text-[#111d17] bg-white focus:outline-none focus:border-[#1D9E75] placeholder:text-[#c5d0cb]"
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-[#9aab9f] font-medium">MXN</span>
                   </div>
                 </div>
-              </ChipOption>
-            ))}
+                <div>
+                  <p className="text-[10px] text-[#9aab9f] font-semibold mb-1.5">Cuenta predial</p>
+                  <input type="text" value={form.cuentaPredial} onChange={e => set({ cuentaPredial: e.target.value })}
+                    placeholder="019-012-045-001-000"
+                    className="w-full border border-[#E2E8E4] rounded-xl px-3 py-2.5 text-[13px] text-[#111d17] bg-white focus:outline-none focus:border-[#1D9E75] placeholder:text-[#c5d0cb]"
+                  />
+                </div>
+              </div>
+            </InferredRow>
+
           </div>
         </div>
-      </div>
-    </div>
-  )
-}
+      )
 
-function SummaryRow({ label, value }: { label: string; value: React.ReactNode }) {
-  return (
-    <div className="flex items-start justify-between py-3 border-b border-[#F0F4F2] last:border-0">
-      <p className="text-[12px] text-[#7aaa90] uppercase tracking-wide w-36 shrink-0">{label}</p>
-      <p className="text-[13px] font-medium text-[#111d17] text-right">{value || <span className="text-[#c5d0cb]">—</span>}</p>
-    </div>
-  )
-}
-
-function Step5({ data }: { data: FormData }) {
-  const usoSuelo   = USOS_SUELO.find(u => u.id === data.usoSuelo)
-  const estado     = ESTADOS_TERRENO.find(e => e.id === data.estadoTerreno)
-  const presupuesto = RANGOS_PRESUPUESTO.find(r => r.id === data.presupuesto)
-  const bandaConst = BANDAS_CONSTRUCCION.find(b => b.id === data.bandaConstruccion)
-  const tiposLabels = [
-    ...TIPOS_DESARROLLO.filter(t => data.tiposDesarrollo.includes(t.id)).map(t => t.label),
-    ...(data.tiposDesarrollo.includes('otro') && data.tipoOtroTexto ? [data.tipoOtroTexto] : []),
-  ]
-
-  return (
-    <div>
-      <p className="text-[12px] font-semibold text-[#1D9E75] tracking-[0.12em] uppercase mb-2">Flujo A · Captura</p>
-      <h2 className="text-[24px] font-semibold text-[#111d17] mb-2">Resumen del terreno</h2>
-      <p className="text-[14px] text-[#5a7065] mb-6">Confirma los datos antes de iniciar el análisis.</p>
-
-      <div className="rounded-2xl border border-[#1D9E75]/30 bg-[#F0FBF6] p-5 mb-5">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 rounded-xl bg-[#1D9E75] flex items-center justify-center shrink-0">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-              <path d="M9 12l2 2 4-4" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              <circle cx="12" cy="12" r="9" stroke="white" strokeWidth="1.8"/>
-            </svg>
-          </div>
-          <div>
-            <p className="text-[13px] font-bold text-[#0F6E56]">Agentes de análisis listos</p>
-            <p className="text-[11px] text-[#5a9078]">El análisis iniciará en cuanto confirmes</p>
-          </div>
-        </div>
-
-        {data.nombreProyecto && (
-          <div className="mb-3 px-4 py-3 bg-[#1D9E75] rounded-xl">
-            <p className="text-[10px] font-semibold text-[#9FE1CB] tracking-[0.12em] uppercase mb-0.5">Proyecto</p>
-            <p className="text-[16px] font-bold text-white">{data.nombreProyecto}</p>
-          </div>
-        )}
-
-        <div className="bg-white rounded-xl border border-[#D4EFE3] px-4 divide-y divide-[#F0F4F2]">
-          {data.estado && <SummaryRow label="Estado" value={data.estado} />}
-          <SummaryRow label="Ciudad" value={data.ciudad} />
-          <SummaryRow label="Colonia" value={data.colonia} />
-          {data.direccion && <SummaryRow label="Dirección" value={data.direccion} />}
-          {data.codigoPostal && <SummaryRow label="Código postal" value={data.codigoPostal} />}
-          {data.lat && data.lng && (
-            <SummaryRow label="Coordenadas" value={
-              <span className="font-mono text-[11px]">{data.lat.toFixed(5)}, {data.lng.toFixed(5)}</span>
-            } />
-          )}
-          {data.mapsLink && <SummaryRow label="Maps" value={
-            <a href={data.mapsLink} target="_blank" rel="noopener noreferrer" className="text-[#1D9E75] underline underline-offset-2 text-[12px]">Ver enlace</a>
-          } />}
-          <SummaryRow label="Superficie" value={data.superficie ? `${Number(data.superficie).toLocaleString('es-MX')} m²` : ''} />
-          <SummaryRow label="Uso de suelo" value={usoSuelo?.label} />
-          <SummaryRow label="Condición" value={estado?.label} />
-          <SummaryRow label="Presupuesto" value={presupuesto?.label} />
-          <SummaryRow
-            label="Desarrollo"
-            value={tiposLabels.length > 0 ? tiposLabels.join(' · ') : undefined}
-          />
-          {bandaConst && (
-            <SummaryRow
-              label="Construcción"
-              value={`Banda ${bandaConst.id} — ${bandaConst.label} · ${bandaConst.rango}`}
-            />
-          )}
-          {data.frente && <SummaryRow label="Frente" value={`${data.frente} m`} />}
-          {data.clasificacionVial && <SummaryRow label="Vialidad" value={
-            <span className="flex items-center gap-1.5">
-              {CLASIFICACION_VIAL.find(v => v.id === data.clasificacionVial)?.label}
-              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
-                data.clasificacionVial === 'local' ? 'bg-[#F0F4F2] text-[#9aab9f]' :
-                data.clasificacionVial === 'privada' ? 'bg-[#FEE2E2] text-[#DC2626]' :
-                'bg-[#E1F5EE] text-[#0F6E56]'
-              }`}>{CLASIFICACION_VIAL.find(v => v.id === data.clasificacionVial)?.factor}</span>
-            </span>
-          } />}
-          {data.pendiente && <SummaryRow label="Pendiente" value={PENDIENTE_OPTIONS.find(p => p.id === data.pendiente)?.label} />}
-          {data.formaTerreno && <SummaryRow label="Forma" value={FORMA_TERRENO.find(f => f.id === data.formaTerreno)?.label} />}
-          {data.vistaDestacada && data.vistaDestacada !== 'ninguna' && <SummaryRow label="Vista" value={VISTA_DESTACADA.find(v => v.id === data.vistaDestacada)?.label} />}
-          {data.esEsquina && <SummaryRow label="Esquina" value={data.esEsquina === 'si' ? 'Sí' : 'No'} />}
-          {data.agua && <SummaryRow label="Agua" value={SERVICIOS_AGUA.find(o => o.id === data.agua)?.label} />}
-          {data.drenaje && <SummaryRow label="Drenaje" value={SERVICIOS_DRENAJE.find(o => o.id === data.drenaje)?.label} />}
-          {data.electricidad && <SummaryRow label="Electricidad" value={SERVICIOS_ELECTRICIDAD.find(o => o.id === data.electricidad)?.label} />}
-          {data.pavimento && <SummaryRow label="Pavimento" value={data.pavimento === 'si' ? 'Sí' : 'No'} />}
-          {data.distanciaAbasto && <SummaryRow label="Abasto" value={DISTANCIA_ABASTO.find(o => o.id === data.distanciaAbasto)?.label} />}
-          {data.precioSolicitado && <SummaryRow label="Precio solicitado" value={`$${Number(data.precioSolicitado).toLocaleString('es-MX')} MXN`} />}
-          {data.cuentaPredial && <SummaryRow label="Cuenta predial" value={data.cuentaPredial} />}
-        </div>
-      </div>
-
-      <div className="flex items-start gap-2 bg-[#FFF8E6] border border-[#F0D070] rounded-xl px-4 py-3">
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="shrink-0 mt-0.5 text-[#7a6020]"><circle cx="8" cy="9" r="6" stroke="currentColor" strokeWidth="1.5"/><path d="M8 6v3l1.5 1.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/><path d="M5.5 1.5h5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
-        <p className="text-[12px] text-[#7a6020]">
-          El análisis incluye normativa urbana, mercado comparables y potencial de desarrollo. Toma entre <strong>2 y 4 horas</strong>. Te notificaremos al completarse.
-        </p>
-      </div>
-    </div>
-  )
-}
-
-export default function FlujoA() {
-  const router = useRouter()
-  const [step, setStep] = useState(1)
-  const [data, setData] = useState<FormData>(INITIAL)
-
-  const canAdvance = () => {
-    if (step === 1) return data.nombreProyecto.trim() !== ''
-    if (step === 2) return data.zonaConfirmada && data.ciudad !== ''
-    if (step === 3) return data.superficie !== '' && data.usoSuelo !== '' && data.estadoTerreno !== ''
-    if (step === 4) {
-      const otroOk = !data.tiposDesarrollo.includes('otro') || data.tipoOtroTexto.trim() !== ''
-      return data.presupuesto !== '' && data.tiposDesarrollo.length > 0 && otroOk && data.bandaConstruccion !== ''
-    }
-    return true
-  }
-
-  const handleBack = () => {
-    if (step === 1) router.push('/prospeccion')
-    else setStep(s => s - 1)
-  }
-
-  const handleNext = () => {
-    if (!canAdvance()) return
-    if (step < TOTAL_STEPS) {
-      setStep(s => s + 1)
-    } else {
-      localStorage.setItem('smt_flujo_a_data', JSON.stringify(data))
-      router.push(`/analisis/analizando?proyecto=${encodeURIComponent(data.nombreProyecto)}`)
+      default: return null
     }
   }
 
+  const pct = ((step + 1) / TOTAL) * 100
+  const isLast = step === TOTAL - 1
+
   return (
-    <div className="min-h-screen bg-[#F7F8F6] flex flex-col">
-      <header className="px-8 py-5 flex items-center gap-3 border-b border-[#E2E8E4] bg-white">
-        <div className="w-8 h-8 rounded-lg bg-[#1D9E75] flex items-center justify-center">
-          <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-            <path d="M9 2L16 6V12L9 16L2 12V6L9 2Z" stroke="white" strokeWidth="1.5" fill="none"/>
-            <path d="M9 2V16M2 6L16 12M16 6L2 12" stroke="white" strokeWidth="1" strokeOpacity="0.5"/>
-          </svg>
-        </div>
-        <div>
-          <span className="text-[15px] font-medium text-[#1a1a1a] tracking-wide">SMT Developer</span>
-          <span className="block text-[10px] text-[#6b7c74] tracking-[0.12em] uppercase">Inteligencia inmobiliaria</span>
-        </div>
-        <div className="ml-auto flex items-center gap-2 text-[12px] text-[#9aab9f]">
-          <span className="text-[#1D9E75] font-medium">Prospección</span>
-          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-            <path d="M4 2L8 6L4 10" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
-          </svg>
-          <span className="text-[#1D9E75] font-medium">Flujo A</span>
-          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-            <path d="M4 2L8 6L4 10" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
-          </svg>
-          <span>Captura del terreno</span>
+    <div className="min-h-screen bg-[#0C0F0E] flex flex-col">
+
+      {/* Header */}
+      <header className="sticky top-0 z-20 bg-[#0D2137] px-5 py-4">
+        <div className="max-w-[680px] mx-auto flex items-center gap-4">
+          <div className="flex items-center gap-3 shrink-0">
+            <button onClick={step > 0 ? back : () => router.push('/prospeccion')}
+              className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <path d="M10 4L6 8l4 4" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </button>
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg bg-[#1D9E75] flex items-center justify-center shrink-0">
+                <svg width="14" height="14" viewBox="0 0 18 18" fill="none">
+                  <path d="M9 2L16 6V12L9 16L2 12V6L9 2Z" stroke="white" strokeWidth="1.5" fill="none"/>
+                  <path d="M9 2V16M2 6L16 12M16 6L2 12" stroke="white" strokeWidth="1" strokeOpacity="0.5"/>
+                </svg>
+              </div>
+              <span className="text-[13px] font-semibold text-white hidden sm:block">SMT Developer</span>
+            </div>
+          </div>
+
+          <div className="flex-1">
+            <div className="h-1.5 bg-white/15 rounded-full overflow-hidden">
+              <div className="h-full bg-[#1D9E75] rounded-full transition-all duration-500" style={{ width: `${pct}%` }} />
+            </div>
+          </div>
+
+          <div className="shrink-0 text-right">
+            <p className="text-[11px] text-white/40 leading-none mb-0.5">Flujo A</p>
+            <p className="text-[13px] font-bold text-white leading-none tabular-nums">
+              {step + 1}<span className="text-white/40 font-normal"> / {TOTAL}</span>
+            </p>
+          </div>
         </div>
       </header>
 
-      <main className="flex-1 flex flex-col items-center justify-center px-4 py-12">
-        <div className="w-full max-w-[560px]">
-          <ProgressBar step={step} />
-
-          <div className="bg-white rounded-2xl border border-[#E2E8E4] p-8 mb-6 shadow-sm">
-            {step === 1 && <Step1 data={data} setData={setData} />}
-            {step === 2 && <Step2 data={data} setData={setData} />}
-            {step === 3 && <Step3 data={data} setData={setData} />}
-            {step === 4 && <Step4 data={data} setData={setData} />}
-            {step === 5 && <Step5 data={data} />}
-          </div>
-
-          <div className="flex items-center justify-between">
-            <button
-              onClick={handleBack}
-              className="flex items-center gap-2 text-[13px] text-[#5a7065] hover:text-[#111d17] transition-colors"
-            >
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                <path d="M10 4L6 8L10 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-              </svg>
-              {step === 1 ? 'Volver a selección' : 'Paso anterior'}
-            </button>
-
-            <button
-              onClick={handleNext}
-              disabled={!canAdvance()}
-              className={`flex items-center gap-2 px-6 py-3 rounded-xl text-[14px] font-medium transition-all duration-200 ${
-                canAdvance()
-                  ? 'bg-[#1D9E75] text-white hover:bg-[#0F6E56] cursor-pointer'
-                  : 'bg-[#E2E8E4] text-[#9aab9f] cursor-not-allowed'
-              }`}
-            >
-              {step === TOTAL_STEPS ? 'Iniciar Análisis' : 'Siguiente'}
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                <path d="M6 4L10 8L6 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-              </svg>
-            </button>
-          </div>
+      {/* Main */}
+      <main className="flex-1 flex flex-col items-center px-4 py-10">
+        <div className="w-full max-w-[600px]"
+          style={{
+            transition: 'opacity 200ms ease, transform 200ms ease',
+            opacity: visible ? 1 : 0,
+            transform: visible ? 'translateX(0)' : dir === 'fwd' ? 'translateX(-28px)' : 'translateX(28px)',
+          }}>
+          {renderScreen()}
         </div>
       </main>
+
+      {/* Footer */}
+      <footer className="sticky bottom-0 bg-[#0A0C0B] border-t border-white/10 px-5 py-4">
+        <div className="max-w-[600px] mx-auto flex items-center justify-between gap-3">
+          {/* Skip on last step */}
+          {isLast ? (
+            <button onClick={next} className="text-[13px] text-[#9aab9f] hover:text-[#5a7065] transition-colors px-2 py-2">
+              Omitir ajuste →
+            </button>
+          ) : <div />}
+
+          {isLast ? (
+            <button onClick={submit}
+              className="flex items-center gap-2 bg-[#1D9E75] hover:bg-[#0F6E56] text-white px-7 py-3 rounded-xl text-[14px] font-bold transition-colors">
+              <svg width="16" height="16" viewBox="0 0 18 18" fill="none">
+                <path d="M9 2L16 6V12L9 16L2 12V6L9 2Z" stroke="white" strokeWidth="1.5" fill="none"/>
+                <path d="M9 2V16M2 6L16 12M16 6L2 12" stroke="white" strokeWidth="1" strokeOpacity="0.5"/>
+              </svg>
+              Iniciar análisis
+            </button>
+          ) : (
+            <button onClick={next} disabled={!canAdvance(step, form)}
+              className={`flex items-center gap-2 px-7 py-3 rounded-xl text-[14px] font-bold transition-all ${
+                canAdvance(step, form)
+                  ? 'bg-[#1D9E75] hover:bg-[#0F6E56] text-white'
+                  : 'bg-white/10 text-white/30 cursor-not-allowed'
+              }`}>
+              Continuar
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                <path d="M5 3l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+              </svg>
+            </button>
+          )}
+        </div>
+      </footer>
     </div>
+  )
+}
+
+export default function FluidoAPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#0C0F0E]" />}>
+      <FluidoAContent />
+    </Suspense>
   )
 }
