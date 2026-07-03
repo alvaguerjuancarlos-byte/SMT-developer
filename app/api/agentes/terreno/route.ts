@@ -32,6 +32,13 @@ export async function POST(req: NextRequest) {
   const electricidadLabels: Record<string, string> = {
     'cfe-frente': 'CFE frente al predio', extension: 'Extensión requerida', 'sin-servicio': 'Sin servicio',
   }
+  const bandaLabels: Record<string, string> = {
+    '1': 'Popular / Periférica',
+    '2': 'Media Popular / Consolidada',
+    '3': 'Media Residencial',
+    '4': 'Residencial Premium',
+  }
+
   const clasificacionVialLabels: Record<string, string> = {
     arterial:   'Arterial / Primaria — avenida principal o boulevard (factor +20% a +28%)',
     colectora:  'Colectora — conecta arteriales con calles locales (factor +10% a +15%)',
@@ -54,9 +61,18 @@ DATOS DEL PREDIO:
 - Estado del terreno: ${estadoLabels[data.estadoTerreno] || data.estadoTerreno}
 ${data.lat && data.lng ? `- Coordenadas: ${data.lat}, ${data.lng}` : ''}
 ${isoData.length > 0 ? `
-DEMANDA POTENCIAL (ISÓCRONAS EN AUTO):
+DEMANDA POTENCIAL VERIFICADA (ISÓCRONAS EN AUTO — dato real de OpenRouteService):
 ${isoData.map(iso => `- ${iso.rango_min} min de manejo: ${iso.poblacion_alcanzada != null ? iso.poblacion_alcanzada.toLocaleString('es-MX') + ' hab.' : 'no disponible'}`).join('\n')}
-Menciona este dato en "razonamiento" al hablar del potencial de demanda del predio.
+
+INSTRUCCIÓN DE AJUSTE POR DEMANDA:
+Este dato refleja el mercado potencial real alcanzable desde el predio.
+Usa la población a 15 min como referencia principal para aplicar un ajuste positivo sobre el precio base de la banda:
+- < 100,000 hab. a 15 min → sin ajuste por demanda
+- 100,000–300,000 hab. a 15 min → +3% a +5% (demanda moderada)
+- 300,000–700,000 hab. a 15 min → +5% a +8% (demanda sólida)
+- 700,000–1,500,000 hab. a 15 min → +8% a +12% (mercado metropolitano)
+- > 1,500,000 hab. a 15 min → +12% a +18% (gran metrópoli, demanda muy alta)
+Incluye este ajuste en la lista de "ajustes" del JSON con concepto "Demanda potencial (isócronas ORS)" y documenta el razonamiento en "razonamiento".
 ` : ''}
 
 CARACTERÍSTICAS FÍSICAS (pistas de valuación proporcionadas por el usuario):
@@ -73,9 +89,9 @@ CARACTERÍSTICAS FÍSICAS (pistas de valuación proporcionadas por el usuario):
 - Precio solicitado: ${data.precioSolicitado ? `$${Number(data.precioSolicitado).toLocaleString('es-MX')} MXN` : 'No proporcionado'}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-PASO 1 — CLASIFICAR LA COLONIA EN BANDA DE VALOR
+PASO 1 — ${data.bandaOverride ? 'BANDA FIJADA MANUALMENTE POR EL USUARIO' : 'CLASIFICAR LA COLONIA EN BANDA DE VALOR'}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Asigna la colonia a UNA de estas 4 bandas. La banda determina qué referencias de precio puedes usar — NUNCA mezcles bandas.
+${data.bandaOverride ? `El usuario revisó tu clasificación de una corrida anterior y decidió fijar la banda en ${data.bandaOverride} (${bandaLabels[String(data.bandaOverride)]}). NO reclasifiques la colonia — usa esta banda directamente. En "justificacionBanda" documenta explícitamente que fue una decisión manual del usuario, no tu propia clasificación. Continúa con PASO 2 usando ÚNICAMENTE referencias de esta banda.` : `Asigna la colonia a UNA de estas 4 bandas. La banda determina qué referencias de precio puedes usar — NUNCA mezcles bandas.
 
 BANDA 1 — Popular / Periférica
 Colonias populares o periféricas con urbanización incompleta. Calles sin pavimentar o en mal estado, servicios irregulares, sin equipamiento urbano de calidad, comercio informal predominante, rezago social visible.
@@ -93,16 +109,22 @@ BANDA 4 — Residencial Premium
 Alto valor con plusvalía comprobable. Hospitales privados de primer nivel, colegios de élite, clubes deportivos, fraccionamientos cerrados, atributos diferenciales (vista, lago, golf, corredor financiero).
 Plusvalía: 10%+ anual · NSE: A, B
 
-REGLA: Usa ÚNICAMENTE referencias de terrenos de LA MISMA BANDA en la misma ciudad.
+REGLA: Usa ÚNICAMENTE referencias de terrenos de LA MISMA BANDA en la misma ciudad.`}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-PASO 2 — BUSCAR COMPARABLES EN PORTALES
+PASO 2 — BUSCAR COMPARABLES EN PORTALES (USA web_search)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Busca terrenos en venta en la misma zona. Prioridad: Lamudi → Inmuebles24 → Mercado Libre → Propiedades.com → Vivanuncios
-Criterios: mismo CP + colonias adyacentes (radio ≤ 3 km), superficie ±30%, últimos 12 meses.
+Tienes acceso a búsqueda web en tiempo real. DEBES buscar terrenos reales en venta ahora.
+Realiza al menos 2 búsquedas con queries como:
+  - "terrenos en venta [colonia] [ciudad] precio m2 site:lamudi.com.mx OR site:inmuebles24.com"
+  - "terreno venta [colonia] [ciudad] [CP] m2"
+
+Prioridad de portales: Lamudi → Inmuebles24 → Mercado Libre → Propiedades.com → Vivanuncios
+Criterios: mismo CP + colonias adyacentes (radio ≤ 3 km), superficie ±30%, resultados recientes.
 Si hay menos de 3 en radio primario, ampliar a 3–5 km y señalarlo.
 
 Para cada comparable: portal, superficie, precio total, precio/m², colonia, distancia estimada, fecha.
+IMPORTANTE: Usa SOLO comparables que realmente encontraste en la búsqueda. Si no encuentras ninguno real, documenta que la búsqueda no arrojó resultados y usa estimación paramétrica de banda.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 PASO 3 — APLICAR FACTORES DE AJUSTE
@@ -116,6 +138,14 @@ FACTOR DE CLASIFICACIÓN VIAL (aplicar primero, antes de otros ajustes):
 - Local/Habitacional: 0% (base — documenta la confirmación)
 - Privada/Andador: -5% a -10%
 Si no fue proporcionada, infiere de la dirección y señala como "inferida".
+
+Demanda potencial — SIEMPRE incluir si se recibieron datos de isócronas ORS (ver bloque DEMANDA POTENCIAL VERIFICADA arriba):
+- < 100,000 hab. a 15 min → sin ajuste
+- 100,000–300,000 hab. → +3% a +5%
+- 300,000–700,000 hab. → +5% a +8%
+- 700,000–1,500,000 hab. → +8% a +12%
+- > 1,500,000 hab. → +12% a +18%
+Concepto en JSON: "Demanda potencial (isócronas ORS)"
 
 Otros factores (aplicar sobre el precio ya ajustado por vialidad):
 - Terreno esquina: +8% a +12%
@@ -158,6 +188,12 @@ OUTPUT — JSON EXACTO (sin texto adicional)
         "descripcion": "Descripción del ajuste aplicado",
         "factorAjuste": "+20%",
         "impactoM2": 1500
+      },
+      {
+        "concepto": "Demanda potencial (isócronas ORS)",
+        "descripcion": "X,XXX,XXX hab. en radio 15 min — demanda [alta/moderada/baja]",
+        "factorAjuste": "+8%",
+        "impactoM2": 600
       }
     ],
     "precioM2Final": 7083,
@@ -184,7 +220,8 @@ OUTPUT — JSON EXACTO (sin texto adicional)
         "colonia": "nombre de colonia comparable",
         "distanciaKm": 1.2,
         "fechaPublicacion": "Mayo 2026",
-        "valido": true
+        "valido": true,
+        "origen": "web_search"
       }
     ],
     "indiceConfiabilidad": {
@@ -215,17 +252,33 @@ REGLAS:
 - bitacoraTerreno.superficieM2 debe coincidir con la superficie del input
 - ajustes: 2 a 4 ajustes reales y específicos; factorAjuste en formato "+X%" o "-X%"; impactoM2 es número
 - fuentesComparables: lista real de comparables encontrados (mínima 1, máxima 5); vacía [] si no se encontraron
+- fuentesComparables[].origen: USA "web_search" SOLO si encontraste el comparable en una búsqueda web real con URL específica; usa "estimacion_modelo" si es una estimación basada en tu conocimiento de entrenamiento sin URL verificada
 - validacionPrecioSolicitado.aplica: true SOLO si el usuario proporcionó precio solicitado
 - Retorna ÚNICAMENTE el JSON, sin markdown, sin texto extra`
 
+  // ── Comparables pre-cargados desde el paso previo ────────────────────────
+  let serperContext = ''
+  const comparablesPrecargados: any[] = data.comparablesPrecargados ?? []
+  if (comparablesPrecargados.length > 0) {
+    const lines = comparablesPrecargados.map((c: any) =>
+      `- ${c.portal} | ${c.colonia} | ${c.superficieM2 ?? '?'} m² | $${c.precioM2 ?? '?'}/m² | $${c.precioTotal ?? '?'} total | ${c.distanciaRef} | ${c.fechaPublicacion ?? ''} | ${c.url}`
+    ).join('\n')
+    serperContext = `\n\nCOMPARABLES REALES VERIFICADOS (obtenidos de Google en tiempo real antes de este análisis):\n${lines}\n\nUSA estos comparables directamente. Marca origen="web_search" para todos los que tengan precioM2 o precioTotal identificable.`
+  }
+
   try {
-    const message = await client.messages.create({
+    const response = await client.messages.create({
       model: 'claude-sonnet-4-6',
       max_tokens: 8000,
-      messages: [{ role: 'user', content: prompt }],
+      messages: [{ role: 'user', content: prompt + serperContext }],
     })
-    const text = message.content[0].type === 'text' ? message.content[0].text : ''
-    const match = text.match(/\{[\s\S]*\}/)
+
+    const finalText = (response.content as any[])
+      .filter((b: any) => b.type === 'text')
+      .map((b: any) => b.text)
+      .join('')
+
+    const match = finalText.match(/\{[\s\S]*\}/)
     if (!match) throw new Error('No JSON in response')
     return NextResponse.json(JSON.parse(match[0]))
   } catch (error) {

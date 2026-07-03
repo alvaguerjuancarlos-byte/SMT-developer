@@ -1,8 +1,10 @@
 'use client'
 
-import { useEffect, useState, useRef, Suspense } from 'react'
+import { useEffect, useMemo, useState, useRef, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { saveProyecto } from '@/lib/saveProyecto'
+import { calcular } from '@/lib/estimador/motor'
+import { construirInputsNormativos, programaAUsos, type ProgramaUnidades } from '@/lib/construccion/programaAdapter'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -50,7 +52,14 @@ interface CatastroData {
   source: string
 }
 
+interface ComparableItem {
+  portal: string; colonia: string; superficieM2: number | null
+  precioM2: number | null; precioTotal: number | null
+  distanciaRef: string; fechaPublicacion: string; url: string; titulo: string
+}
+
 interface PipelineState {
+  comparables: { status: AgentStatus; data: ComparableItem[] }
   terreno:     { status: AgentStatus; data: TerrenoResult | null;     overrideM2: string }
   construccion:{ status: AgentStatus; data: ConstruccionResult | null; overrideM2: string }
   legal:       { status: AgentStatus; data: LegalResult | null }
@@ -143,6 +152,322 @@ function EditableM2({
           <p className="text-[9px] text-[#9aab9f]">Agente calculó</p>
           <p className="text-[11px] text-[#b0bdb6] line-through">${value.toLocaleString('es-MX')}{unit}</p>
         </div>
+      )}
+    </div>
+  )
+}
+
+// Etiquetas cortas para los chips de ajuste manual del Terreno.
+// Duplicadas a propósito (no importadas de flujo-a/page.tsx): son solo 5-4 entradas
+// cortas y así este ajuste queda aislado sin acoplar analizando a flujo-a.
+const BANDA_LABELS: Record<string, string> = {
+  '1': 'Popular', '2': 'Media Popular', '3': 'Media Residencial', '4': 'Premium',
+}
+const VIALIDAD_LABELS: Record<string, string> = {
+  arterial: 'Arterial / Primaria', colectora: 'Colectora', secundaria: 'Secundaria',
+  local: 'Local / Habitacional', privada: 'Privada / Andador',
+}
+
+function Chip({ selected, onClick, children }: { selected: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`text-[11px] font-medium px-3 py-1.5 rounded-full border transition-colors cursor-pointer ${
+        selected
+          ? 'bg-[#1D9E75] border-[#1D9E75] text-white'
+          : 'bg-white border-[#E2E8E4] text-[#5a7065] hover:border-[#9FE1CB]'
+      }`}
+    >
+      {children}
+    </button>
+  )
+}
+
+function AjustarSupuestosTerreno({
+  bandaActual, vialActual, precioActual, onAplicar,
+}: {
+  bandaActual: number | undefined; vialActual: string | undefined; precioActual: string | undefined
+  onAplicar: (banda: string, vial: string, precioSolicitado: string) => void
+}) {
+  const [abierto, setAbierto] = useState(false)
+  const [bandaEdit, setBandaEdit] = useState('')
+  const [vialEdit, setVialEdit] = useState('')
+  const [precioEdit, setPrecioEdit] = useState('')
+
+  const bandaEfectiva = bandaEdit || String(bandaActual ?? '')
+  const vialEfectiva = vialEdit || (vialActual ?? '')
+  const precioEfectivo = precioEdit !== '' ? precioEdit : (precioActual ?? '')
+  const cambio =
+    (bandaEdit !== '' && bandaEdit !== String(bandaActual ?? '')) ||
+    (vialEdit !== '' && vialEdit !== (vialActual ?? '')) ||
+    (precioEdit !== '' && precioEdit !== (precioActual ?? ''))
+
+  if (!abierto) {
+    return (
+      <button
+        onClick={() => setAbierto(true)}
+        className="text-[11px] font-medium text-[#1D9E75] hover:text-[#0F6E56] transition-colors cursor-pointer self-start"
+      >
+        Ajustar banda, vialidad o precio →
+      </button>
+    )
+  }
+
+  return (
+    <div className="bg-[#F7F8F6] rounded-xl px-4 py-3 flex flex-col gap-3">
+      <div>
+        <p className="text-[10px] font-bold text-[#9aab9f] uppercase tracking-wide mb-1.5">Banda</p>
+        <div className="flex flex-wrap gap-1.5">
+          {Object.entries(BANDA_LABELS).map(([id, label]) => (
+            <Chip key={id} selected={bandaEfectiva === id} onClick={() => setBandaEdit(id)}>{id} · {label}</Chip>
+          ))}
+        </div>
+      </div>
+      <div>
+        <p className="text-[10px] font-bold text-[#9aab9f] uppercase tracking-wide mb-1.5">Clasificación vial</p>
+        <div className="flex flex-wrap gap-1.5">
+          {Object.entries(VIALIDAD_LABELS).map(([id, label]) => (
+            <Chip key={id} selected={vialEfectiva === id} onClick={() => setVialEdit(id)}>{label}</Chip>
+          ))}
+        </div>
+      </div>
+      <div>
+        <p className="text-[10px] font-bold text-[#9aab9f] uppercase tracking-wide mb-1.5">Precio real que pide el vendedor (opcional)</p>
+        <div className="relative w-48">
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[12px] text-[#9aab9f]">$</span>
+          <input
+            type="number"
+            value={precioEfectivo}
+            onChange={e => setPrecioEdit(e.target.value)}
+            placeholder="0"
+            className="w-full border border-[#E2E8E4] rounded-xl pl-6 pr-12 py-2 text-[13px] text-[#111d17] bg-white focus:outline-none focus:border-[#1D9E75]"
+          />
+          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-[#9aab9f] font-medium">MXN</span>
+        </div>
+        <p className="text-[10px] text-[#9aab9f] mt-1">La IA lo usa para validar su cálculo contra el precio real, no lo fuerza como resultado final.</p>
+      </div>
+      <div className="flex items-center gap-3">
+        <button
+          onClick={() => { onAplicar(bandaEfectiva, vialEfectiva, precioEfectivo); setAbierto(false); setBandaEdit(''); setVialEdit(''); setPrecioEdit('') }}
+          disabled={!cambio}
+          className={`text-[12px] font-semibold px-4 py-2 rounded-xl transition-colors ${
+            cambio ? 'bg-[#1D9E75] text-white hover:bg-[#0F6E56] cursor-pointer' : 'bg-[#E2E8E4] text-[#9aab9f] cursor-not-allowed'
+          }`}
+        >
+          Aplicar y re-correr Terreno
+        </button>
+        <button onClick={() => setAbierto(false)} className="text-[11px] text-[#9aab9f] hover:text-[#111d17] cursor-pointer">
+          Cancelar
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ── Construcción interactiva — "usuario_define" ──────────────────────────────
+// Modo alterno al Agente de Construcción (LLM): el usuario arma su propio programa
+// de unidades y lib/estimador (puro, sin IA ni red) lo valida y costea al instante,
+// reactivo en cada cambio — mismo patrón useMemo que ya usa Mastermind.
+
+const GENERO_VIVIENDA_LABELS: Record<string, string> = {
+  vivienda_interes_social: 'Interés social',
+  vivienda_residencial_media: 'Residencial media',
+  vivienda_residencial_lujo: 'Residencial / lujo',
+}
+
+interface MixRow { label: string; pct: number; m2Promedio: number }
+
+function MixEditor({ rows, onChange }: { rows: MixRow[]; onChange: (rows: MixRow[]) => void }) {
+  const totalPct = rows.reduce((s, r) => s + (Number(r.pct) || 0), 0)
+  const update = (i: number, patch: Partial<MixRow>) => {
+    const next = rows.map((r, idx) => idx === i ? { ...r, ...patch } : r)
+    onChange(next)
+  }
+  return (
+    <div className="flex flex-col gap-1.5">
+      <div className="grid grid-cols-[2fr_1fr_1fr] gap-2 px-1">
+        <span className="text-[9px] font-bold text-[#9aab9f] uppercase tracking-wide">Tipo</span>
+        <span className="text-[9px] font-bold text-[#9aab9f] uppercase tracking-wide">%</span>
+        <span className="text-[9px] font-bold text-[#9aab9f] uppercase tracking-wide">m² prom.</span>
+      </div>
+      {rows.map((row, i) => (
+        <div key={i} className="grid grid-cols-[2fr_1fr_1fr] gap-2">
+          <input type="text" value={row.label} onChange={e => update(i, { label: e.target.value })}
+            className="border border-[#E2E8E4] rounded-lg px-2 py-1.5 text-[12px] text-[#111d17] focus:outline-none focus:border-[#1D9E75]" />
+          <input type="number" value={row.pct} onChange={e => update(i, { pct: e.target.valueAsNumber || 0 })}
+            className="border border-[#E2E8E4] rounded-lg px-2 py-1.5 text-[12px] text-[#111d17] focus:outline-none focus:border-[#1D9E75]" />
+          <input type="number" value={row.m2Promedio} onChange={e => update(i, { m2Promedio: e.target.valueAsNumber || 0 })}
+            className="border border-[#E2E8E4] rounded-lg px-2 py-1.5 text-[12px] text-[#111d17] focus:outline-none focus:border-[#1D9E75]" />
+        </div>
+      ))}
+      <p className={`text-[10px] mt-0.5 ${Math.round(totalPct) === 100 ? 'text-[#9aab9f]' : 'text-[#DC2626] font-semibold'}`}>
+        Suma: {totalPct.toFixed(0)}% {Math.round(totalPct) !== 100 && '(debería sumar 100%)'}
+      </p>
+    </div>
+  )
+}
+
+function ConstruccionInteractiva({
+  sTerreno, cosStr, cusStr, onContinuar,
+}: {
+  sTerreno: number; cosStr: string | undefined; cusStr: string | undefined
+  onContinuar: (resultado: ConstruccionResult) => void
+}) {
+  const [incluirComercial, setIncluirComercial] = useState(false)
+  const [generoVivienda, setGeneroVivienda] = useState<'vivienda_interes_social' | 'vivienda_residencial_media' | 'vivienda_residencial_lujo'>('vivienda_residencial_media')
+  const [totalUnidades, setTotalUnidades] = useState(60)
+  const [mixHab, setMixHab] = useState<MixRow[]>([
+    { label: '1 recámara', pct: 50, m2Promedio: 55 },
+    { label: '2 recámaras', pct: 30, m2Promedio: 75 },
+    { label: '3 recámaras', pct: 20, m2Promedio: 100 },
+  ])
+  const [niveles, setNiveles] = useState(2)
+  const [localesPorNivel, setLocalesPorNivel] = useState(6)
+  const [mixCom, setMixCom] = useState<MixRow[]>([
+    { label: 'Local chico', pct: 30, m2Promedio: 70 },
+    { label: 'Local mediano', pct: 40, m2Promedio: 90 },
+    { label: 'Local grande', pct: 30, m2Promedio: 120 },
+  ])
+  const [costoRealM2, setCostoRealM2] = useState('')
+
+  const resultado = useMemo(() => {
+    const programa: ProgramaUnidades = {
+      habitacional: { genero: generoVivienda, totalUnidades, mix: mixHab },
+      ...(incluirComercial ? { comercial: { niveles, localesPorNivel, mix: mixCom } } : {}),
+    }
+    const usos = programaAUsos(programa)
+    if (usos.every(u => u.m2Bruto <= 0) || sTerreno <= 0) return null
+    const normativos = construirInputsNormativos(sTerreno, cosStr, cusStr)
+    try {
+      return calcular(normativos, { usos })
+    } catch {
+      return null
+    }
+  }, [generoVivienda, totalUnidades, mixHab, incluirComercial, niveles, localesPorNivel, mixCom, sTerreno, cosStr, cusStr])
+
+  const estimadoM2 = resultado?.indicadores.costoPorM2Bruto.base
+  const realM2 = costoRealM2 !== '' ? Number(costoRealM2) : undefined
+  const diffPct = estimadoM2 && realM2 ? ((realM2 - estimadoM2) / estimadoM2) * 100 : undefined
+  const semaforoReal = diffPct === undefined ? null : Math.abs(diffPct) <= 10 ? 'verde' : Math.abs(diffPct) <= 25 ? 'amarillo' : 'rojo'
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="bg-[#F7F8F6] rounded-xl px-4 py-3">
+        <p className="text-[10px] font-bold text-[#9aab9f] uppercase tracking-wide mb-2">Habitacional</p>
+        <div className="grid grid-cols-2 gap-2 mb-2">
+          <select value={generoVivienda} onChange={e => setGeneroVivienda(e.target.value as typeof generoVivienda)}
+            className="border border-[#E2E8E4] rounded-lg px-2 py-1.5 text-[12px] bg-white text-[#111d17]">
+            {Object.entries(GENERO_VIVIENDA_LABELS).map(([id, label]) => <option key={id} value={id}>{label}</option>)}
+          </select>
+          <input type="number" value={totalUnidades} onChange={e => setTotalUnidades(e.target.valueAsNumber || 0)}
+            placeholder="Total unidades"
+            className="border border-[#E2E8E4] rounded-lg px-2 py-1.5 text-[12px] text-[#111d17]" />
+        </div>
+        <MixEditor rows={mixHab} onChange={setMixHab} />
+      </div>
+
+      <label className="flex items-center gap-2 text-[12px] font-medium text-[#111d17] cursor-pointer">
+        <input type="checkbox" checked={incluirComercial} onChange={e => setIncluirComercial(e.target.checked)} className="w-4 h-4 accent-[#1D9E75]" />
+        Incluir locales comerciales (mixto)
+      </label>
+
+      {incluirComercial && (
+        <div className="bg-[#F7F8F6] rounded-xl px-4 py-3">
+          <p className="text-[10px] font-bold text-[#9aab9f] uppercase tracking-wide mb-2">Comercial</p>
+          <div className="grid grid-cols-2 gap-2 mb-2">
+            <input type="number" value={niveles} onChange={e => setNiveles(e.target.valueAsNumber || 0)}
+              placeholder="Niveles" className="border border-[#E2E8E4] rounded-lg px-2 py-1.5 text-[12px] text-[#111d17]" />
+            <input type="number" value={localesPorNivel} onChange={e => setLocalesPorNivel(e.target.valueAsNumber || 0)}
+              placeholder="Locales/nivel" className="border border-[#E2E8E4] rounded-lg px-2 py-1.5 text-[12px] text-[#111d17]" />
+          </div>
+          <MixEditor rows={mixCom} onChange={setMixCom} />
+        </div>
+      )}
+
+      {resultado && (
+        <>
+          <div
+            className="rounded-xl px-4 py-3 text-[13px] font-semibold"
+            style={{
+              backgroundColor: resultado.envolvente.cumple ? '#E1F5EE' : '#FEE2E2',
+              color: resultado.envolvente.cumple ? '#0F6E56' : '#991B1B',
+            }}
+          >
+            {resultado.envolvente.cumple
+              ? '✓ Cumple con el envolvente normativo'
+              : `✕ Excede el m² construible permitido por ${resultado.envolvente.excesoPct?.toFixed(0)}%`}
+          </div>
+
+          <div className="grid grid-cols-3 gap-2">
+            <div className="bg-[#F7F8F6] rounded-xl px-3 py-2.5 text-center">
+              <p className="text-[10px] text-[#9aab9f] uppercase tracking-wide font-semibold">Construible máx</p>
+              <p className="text-[14px] font-bold text-[#111d17] mt-0.5">{Math.round(resultado.envolvente.construibleMax).toLocaleString('es-MX')} m²</p>
+            </div>
+            <div className="bg-[#F7F8F6] rounded-xl px-3 py-2.5 text-center">
+              <p className="text-[10px] text-[#9aab9f] uppercase tracking-wide font-semibold">Programa (sobre rasante)</p>
+              <p className="text-[14px] font-bold text-[#111d17] mt-0.5">{Math.round(resultado.areas.sobreRasante).toLocaleString('es-MX')} m²</p>
+            </div>
+            <div className="bg-[#F7F8F6] rounded-xl px-3 py-2.5 text-center">
+              <p className="text-[10px] text-[#9aab9f] uppercase tracking-wide font-semibold">Cajones requeridos</p>
+              <p className="text-[14px] font-bold text-[#111d17] mt-0.5">{resultado.cajones.cajonesTotales}</p>
+            </div>
+          </div>
+
+          <div className="bg-[#F7F8F6] rounded-xl px-4 py-3">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-[10px] font-bold text-[#9aab9f] uppercase tracking-wide">Costo estimado (paramétrico)</p>
+              <p className="text-[15px] font-black text-[#111d17]">${Math.round(resultado.indicadores.costoPorM2Bruto.base).toLocaleString('es-MX')} MXN/m²</p>
+            </div>
+            <p className="text-[10px] text-[#9aab9f] mb-2">Costo total estimado: {fmt(resultado.costoTotal.base)}</p>
+            <label className="text-[10px] font-bold text-[#9aab9f] uppercase tracking-wide">Costo real conocido (opcional)</label>
+            <div className="relative w-48 mt-1">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[12px] text-[#9aab9f]">$</span>
+              <input type="number" value={costoRealM2} onChange={e => setCostoRealM2(e.target.value)} placeholder="0"
+                className="w-full border border-[#E2E8E4] rounded-xl pl-6 pr-16 py-2 text-[13px] text-[#111d17] bg-white focus:outline-none focus:border-[#1D9E75]" />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-[#9aab9f] font-medium">MXN/m²</span>
+            </div>
+            {semaforoReal && (
+              <p className={`text-[11px] font-medium mt-2 ${
+                semaforoReal === 'verde' ? 'text-[#0F6E56]' : semaforoReal === 'amarillo' ? 'text-[#92400E]' : 'text-[#991B1B]'
+              }`}>
+                {diffPct! > 0 ? '+' : ''}{diffPct!.toFixed(1)}% vs. estimado paramétrico
+                {semaforoReal === 'verde' && ' — dentro de ±10%, buena señal'}
+                {semaforoReal === 'amarillo' && ' — diferencia moderada, revisar supuestos'}
+                {semaforoReal === 'rojo' && ' — diferencia grande, el estimado paramétrico puede no aplicar a este proyecto'}
+              </p>
+            )}
+          </div>
+
+          <button
+            onClick={() => {
+              const construccionM2Final = realM2 ?? estimadoM2 ?? 0
+              const costoTotalFinal = realM2 !== undefined ? realM2 * resultado.areas.total : resultado.costoTotal.base
+              onContinuar({
+                construccionM2: construccionM2Final,
+                costoTotalConstruccion: costoTotalFinal,
+                superficieConstruida: resultado.areas.total,
+                superficieVendible: resultado.areas.vendible,
+                bitacoraConstruccion: {
+                  modo: 'usuario_define',
+                  envolvente: resultado.envolvente,
+                  cajones: resultado.cajones,
+                  indicadores: resultado.indicadores,
+                  supuestos: resultado.supuestos,
+                },
+              })
+            }}
+            disabled={!resultado.envolvente.cumple}
+            className={`w-full rounded-xl py-3 text-[13px] font-semibold transition-colors flex items-center justify-center gap-2 ${
+              resultado.envolvente.cumple ? 'bg-[#1D9E75] text-white hover:bg-[#0F6E56] cursor-pointer' : 'bg-[#E2E8E4] text-[#9aab9f] cursor-not-allowed'
+            }`}
+          >
+            Usar este programa y continuar con Mercado
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <path d="M5 3l4 4-4 4" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
+            </svg>
+          </button>
+        </>
       )}
     </div>
   )
@@ -362,6 +687,7 @@ function PipelineContent() {
 
   const [formData, setFormData] = useState<any>(null)
   const [pipe, setPipe] = useState<PipelineState>({
+    comparables: { status: 'waiting', data: [] },
     terreno:     { status: 'waiting', data: null, overrideM2: '' },
     construccion:{ status: 'waiting', data: null, overrideM2: '' },
     legal:       { status: 'waiting', data: null },
@@ -370,6 +696,8 @@ function PipelineContent() {
     ubicacion:   { status: 'waiting', data: null },
     catastro:    { status: 'waiting', data: null },
   })
+
+  const [modoConstruccion, setModoConstruccion] = useState<'agente_propone' | 'usuario_define'>('agente_propone')
 
   useEffect(() => {
     const raw = localStorage.getItem('smt_flujo_a_data')
@@ -445,40 +773,76 @@ function PipelineContent() {
       } catch { /* continúa sin coords */ }
     }
 
+    // Intentar usar comparables del Scout (evita segunda llamada a Serper)
+    let scoutComps: ComparableItem[] = []
+    try {
+      const raw = localStorage.getItem('smt_scout_comparables')
+      if (raw) {
+        const saved = JSON.parse(raw)
+        const age = Date.now() - (saved.timestamp ?? 0)
+        if (age < 60 * 60 * 1000) { // válido por 1 hora
+          scoutComps = saved.comparables ?? []
+          localStorage.removeItem('smt_scout_comparables')
+        }
+      }
+    } catch { /* ignora */ }
+
+    const getComps = scoutComps.length > 0
+      ? async () => { setPipe(p => ({ ...p, comparables: { status: 'done', data: scoutComps } })); return scoutComps }
+      : (fd2: any) => runComparables(fd2)
+
     if (!lat || !lng) {
-      // Sin coordenadas: saltar ubicación y arrancar terreno directamente
       setPipe(p => ({ ...p, ubicacion: { status: 'done', data: { isocronas: [] } } }))
-      runTerreno(fd, null)
+      const comps = await getComps(fd)
+      runTerreno(fd, null, comps)
       return
     }
 
+    // Comparables e isócronas en paralelo
     setPipe(p => ({ ...p, ubicacion: { status: 'running', data: null } }))
-    try {
-      const isoRes = await fetch('/api/geo/isochrone', {
+    const [comps, isoRes] = await Promise.all([
+      getComps(fd),
+      fetch('/api/geo/isochrone', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ lat, lng, perfil: 'driving' }),
-      }).then(r => r.json())
-      const isocronas = isoRes.isocronas ?? []
-      const errorMsg: string | undefined = isoRes.error
-      const ubicacionData: UbicacionData = { isocronas, errorMsg }
-      setPipe(p => ({ ...p, ubicacion: { status: 'done', data: ubicacionData } }))
-      runTerreno(fd, ubicacionData)
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Error desconocido'
-      setPipe(p => ({ ...p, ubicacion: { status: 'done', data: { isocronas: [], errorMsg: msg } } }))
-      runTerreno(fd, null)
+      }).then(r => r.json()).catch(() => ({ isocronas: [] })),
+    ])
+    const ubicacionData: UbicacionData = { isocronas: isoRes.isocronas ?? [], errorMsg: isoRes.error }
+    setPipe(p => ({ ...p, ubicacion: { status: 'done', data: ubicacionData } }))
+    runTerreno(fd, ubicacionData, comps)
+  }
+
+  // ── Step 0b: Comparables reales (Serper) ──
+  const runComparables = async (fd?: any): Promise<ComparableItem[]> => {
+    const input = fd || formData
+    setPipe(p => ({ ...p, comparables: { status: 'running', data: [] } }))
+    try {
+      const res = await fetch('/api/agentes/comparables', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ colonia: input.colonia, ciudad: input.ciudad, estado: input.estado, codigoPostal: input.codigoPostal }),
+      })
+      const json = await res.json()
+      const items: ComparableItem[] = json.comparables ?? []
+      setPipe(p => ({ ...p, comparables: { status: 'done', data: items } }))
+      return items
+    } catch {
+      setPipe(p => ({ ...p, comparables: { status: 'done', data: [] } }))
+      return []
     }
   }
 
   // ── Step 1: Terreno ──
-  const runTerreno = async (fd?: any, ubicacion?: UbicacionData | null) => {
+  const runTerreno = async (fd?: any, ubicacion?: UbicacionData | null, comparablesPrecargados?: ComparableItem[]) => {
     const input = fd || formData
     const ub = ubicacion !== undefined ? ubicacion : pipe.ubicacion.data
-    setPipe(p => ({ ...p, terreno: { ...p.terreno, status: 'running', data: null } }))
+    const comps = comparablesPrecargados ?? pipe.comparables.data
+    // overrideM2 pertenece a la corrida anterior — si se vuelve a correr Terreno
+    // (banda/vialidad ajustadas o "Re-correr" simple), el número manual queda obsoleto.
+    setPipe(p => ({ ...p, terreno: { ...p.terreno, status: 'running', data: null, overrideM2: '' } }))
     try {
       const res = await fetch('/api/agentes/terreno', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...input, ubicacion: ub }),
+        body: JSON.stringify({ ...input, ubicacion: ub, comparablesPrecargados: comps }),
       })
       const json = await res.json()
       if (json.error) throw new Error(json.error)
@@ -507,27 +871,7 @@ function PipelineContent() {
     }
   }
 
-  // ── Step 3: Legal + Mercado (parallel) ──
-  const runLegalMercado = async () => {
-    const c = pipe.construccion.data!
-    const m2c = pipe.construccion.overrideM2 !== '' ? Number(pipe.construccion.overrideM2) : c.construccionM2
-    const payload = { ...formData, costoTerrenoM2: efectivoTerrenoM2(), construccionM2: m2c }
-    setPipe(p => ({
-      ...p,
-      legal:  { ...p.legal,  status: 'running', data: null },
-      mercado:{ ...p.mercado, status: 'running', data: null },
-    }))
-    const [lRes, mRes] = await Promise.allSettled([
-      fetch('/api/agentes/legal',  { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }).then(r => r.json()),
-      fetch('/api/agentes/mercado',{ method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }).then(r => r.json()),
-    ])
-    setPipe(p => ({
-      ...p,
-      legal:  { status: lRes.status === 'fulfilled' && !lRes.value.error ? 'done' : 'error', data: lRes.status === 'fulfilled' ? lRes.value : null },
-      mercado:{ status: mRes.status === 'fulfilled' && !mRes.value.error ? 'done' : 'error', data: mRes.status === 'fulfilled' ? mRes.value : null },
-    }))
-  }
-
+  // ── Step 2: Legal (guardarraíl) — corre apenas termina Terreno, antes de Construcción ──
   const runLegal = async () => {
     setPipe(p => ({ ...p, legal: { status: 'running', data: null } }))
     try {
@@ -539,6 +883,16 @@ function PipelineContent() {
       setPipe(p => ({ ...p, legal: { status: 'error', data: null } }))
     }
   }
+
+  // Legal es guardarraíl "siempre prendido": arranca solo apenas Terreno termina,
+  // sin esperar a que el usuario apruebe y continúe — así sus COS/CUS ya están
+  // listos para cuando el usuario llegue al paso interactivo de Construcción.
+  useEffect(() => {
+    if (pipe.terreno.status === 'done' && pipe.legal.status === 'waiting') {
+      runLegal()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pipe.terreno.status])
 
   const runMercado = async () => {
     setPipe(p => ({ ...p, mercado: { status: 'running', data: null } }))
@@ -615,23 +969,24 @@ function PipelineContent() {
     return pipe.construccion.overrideM2 !== '' ? Number(pipe.construccion.overrideM2) : c.construccionM2
   }
 
-  const legalMercadoBothDone = pipe.legal.status === 'done' && pipe.mercado.status === 'done'
-  const legalMercadoBothError = pipe.legal.status === 'error' && pipe.mercado.status === 'error'
-  const legalMercadoRunning = pipe.legal.status === 'running' || pipe.mercado.status === 'running'
-
   // ── Progress ──
+  // Orden: Terreno → Legal (guardarraíl, corre apenas termina Terreno) → Construcción
+  // (interactivo) → Mercado → Financiero. Legal ya no corre junto con Mercado — sus
+  // valores de COS/CUS tienen que estar listos ANTES de que el usuario ajuste el
+  // programa de Construcción, no después.
   const stepsDone = [
     pipe.terreno.status === 'done',
+    pipe.legal.status === 'done',
     pipe.construccion.status === 'done',
-    legalMercadoBothDone,
+    pipe.mercado.status === 'done',
     pipe.financiero.status === 'done',
   ].filter(Boolean).length
-  const pct = (stepsDone / 4) * 100
+  const pct = (stepsDone / 5) * 100
 
   return (
-    <div className="min-h-screen bg-[#F7F8F6] flex flex-col">
+    <div className="min-h-screen bg-[#0C0F0E] flex flex-col">
       {/* Header */}
-      <header className="px-8 py-5 flex items-center gap-3 border-b border-[#E2E8E4] bg-white">
+      <header className="px-8 py-5 flex items-center gap-3 border-b border-white/10 bg-[#0C0F0E]">
         <div className="w-8 h-8 rounded-lg bg-[#1D9E75] flex items-center justify-center shrink-0">
           <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
             <path d="M9 2L16 6V12L9 16L2 12V6L9 2Z" stroke="white" strokeWidth="1.5" fill="none"/>
@@ -639,8 +994,8 @@ function PipelineContent() {
           </svg>
         </div>
         <div>
-          <span className="text-[15px] font-medium text-[#1a1a1a] tracking-wide">SMT Developer</span>
-          <span className="block text-[10px] text-[#6b7c74] tracking-[0.12em] uppercase">Pipeline de análisis</span>
+          <span className="text-[15px] font-medium text-white tracking-wide">SMT Developer</span>
+          <span className="block text-[10px] text-white/40 tracking-[0.12em] uppercase">Pipeline de análisis</span>
         </div>
         {proyecto && (
           <div className="ml-auto px-3 py-1.5 bg-[#1D9E75] rounded-lg">
@@ -651,23 +1006,24 @@ function PipelineContent() {
       </header>
 
       {/* Progress bar */}
-      <div className="bg-white border-b border-[#E2E8E4] px-8 py-2 flex items-center gap-4">
-        <div className="flex-1 h-1.5 bg-[#E2E8E4] rounded-full overflow-hidden">
+      <div className="bg-[#0C0F0E] border-b border-white/10 px-8 py-2 flex items-center gap-4">
+        <div className="flex-1 h-1.5 bg-white/10 rounded-full overflow-hidden">
           <div className="h-full bg-[#1D9E75] rounded-full transition-all duration-700" style={{ width: `${pct}%` }} />
         </div>
-        <span className="text-[10px] font-semibold text-[#9aab9f] shrink-0 tabular-nums">
-          {stepsDone} de 4 agentes
+        <span className="text-[10px] font-semibold text-white/30 shrink-0 tabular-nums">
+          {stepsDone} de 5 agentes
         </span>
       </div>
 
       <main className="flex-1 flex gap-0 overflow-hidden">
         {/* Left sidebar — step indicators */}
-        <aside className="hidden md:flex flex-col gap-6 w-52 shrink-0 px-6 py-8 border-r border-[#E2E8E4] bg-white">
-          <p className="text-[10px] font-bold text-[#9aab9f] uppercase tracking-widest">Agentes</p>
+        <aside className="hidden md:flex flex-col gap-6 w-52 shrink-0 px-6 py-8 border-r border-white/10 bg-[#0C0F0E]">
+          <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest">Agentes</p>
           <StepBadge n={1} status={pipe.terreno.status} label="Terreno" />
-          <StepBadge n={2} status={pipe.construccion.status} label="Construcción" />
-          <StepBadge n={3} status={legalMercadoBothDone ? 'done' : legalMercadoRunning ? 'running' : 'waiting'} label="Legal + Mercado" />
-          <StepBadge n={4} status={pipe.financiero.status} label="Financiero" />
+          <StepBadge n={2} status={pipe.legal.status} label="Legal (guardarraíl)" />
+          <StepBadge n={3} status={pipe.construccion.status} label="Construcción" />
+          <StepBadge n={4} status={pipe.mercado.status} label="Mercado" />
+          <StepBadge n={5} status={pipe.financiero.status} label="Financiero" />
         </aside>
 
         {/* Main content */}
@@ -685,8 +1041,37 @@ function PipelineContent() {
                 />
               )}
 
+              {/* Comparables reales */}
+              {pipe.comparables.status === 'running' && (
+                <RunningCard label="Buscando referencias de mercado…" hint="Consultando Lamudi, Inmuebles24 y más portales en tiempo real" />
+              )}
+              {pipe.comparables.status === 'done' && pipe.comparables.data.length > 0 && (
+                <div className="bg-white rounded-2xl border border-[#E2E8E4] p-5">
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="w-2 h-2 rounded-full bg-[#1D9E75]" />
+                    <p className="text-[12px] font-bold text-[#111d17]">Referencias reales encontradas ({pipe.comparables.data.length})</p>
+                    <span className="text-[10px] text-[#9aab9f] ml-auto">Serper · Google Search</span>
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    {pipe.comparables.data.map((c, i) => (
+                      <div key={i} className="flex items-center justify-between bg-[#F0FAF5] border border-[#5DCAA5]/30 rounded-xl px-3 py-2">
+                        <div className="min-w-0">
+                          <p className="text-[11px] font-semibold text-[#111d17] truncate">{c.colonia || c.titulo}</p>
+                          <p className="text-[10px] text-[#9aab9f]">{c.portal} · {c.superficieM2 ? `${c.superficieM2} m²` : '—'} · {c.distanciaRef}</p>
+                        </div>
+                        <div className="text-right shrink-0 ml-3">
+                          {c.precioM2 && <p className="text-[12px] font-bold text-[#111d17]">${c.precioM2.toLocaleString()}/m²</p>}
+                          {c.precioTotal && !c.precioM2 && <p className="text-[12px] font-bold text-[#111d17]">${c.precioTotal.toLocaleString()}</p>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-[10px] text-[#9aab9f] mt-2 italic">Estas referencias se pasan al Agente Terreno para calibrar la valuación.</p>
+                </div>
+              )}
+
               {pipe.terreno.status === 'running' && (
-                <RunningCard label="Agente Terreno analizando…" hint="Buscando comparables, clasificando banda, aplicando factores de ajuste" />
+                <RunningCard label="Agente Terreno analizando…" hint="Clasificando banda, aplicando factores de ajuste sobre referencias reales" />
               )}
 
               {pipe.terreno.status === 'error' && (
@@ -721,9 +1106,10 @@ function PipelineContent() {
                         value={t.costoTerrenoM2}
                         override={pipe.terreno.overrideM2}
                         onOverride={v => setPipe(p => ({ ...p, terreno: { ...p.terreno, overrideM2: v } }))}
+                        unit=" MXN/m²"
                       />
                       <div className="bg-[#F7F8F6] rounded-xl px-4 py-3">
-                        <p className="text-[10px] text-[#9aab9f] uppercase tracking-wide font-semibold">Costo total terreno</p>
+                        <p className="text-[10px] text-[#9aab9f] uppercase tracking-wide font-semibold">Costo total terreno (MXN)</p>
                         <p className="text-[17px] font-bold text-[#111d17] mt-0.5">
                           {fmt(m2efectivo * Number(formData?.superficie || 0))}
                         </p>
@@ -746,10 +1132,26 @@ function PipelineContent() {
                           </div>
                           <p className="text-[11px] text-[#5a7065] leading-snug">{t.bitacoraTerreno.justificacionBanda}</p>
                           <p className="text-[10px] text-[#9aab9f] mt-1.5 font-medium">
-                            Precio base referencia: <span className="text-[#111d17]">${t.bitacoraTerreno.precioM2Referencia?.toLocaleString('es-MX')}/m²</span>
+                            Precio base referencia: <span className="text-[#111d17]">${t.bitacoraTerreno.precioM2Referencia?.toLocaleString('es-MX')} MXN/m²</span>
                             {t.bitacoraTerreno.fuenteReferencia ? ` · ${t.bitacoraTerreno.fuenteReferencia}` : ''}
                           </p>
                         </div>
+
+                        {/* ¿No estás de acuerdo con la banda, la vialidad, o conocés el precio real? Ajustar y re-correr solo Terreno */}
+                        <AjustarSupuestosTerreno
+                          bandaActual={t.bitacoraTerreno.bandaTerreno}
+                          vialActual={formData?.clasificacionVial}
+                          precioActual={formData?.precioSolicitado}
+                          onAplicar={(banda, vial, precioSolicitado) => {
+                            const bandaOriginal = String(t.bitacoraTerreno.bandaTerreno ?? '')
+                            runTerreno({
+                              ...formData,
+                              clasificacionVial: vial,
+                              precioSolicitado,
+                              bandaOverride: banda !== bandaOriginal ? banda : undefined,
+                            })
+                          }}
+                        />
 
                         {/* Ajustes aplicados */}
                         {t.bitacoraTerreno.ajustes?.length > 0 && (
@@ -776,7 +1178,7 @@ function PipelineContent() {
                             <div className="px-4 py-3 bg-[#F0FBF6] flex items-center justify-between">
                               <p className="text-[11px] font-bold text-[#0F6E56]">Precio final ajustado</p>
                               <p className="text-[15px] font-black text-[#0F6E56]">
-                                ${t.bitacoraTerreno.precioM2Final?.toLocaleString('es-MX')}/m²
+                                ${t.bitacoraTerreno.precioM2Final?.toLocaleString('es-MX')} MXN/m²
                               </p>
                             </div>
                           </div>
@@ -785,7 +1187,7 @@ function PipelineContent() {
                         {/* Rango de valoración */}
                         {t.bitacoraTerreno.rangoValoracion && (
                           <div>
-                            <p className="text-[10px] font-bold text-[#9aab9f] uppercase tracking-wide mb-2">Rango de negociación</p>
+                            <p className="text-[10px] font-bold text-[#9aab9f] uppercase tracking-wide mb-2">Rango de negociación (MXN/m²)</p>
                             <div className="flex items-center gap-2">
                               <div className="flex-1 bg-[#F7F8F6] rounded-lg px-3 py-2 text-center">
                                 <p className="text-[9px] text-[#9aab9f] uppercase tracking-wide">Mínimo</p>
@@ -819,19 +1221,28 @@ function PipelineContent() {
                               Comparables encontrados ({t.bitacoraTerreno.fuentesComparables.length})
                             </p>
                             <div className="flex flex-col gap-1.5">
-                              {t.bitacoraTerreno.fuentesComparables.map((c: any, i: number) => (
-                                <div key={i} className="flex items-center justify-between bg-[#F7F8F6] rounded-xl px-4 py-2.5">
-                                  <div>
-                                    <p className="text-[11px] font-semibold text-[#111d17]">{c.colonia}</p>
-                                    <p className="text-[10px] text-[#9aab9f]">
-                                      {c.portal} · {c.superficie?.toLocaleString()} m² · {c.distanciaKm} km · {c.fechaPublicacion}
+                              {t.bitacoraTerreno.fuentesComparables.map((c: any, i: number) => {
+                                const esWeb = c.origen === 'web_search'
+                                return (
+                                  <div key={i} className={`flex items-center justify-between rounded-xl px-4 py-2.5 ${esWeb ? 'bg-[#F0FAF5] border border-[#5DCAA5]/30' : 'bg-[#F7F8F6] border border-dashed border-[#D0DDD5]'}`}>
+                                    <div className="flex items-start gap-2.5 min-w-0">
+                                      <span className={`mt-1 w-1.5 h-1.5 rounded-full flex-shrink-0 ${esWeb ? 'bg-[#1D9E75]' : 'bg-[#C4CEC8]'}`} />
+                                      <div className="min-w-0">
+                                        <p className="text-[11px] font-semibold text-[#111d17]">{c.colonia}</p>
+                                        <p className="text-[10px] text-[#9aab9f]">
+                                          {c.portal} · {c.superficie > 0 ? `${c.superficie?.toLocaleString()} m²` : '—'} · {c.distanciaKm > 0 ? `${c.distanciaKm} km` : '—'} · {c.fechaPublicacion}
+                                        </p>
+                                        <span className={`text-[9px] font-semibold tracking-wide uppercase ${esWeb ? 'text-[#1D9E75]' : 'text-[#9aab9f]'}`}>
+                                          {esWeb ? '● Encontrado en web' : '○ Estimado por modelo'}
+                                        </span>
+                                      </div>
+                                    </div>
+                                    <p className="text-[13px] font-bold text-[#111d17] shrink-0 ml-3">
+                                      ${c.precioM2?.toLocaleString()}/m²
                                     </p>
                                   </div>
-                                  <p className="text-[13px] font-bold text-[#111d17] shrink-0">
-                                    ${c.precioM2?.toLocaleString()}/m²
-                                  </p>
-                                </div>
-                              ))}
+                                )
+                              })}
                             </div>
                           </div>
                         ) : (
@@ -1003,21 +1414,157 @@ function PipelineContent() {
               })()}
             </section>
 
-
-            {/* ══ STEP 2 — CONSTRUCCIÓN ══ */}
-            {(pipe.construccion.status !== 'waiting') && (
+            {/* ══ STEP 2 — LEGAL (guardarraíl) ══ */}
+            {/* Corre automático apenas Terreno termina — no espera "aprobar y continuar" */}
+            {pipe.legal.status !== 'waiting' && (
               <section>
-                <SectionHeader n={2} label="Agente de Construcción" />
+                <SectionHeader n={2} label="Agente Legal · Guardarraíl normativo" />
 
-                {pipe.construccion.status === 'running' && (
+                {pipe.legal.status === 'running' && (
+                  <RunningCard label="Agente Legal…" hint="Verificando PDU, uso de suelo, factibilidades" />
+                )}
+                {pipe.legal.status === 'error' && (
+                  <ErrorCard label="Agente Legal" onRetry={runLegal} />
+                )}
+                {pipe.legal.status === 'done' && pipe.legal.data && (() => {
+                  const fl = pipe.legal.data.fichaLegal
+                  return (
+                    <DoneCard>
+                      <div className="px-4 py-3 border-b border-[#F0F4F2] flex items-center gap-2">
+                        <CheckIcon />
+                        <span className="text-[12px] font-bold text-[#0F6E56]">Agente Legal</span>
+                        <button onClick={runLegal} className="ml-auto text-[10px] text-[#9aab9f] hover:text-[#1D9E75] cursor-pointer">Re-correr</button>
+                      </div>
+                      <div className="px-4 py-3 space-y-2.5">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] text-[#5a7065]">Uso de suelo</span>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${fl?.compatible ? 'bg-[#E1F5EE] text-[#0F6E56]' : 'bg-[#FEE2E2] text-[#991B1B]'}`}>
+                            {fl?.compatible ? 'Compatible' : 'Requiere cambio'}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] text-[#5a7065]">Nivel de riesgo</span>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                            fl?.nivelRiesgo === 'Bajo' ? 'bg-[#E1F5EE] text-[#0F6E56]' :
+                            fl?.nivelRiesgo === 'Medio' ? 'bg-[#FEF3C7] text-[#92400E]' :
+                            'bg-[#FEE2E2] text-[#991B1B]'
+                          }`}>{fl?.nivelRiesgo || '—'}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] text-[#5a7065]">COS / CUS</span>
+                          <span className="text-[11px] font-semibold text-[#111d17]">{fl?.cos} / {fl?.cus}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] text-[#5a7065]">Alertas</span>
+                          <span className="text-[11px] font-semibold text-[#111d17]">{fl?.alertasLegales?.length || 0} alerta(s)</span>
+                        </div>
+                      </div>
+                      <p className="px-4 pb-3 text-[10px] text-[#9aab9f] leading-snug">
+                        Estos valores de COS/CUS alimentan los guardarraíles del paso de Construcción.
+                      </p>
+                      <AgentChat agentKey="legal" agentData={pipe.legal.data} />
+                    </DoneCard>
+                  )
+                })()}
+              </section>
+            )}
+
+            {/* ══ STEP 3 — CONSTRUCCIÓN ══ */}
+            {pipe.terreno.status === 'done' && (
+              <section>
+                <SectionHeader n={3} label="Agente de Construcción" />
+
+                {pipe.construccion.status === 'waiting' && (
+                  <div className="bg-white rounded-2xl border border-[#E2E8E4] p-4 mb-3">
+                    <p className="text-[11px] font-bold text-[#9aab9f] uppercase tracking-wide mb-2">¿Cómo defines la construcción?</p>
+                    <div className="flex gap-2 mb-3">
+                      <button
+                        onClick={() => setModoConstruccion('agente_propone')}
+                        className={`flex-1 text-[12px] font-medium px-3 py-2 rounded-xl border transition-colors cursor-pointer ${
+                          modoConstruccion === 'agente_propone' ? 'bg-[#1D9E75] border-[#1D9E75] text-white' : 'bg-white border-[#E2E8E4] text-[#5a7065]'
+                        }`}
+                      >
+                        Dejar que la IA proponga
+                      </button>
+                      <button
+                        onClick={() => setModoConstruccion('usuario_define')}
+                        className={`flex-1 text-[12px] font-medium px-3 py-2 rounded-xl border transition-colors cursor-pointer ${
+                          modoConstruccion === 'usuario_define' ? 'bg-[#1D9E75] border-[#1D9E75] text-white' : 'bg-white border-[#E2E8E4] text-[#5a7065]'
+                        }`}
+                      >
+                        Definir mi programa de unidades
+                      </button>
+                    </div>
+
+                    {modoConstruccion === 'agente_propone' && (
+                      <button
+                        onClick={runConstruccion}
+                        className="w-full bg-[#1D9E75] text-white rounded-xl py-3 text-[13px] font-semibold hover:bg-[#0F6E56] transition-colors cursor-pointer flex items-center justify-center gap-2"
+                      >
+                        Aprobar y continuar con Construcción
+                        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                          <path d="M5 3l4 4-4 4" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
+                        </svg>
+                      </button>
+                    )}
+
+                    {modoConstruccion === 'usuario_define' && (
+                      <ConstruccionInteractiva
+                        sTerreno={Number(formData?.superficie || 0)}
+                        cosStr={pipe.legal.data?.fichaLegal?.cos}
+                        cusStr={pipe.legal.data?.fichaLegal?.cus}
+                        onContinuar={(construccionResult) => {
+                          setPipe(p => ({ ...p, construccion: { status: 'done', data: construccionResult, overrideM2: '' } }))
+                          runMercado()
+                        }}
+                      />
+                    )}
+                  </div>
+                )}
+
+                {pipe.construccion.status === 'done' && pipe.construccion.data?.bitacoraConstruccion?.modo === 'usuario_define' && (() => {
+                  const c = pipe.construccion.data
+                  return (
+                    <DoneCard>
+                      <div className="px-5 py-4 border-b border-[#F0F4F2] flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <CheckIcon />
+                          <span className="text-[13px] font-bold text-[#0F6E56]">Programa definido por ti</span>
+                        </div>
+                        <button
+                          onClick={() => setPipe(p => ({ ...p, construccion: { status: 'waiting', data: null, overrideM2: '' } }))}
+                          className="text-[11px] text-[#9aab9f] hover:text-[#1D9E75] transition-colors cursor-pointer"
+                        >
+                          Editar programa
+                        </button>
+                      </div>
+                      <div className="px-5 py-4 grid grid-cols-3 gap-3">
+                        <div className="bg-[#F7F8F6] rounded-xl px-3 py-2.5 text-center">
+                          <p className="text-[10px] text-[#9aab9f] uppercase tracking-wide font-semibold">Costo / m²</p>
+                          <p className="text-[14px] font-bold text-[#111d17] mt-0.5">${Math.round(c.construccionM2).toLocaleString('es-MX')}</p>
+                        </div>
+                        <div className="bg-[#F7F8F6] rounded-xl px-3 py-2.5 text-center">
+                          <p className="text-[10px] text-[#9aab9f] uppercase tracking-wide font-semibold">Superficie construida</p>
+                          <p className="text-[14px] font-bold text-[#111d17] mt-0.5">{Math.round(c.superficieConstruida).toLocaleString('es-MX')} m²</p>
+                        </div>
+                        <div className="bg-[#F7F8F6] rounded-xl px-3 py-2.5 text-center">
+                          <p className="text-[10px] text-[#9aab9f] uppercase tracking-wide font-semibold">Costo total</p>
+                          <p className="text-[14px] font-bold text-[#111d17] mt-0.5">{fmt(c.costoTotalConstruccion)}</p>
+                        </div>
+                      </div>
+                    </DoneCard>
+                  )
+                })()}
+
+                {modoConstruccion === 'agente_propone' && pipe.construccion.status === 'running' && (
                   <RunningCard label="Agente Construcción analizando…" hint="Consultando índices CMIC, calculando partidas y materiales principales" />
                 )}
 
-                {pipe.construccion.status === 'error' && (
+                {modoConstruccion === 'agente_propone' && pipe.construccion.status === 'error' && (
                   <ErrorCard label="Agente Construcción" onRetry={runConstruccion} />
                 )}
 
-                {pipe.construccion.status === 'done' && pipe.construccion.data && (() => {
+                {pipe.construccion.status === 'done' && pipe.construccion.data && pipe.construccion.data.bitacoraConstruccion?.modo !== 'usuario_define' && (() => {
                   const c = pipe.construccion.data
                   const ic = c.bitacoraConstruccion?.indiceConfiabilidad
                   const desglose = c.bitacoraConstruccion?.desgloseConstruccion
@@ -1125,13 +1672,13 @@ function PipelineContent() {
 
                       <AgentChat agentKey="construccion" agentData={pipe.construccion.data} />
 
-                      {(pipe.legal.status === 'waiting' && pipe.mercado.status === 'waiting') && (
+                      {pipe.mercado.status === 'waiting' && (
                         <div className="px-5 pb-5">
                           <button
-                            onClick={runLegalMercado}
+                            onClick={runMercado}
                             className="w-full bg-[#1D9E75] text-white rounded-xl py-3 text-[13px] font-semibold hover:bg-[#0F6E56] transition-colors cursor-pointer flex items-center justify-center gap-2"
                           >
-                            Aprobar y continuar con Legal + Mercado
+                            Aprobar y continuar con Mercado
                             <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                               <path d="M5 3l4 4-4 4" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
                             </svg>
@@ -1149,127 +1696,73 @@ function PipelineContent() {
               </section>
             )}
 
-            {/* ══ STEP 3 — LEGAL + MERCADO ══ */}
-            {(pipe.legal.status !== 'waiting' || pipe.mercado.status !== 'waiting') && (
+            {/* ══ STEP 4 — MERCADO ══ */}
+            {pipe.mercado.status !== 'waiting' && (
               <section>
-                <SectionHeader n={3} label="Legal + Mercado (paralelo)" />
+                <SectionHeader n={4} label="Agente Mercado" />
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* Legal */}
-                  <div>
-                    {pipe.legal.status === 'running' && (
-                      <RunningCard label="Agente Legal…" hint="Verificando PDU, uso de suelo, factibilidades" />
-                    )}
-                    {pipe.legal.status === 'error' && (
-                      <ErrorCard label="Agente Legal" onRetry={runLegal} />
-                    )}
-                    {pipe.legal.status === 'done' && pipe.legal.data && (() => {
-                      const fl = pipe.legal.data.fichaLegal
-                      return (
-                        <DoneCard>
-                          <div className="px-4 py-3 border-b border-[#F0F4F2] flex items-center gap-2">
-                            <CheckIcon />
-                            <span className="text-[12px] font-bold text-[#0F6E56]">Agente Legal</span>
-                            <button onClick={runLegal} className="ml-auto text-[10px] text-[#9aab9f] hover:text-[#1D9E75] cursor-pointer">Re-correr</button>
-                          </div>
-                          <div className="px-4 py-3 space-y-2.5">
-                            <div className="flex items-center justify-between">
-                              <span className="text-[11px] text-[#5a7065]">Uso de suelo</span>
-                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${fl?.compatible ? 'bg-[#E1F5EE] text-[#0F6E56]' : 'bg-[#FEE2E2] text-[#991B1B]'}`}>
-                                {fl?.compatible ? 'Compatible' : 'Requiere cambio'}
-                              </span>
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <span className="text-[11px] text-[#5a7065]">Nivel de riesgo</span>
-                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                                fl?.nivelRiesgo === 'Bajo' ? 'bg-[#E1F5EE] text-[#0F6E56]' :
-                                fl?.nivelRiesgo === 'Medio' ? 'bg-[#FEF3C7] text-[#92400E]' :
-                                'bg-[#FEE2E2] text-[#991B1B]'
-                              }`}>{fl?.nivelRiesgo || '—'}</span>
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <span className="text-[11px] text-[#5a7065]">COS / CUS</span>
-                              <span className="text-[11px] font-semibold text-[#111d17]">{fl?.cos} / {fl?.cus}</span>
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <span className="text-[11px] text-[#5a7065]">Alertas</span>
-                              <span className="text-[11px] font-semibold text-[#111d17]">{fl?.alertasLegales?.length || 0} alerta(s)</span>
-                            </div>
-                          </div>
-                          <AgentChat agentKey="legal" agentData={pipe.legal.data} />
-                        </DoneCard>
-                      )
-                    })()}
-                  </div>
-
-                  {/* Mercado */}
-                  <div>
-                    {pipe.mercado.status === 'running' && (
-                      <RunningCard label="Agente Mercado…" hint="Buscando comparables, analizando absorción y pricing" />
-                    )}
-                    {pipe.mercado.status === 'error' && (
-                      <ErrorCard label="Agente Mercado" onRetry={runMercado} />
-                    )}
-                    {pipe.mercado.status === 'done' && pipe.mercado.data && (() => {
-                      const m = pipe.mercado.data.mercado
-                      return (
-                        <DoneCard>
-                          <div className="px-4 py-3 border-b border-[#F0F4F2] flex items-center gap-2">
-                            <CheckIcon />
-                            <span className="text-[12px] font-bold text-[#0F6E56]">Agente Mercado</span>
-                            <button onClick={runMercado} className="ml-auto text-[10px] text-[#9aab9f] hover:text-[#1D9E75] cursor-pointer">Re-correr</button>
-                          </div>
-                          <div className="px-4 py-3 space-y-2.5">
-                            <div className="flex items-center justify-between">
-                              <span className="text-[11px] text-[#5a7065]">Precio/m² zona</span>
-                              <span className="text-[11px] font-bold text-[#111d17]">{m?.precioPromedioZona || '—'}</span>
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <span className="text-[11px] text-[#5a7065]">Absorción</span>
-                              <span className="text-[11px] font-semibold text-[#111d17]">{m?.absorcion || '—'}</span>
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <span className="text-[11px] text-[#5a7065]">Demanda</span>
-                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                                m?.demanda === 'Alta' ? 'bg-[#E1F5EE] text-[#0F6E56]' :
-                                m?.demanda === 'Media' ? 'bg-[#FEF3C7] text-[#92400E]' :
-                                'bg-[#FEE2E2] text-[#991B1B]'
-                              }`}>{m?.demanda || '—'}</span>
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <span className="text-[11px] text-[#5a7065]">Plusvalía</span>
-                              <span className="text-[11px] font-semibold text-[#0F6E56]">{m?.plusvalia || '—'}</span>
-                            </div>
-                          </div>
-                          <AgentChat agentKey="mercado" agentData={pipe.mercado.data} />
-                        </DoneCard>
-                      )
-                    })()}
-                  </div>
-                </div>
-
-                {/* Approve step 3 */}
-                {legalMercadoBothDone && pipe.financiero.status === 'waiting' && (
-                  <button
-                    onClick={runFinanciero}
-                    className="w-full mt-4 bg-[#1D9E75] text-white rounded-xl py-3 text-[13px] font-semibold hover:bg-[#0F6E56] transition-colors cursor-pointer flex items-center justify-center gap-2"
-                  >
-                    Aprobar y generar Análisis Financiero
-                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                      <path d="M5 3l4 4-4 4" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
-                    </svg>
-                  </button>
+                {pipe.mercado.status === 'running' && (
+                  <RunningCard label="Agente Mercado…" hint="Buscando comparables, analizando absorción y pricing" />
                 )}
-                {legalMercadoBothError && (
-                  <p className="text-[11px] text-[#DC2626] text-center mt-3">Ambos agentes fallaron — re-intenta cada uno por separado.</p>
+                {pipe.mercado.status === 'error' && (
+                  <ErrorCard label="Agente Mercado" onRetry={runMercado} />
                 )}
+                {pipe.mercado.status === 'done' && pipe.mercado.data && (() => {
+                  const m = pipe.mercado.data.mercado
+                  return (
+                    <DoneCard>
+                      <div className="px-4 py-3 border-b border-[#F0F4F2] flex items-center gap-2">
+                        <CheckIcon />
+                        <span className="text-[12px] font-bold text-[#0F6E56]">Agente Mercado</span>
+                        <button onClick={runMercado} className="ml-auto text-[10px] text-[#9aab9f] hover:text-[#1D9E75] cursor-pointer">Re-correr</button>
+                      </div>
+                      <div className="px-4 py-3 space-y-2.5">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] text-[#5a7065]">Precio/m² zona</span>
+                          <span className="text-[11px] font-bold text-[#111d17]">{m?.precioPromedioZona || '—'}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] text-[#5a7065]">Absorción</span>
+                          <span className="text-[11px] font-semibold text-[#111d17]">{m?.absorcion || '—'}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] text-[#5a7065]">Demanda</span>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                            m?.demanda === 'Alta' ? 'bg-[#E1F5EE] text-[#0F6E56]' :
+                            m?.demanda === 'Media' ? 'bg-[#FEF3C7] text-[#92400E]' :
+                            'bg-[#FEE2E2] text-[#991B1B]'
+                          }`}>{m?.demanda || '—'}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] text-[#5a7065]">Plusvalía</span>
+                          <span className="text-[11px] font-semibold text-[#0F6E56]">{m?.plusvalia || '—'}</span>
+                        </div>
+                      </div>
+                      <AgentChat agentKey="mercado" agentData={pipe.mercado.data} />
+
+                      {pipe.financiero.status === 'waiting' && (
+                        <div className="px-4 pb-4">
+                          <button
+                            onClick={runFinanciero}
+                            className="w-full bg-[#1D9E75] text-white rounded-xl py-3 text-[13px] font-semibold hover:bg-[#0F6E56] transition-colors cursor-pointer flex items-center justify-center gap-2"
+                          >
+                            Aprobar y generar Análisis Financiero
+                            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                              <path d="M5 3l4 4-4 4" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
+                            </svg>
+                          </button>
+                        </div>
+                      )}
+                    </DoneCard>
+                  )
+                })()}
               </section>
             )}
 
-            {/* ══ STEP 4 — FINANCIERO ══ */}
+            {/* ══ STEP 5 — FINANCIERO ══ */}
             {pipe.financiero.status !== 'waiting' && (
               <section>
-                <SectionHeader n={4} label="Agente Financiero" />
+                <SectionHeader n={5} label="Agente Financiero" />
 
                 {pipe.financiero.status === 'running' && (
                   <RunningCard label="Agente Financiero modelando…" hint="Calculando TIR, flujo de caja, stress test y score de resiliencia" />
