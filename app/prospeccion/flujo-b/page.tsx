@@ -690,8 +690,8 @@ export default function FlujoB() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F7F8F6] flex flex-col">
-      <header className="px-8 py-5 flex items-center gap-3 border-b border-[#E2E8E4] bg-white">
+    <div className="min-h-screen bg-[#0C0F0E] flex flex-col">
+      <header className="px-8 py-5 flex items-center gap-3 border-b border-white/10 bg-[#0C0F0E]">
         <div className="w-8 h-8 rounded-lg bg-[#1D9E75] flex items-center justify-center">
           <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
             <path d="M9 2L16 6V12L9 16L2 12V6L9 2Z" stroke="white" strokeWidth="1.5" fill="none"/>
@@ -699,10 +699,10 @@ export default function FlujoB() {
           </svg>
         </div>
         <div>
-          <span className="text-[15px] font-medium text-[#1a1a1a] tracking-wide">SMT Developer</span>
-          <span className="block text-[10px] text-[#6b7c74] tracking-[0.12em] uppercase">Inteligencia inmobiliaria</span>
+          <span className="text-[15px] font-medium text-white tracking-wide">SMT Developer</span>
+          <span className="block text-[10px] text-white/40 tracking-[0.12em] uppercase">Inteligencia inmobiliaria</span>
         </div>
-        <div className="ml-auto flex items-center gap-2 text-[12px] text-[#9aab9f]">
+        <div className="ml-auto flex items-center gap-2 text-[12px] text-white/30">
           <span className="text-[#1D9E75] font-medium">Prospección</span>
           <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
             <path d="M4 2L8 6L4 10" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
