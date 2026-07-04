@@ -1391,24 +1391,6 @@ function PipelineContent() {
                       </div>
                     )}
 
-                    {pipe.construccion.status === 'waiting' && (
-                      <div className="px-5 pb-5">
-                        <button
-                          onClick={runConstruccion}
-                          className="w-full bg-[#1D9E75] text-white rounded-xl py-3 text-[13px] font-semibold hover:bg-[#0F6E56] transition-colors cursor-pointer flex items-center justify-center gap-2"
-                        >
-                          Aprobar y continuar con Construcción
-                          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                            <path d="M5 3l4 4-4 4" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
-                          </svg>
-                        </button>
-                        {pipe.terreno.overrideM2 !== '' && (
-                          <p className="text-[10px] text-[#9aab9f] text-center mt-2">
-                            Se usará tu valor corregido: ${Number(pipe.terreno.overrideM2).toLocaleString()}/m²
-                          </p>
-                        )}
-                      </div>
-                    )}
                   </DoneCard>
                 )
               })()}
