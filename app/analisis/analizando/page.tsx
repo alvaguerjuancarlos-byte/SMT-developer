@@ -1756,13 +1756,37 @@ function PipelineContent() {
                         </div>
                       )}
 
-                      {/* Tipología propuesta */}
+                      {/* Costo ponderado + total */}
+                      <div className="px-5 pb-4 grid grid-cols-2 gap-3">
+                        <EditableM2
+                          label="Costo ponderado / m²"
+                          value={c.construccionM2}
+                          override={pipe.construccion.overrideM2}
+                          onOverride={v => setPipe(p => ({ ...p, construccion: { ...p.construccion, overrideM2: v } }))}
+                        />
+                        <div className="bg-[#F7F8F6] rounded-xl px-4 py-3">
+                          <p className="text-[10px] text-[#9aab9f] uppercase tracking-wide font-semibold">Costo total directo</p>
+                          <p className="text-[17px] font-bold text-[#111d17] mt-0.5">{fmt(totalCons)}</p>
+                          <p className="text-[10px] text-[#9aab9f]">Suma ponderada por zona</p>
+                        </div>
+                      </div>
+
+                      {ic && (
+                        <div className="px-5 pb-3">
+                          <p className="text-[11px] text-[#9aab9f] leading-snug">{ic.interpretacion}</p>
+                          {ic.accionRecomendada && (
+                            <p className="text-[11px] text-[#D97706] mt-1 font-medium">→ {ic.accionRecomendada}</p>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Tipología propuesta — franja de ajuste entre el costo final y las preguntas */}
                       {(() => {
                         const tip = c.bitacoraConstruccion?.tipologiaPropuesta
                         if (!tip) return null
                         const mostrarLocales = (formData?.tiposDesarrollo ?? []).some((t: string) => t === 'comercial' || t === 'mixto')
                         return (
-                          <div className="px-5 pb-4 flex flex-col gap-3">
+                          <div className="px-5 pb-4 flex flex-col gap-3 border-t border-[#F0F4F2] pt-4">
                             <p className="text-[10px] font-bold text-[#9aab9f] uppercase tracking-widest">Tipología propuesta</p>
                             <div className="grid grid-cols-3 gap-2">
                               <div className="bg-[#F7F8F6] rounded-xl px-3 py-2.5 text-center">
@@ -1823,30 +1847,6 @@ function PipelineContent() {
                           </div>
                         )
                       })()}
-
-                      {/* Costo ponderado + total */}
-                      <div className="px-5 pb-4 grid grid-cols-2 gap-3">
-                        <EditableM2
-                          label="Costo ponderado / m²"
-                          value={c.construccionM2}
-                          override={pipe.construccion.overrideM2}
-                          onOverride={v => setPipe(p => ({ ...p, construccion: { ...p.construccion, overrideM2: v } }))}
-                        />
-                        <div className="bg-[#F7F8F6] rounded-xl px-4 py-3">
-                          <p className="text-[10px] text-[#9aab9f] uppercase tracking-wide font-semibold">Costo total directo</p>
-                          <p className="text-[17px] font-bold text-[#111d17] mt-0.5">{fmt(totalCons)}</p>
-                          <p className="text-[10px] text-[#9aab9f]">Suma ponderada por zona</p>
-                        </div>
-                      </div>
-
-                      {ic && (
-                        <div className="px-5 pb-3">
-                          <p className="text-[11px] text-[#9aab9f] leading-snug">{ic.interpretacion}</p>
-                          {ic.accionRecomendada && (
-                            <p className="text-[11px] text-[#D97706] mt-1 font-medium">→ {ic.accionRecomendada}</p>
-                          )}
-                        </div>
-                      )}
 
                       <AgentChat agentKey="construccion" agentData={pipe.construccion.data} />
 
