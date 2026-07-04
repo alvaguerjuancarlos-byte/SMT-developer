@@ -901,26 +901,28 @@ function FluidoAContent() {
               </div>
             </InferredRow>
 
+            <div className="bg-[#F0FBF6] border-2 border-[#1D9E75]/40 rounded-2xl p-4">
+              <p className="text-[13px] font-bold text-[#0F6E56] mb-1">¿Tienes un valor estimado o real del terreno?</p>
+              <p className="text-[11px] text-[#5a7065] mb-3 leading-snug">
+                Si conoces el precio que pide el vendedor (o una estimación tuya), la IA lo usa para validar su cálculo — no lo fuerza como resultado final.
+              </p>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[12px] text-[#5a7065]">$</span>
+                <input type="number" value={form.precioSolicitado} onChange={e => set({ precioSolicitado: e.target.value })}
+                  placeholder="0"
+                  className="w-full border-2 border-[#1D9E75]/30 rounded-xl pl-6 pr-14 py-2.5 text-[14px] font-semibold text-[#111d17] bg-white focus:outline-none focus:border-[#1D9E75] placeholder:text-[#c5d0cb]"
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-[#5a7065] font-medium">MXN</span>
+              </div>
+            </div>
+
             <InferredRow label="Datos opcionales">
-              <div className="flex flex-col gap-3">
-                <div>
-                  <p className="text-[10px] text-[#9aab9f] font-semibold mb-1.5">Precio solicitado por el terreno</p>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[12px] text-[#9aab9f]">$</span>
-                    <input type="number" value={form.precioSolicitado} onChange={e => set({ precioSolicitado: e.target.value })}
-                      placeholder="0"
-                      className="w-full border border-[#E2E8E4] rounded-xl pl-6 pr-14 py-2.5 text-[13px] text-[#111d17] bg-white focus:outline-none focus:border-[#1D9E75] placeholder:text-[#c5d0cb]"
-                    />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-[#9aab9f] font-medium">MXN</span>
-                  </div>
-                </div>
-                <div>
-                  <p className="text-[10px] text-[#9aab9f] font-semibold mb-1.5">Cuenta predial</p>
-                  <input type="text" value={form.cuentaPredial} onChange={e => set({ cuentaPredial: e.target.value })}
-                    placeholder="019-012-045-001-000"
-                    className="w-full border border-[#E2E8E4] rounded-xl px-3 py-2.5 text-[13px] text-[#111d17] bg-white focus:outline-none focus:border-[#1D9E75] placeholder:text-[#c5d0cb]"
-                  />
-                </div>
+              <div>
+                <p className="text-[10px] text-[#9aab9f] font-semibold mb-1.5">Cuenta predial</p>
+                <input type="text" value={form.cuentaPredial} onChange={e => set({ cuentaPredial: e.target.value })}
+                  placeholder="019-012-045-001-000"
+                  className="w-full border border-[#E2E8E4] rounded-xl px-3 py-2.5 text-[13px] text-[#111d17] bg-white focus:outline-none focus:border-[#1D9E75] placeholder:text-[#c5d0cb]"
+                />
               </div>
             </InferredRow>
 
