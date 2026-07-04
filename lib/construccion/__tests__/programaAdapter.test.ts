@@ -79,3 +79,33 @@ describe('programaAUsos — mixto habitacional + comercial', () => {
     expect(programaAUsos(programa)).toHaveLength(1)
   })
 })
+
+describe('programaAUsos — amenidadesM2', () => {
+  it('agrega un uso "amenidades_comunes" cuando amenidadesM2 > 0', () => {
+    const programa: ProgramaUnidades = {
+      habitacional: {
+        genero: 'vivienda_residencial_media',
+        totalUnidades: 20,
+        mix: [{ label: 'Único', pct: 100, m2Promedio: 65 }],
+      },
+      amenidadesM2: 150,
+    }
+    const usos = programaAUsos(programa)
+    expect(usos).toHaveLength(2)
+    const amenidades = usos.find(u => u.genero === 'amenidades_comunes')
+    expect(amenidades).toBeDefined()
+    expect(amenidades!.m2Bruto).toBe(150)
+  })
+
+  it('sin amenidadesM2 (o 0), no agrega el uso', () => {
+    const programa: ProgramaUnidades = {
+      habitacional: {
+        genero: 'vivienda_residencial_media',
+        totalUnidades: 20,
+        mix: [{ label: 'Único', pct: 100, m2Promedio: 65 }],
+      },
+      amenidadesM2: 0,
+    }
+    expect(programaAUsos(programa)).toHaveLength(1)
+  })
+})

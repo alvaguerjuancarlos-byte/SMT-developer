@@ -329,12 +329,14 @@ function ConstruccionInteractiva({
     { label: 'Local mediano', pct: 40, m2Promedio: 90 },
     { label: 'Local grande', pct: 30, m2Promedio: 120 },
   ])
+  const [amenidadesM2, setAmenidadesM2] = useState(0)
   const [costoRealM2, setCostoRealM2] = useState('')
 
   const resultado = useMemo(() => {
     const programa: ProgramaUnidades = {
       habitacional: { genero: generoVivienda, totalUnidades, mix: mixHab },
       ...(incluirComercial ? { comercial: { niveles, localesPorNivel, mix: mixCom } } : {}),
+      amenidadesM2,
     }
     const usos = programaAUsos(programa)
     if (usos.every(u => u.m2Bruto <= 0) || sTerreno <= 0) return null
@@ -344,7 +346,7 @@ function ConstruccionInteractiva({
     } catch {
       return null
     }
-  }, [generoVivienda, totalUnidades, mixHab, incluirComercial, niveles, localesPorNivel, mixCom, sTerreno, cosStr, cusStr])
+  }, [generoVivienda, totalUnidades, mixHab, incluirComercial, niveles, localesPorNivel, mixCom, amenidadesM2, sTerreno, cosStr, cusStr])
 
   const estimadoM2 = resultado?.indicadores.costoPorM2Bruto.base
   const realM2 = costoRealM2 !== '' ? Number(costoRealM2) : undefined
@@ -356,15 +358,32 @@ function ConstruccionInteractiva({
       <div className="bg-[#F7F8F6] rounded-xl px-4 py-3">
         <p className="text-[10px] font-bold text-[#9aab9f] uppercase tracking-wide mb-2">Habitacional</p>
         <div className="grid grid-cols-2 gap-2 mb-2">
-          <select value={generoVivienda} onChange={e => setGeneroVivienda(e.target.value as typeof generoVivienda)}
-            className="border border-[#E2E8E4] rounded-lg px-2 py-1.5 text-[12px] bg-white text-[#111d17]">
-            {Object.entries(GENERO_VIVIENDA_LABELS).map(([id, label]) => <option key={id} value={id}>{label}</option>)}
-          </select>
-          <input type="number" value={totalUnidades} onChange={e => setTotalUnidades(e.target.valueAsNumber || 0)}
-            placeholder="Total unidades"
-            className="border border-[#E2E8E4] rounded-lg px-2 py-1.5 text-[12px] text-[#111d17]" />
+          <div>
+            <p className="text-[9px] text-[#9aab9f] font-semibold mb-1">Banda de acabados</p>
+            <select value={generoVivienda} onChange={e => setGeneroVivienda(e.target.value as typeof generoVivienda)}
+              className="w-full border border-[#E2E8E4] rounded-lg px-2 py-1.5 text-[12px] bg-white text-[#111d17]">
+              {Object.entries(GENERO_VIVIENDA_LABELS).map(([id, label]) => <option key={id} value={id}>{label}</option>)}
+            </select>
+          </div>
+          <div>
+            <p className="text-[9px] text-[#9aab9f] font-semibold mb-1">Total unidades</p>
+            <input type="number" value={totalUnidades} onChange={e => setTotalUnidades(e.target.valueAsNumber || 0)}
+              placeholder="Total unidades"
+              className="w-full border border-[#E2E8E4] rounded-lg px-2 py-1.5 text-[12px] text-[#111d17]" />
+          </div>
         </div>
         <MixEditor rows={mixHab} onChange={setMixHab} />
+      </div>
+
+      <div className="bg-[#F7F8F6] rounded-xl px-4 py-3">
+        <p className="text-[10px] font-bold text-[#9aab9f] uppercase tracking-wide mb-2">Áreas comunes y amenidades</p>
+        <div className="relative w-48">
+          <input type="number" value={amenidadesM2 || ''} onChange={e => setAmenidadesM2(e.target.valueAsNumber || 0)}
+            placeholder="0"
+            className="w-full border border-[#E2E8E4] rounded-lg pr-10 pl-2 py-1.5 text-[12px] text-[#111d17]" />
+          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-[#9aab9f] font-medium">m²</span>
+        </div>
+        <p className="text-[9px] text-[#9aab9f] mt-1.5">Lobby, gimnasio, roof garden, salón de eventos, alberca — no vendible, se costea aparte.</p>
       </div>
 
       <label className="flex items-center gap-2 text-[12px] font-medium text-[#111d17] cursor-pointer">
@@ -1506,6 +1525,10 @@ function PipelineContent() {
 
                 {pipe.construccion.status === 'done' && pipe.construccion.data?.bitacoraConstruccion?.modo === 'usuario_define' && (() => {
                   const c = pipe.construccion.data
+                  const m2efectivo = pipe.construccion.overrideM2 !== '' ? Number(pipe.construccion.overrideM2) : c.construccionM2
+                  const totalEfectivo = pipe.construccion.overrideM2 !== ''
+                    ? m2efectivo * (c.superficieConstruida || 0)
+                    : c.costoTotalConstruccion
                   return (
                     <DoneCard>
                       <div className="px-5 py-4 border-b border-[#F0F4F2] flex items-center justify-between">
@@ -1521,17 +1544,19 @@ function PipelineContent() {
                         </button>
                       </div>
                       <div className="px-5 py-4 grid grid-cols-3 gap-3">
-                        <div className="bg-[#F7F8F6] rounded-xl px-3 py-2.5 text-center">
-                          <p className="text-[10px] text-[#9aab9f] uppercase tracking-wide font-semibold">Costo / m²</p>
-                          <p className="text-[14px] font-bold text-[#111d17] mt-0.5">${Math.round(c.construccionM2).toLocaleString('es-MX')}</p>
-                        </div>
+                        <EditableM2
+                          label="Costo / m²"
+                          value={c.construccionM2}
+                          override={pipe.construccion.overrideM2}
+                          onOverride={v => setPipe(p => ({ ...p, construccion: { ...p.construccion, overrideM2: v } }))}
+                        />
                         <div className="bg-[#F7F8F6] rounded-xl px-3 py-2.5 text-center">
                           <p className="text-[10px] text-[#9aab9f] uppercase tracking-wide font-semibold">Superficie construida</p>
                           <p className="text-[14px] font-bold text-[#111d17] mt-0.5">{Math.round(c.superficieConstruida).toLocaleString('es-MX')} m²</p>
                         </div>
                         <div className="bg-[#F7F8F6] rounded-xl px-3 py-2.5 text-center">
                           <p className="text-[10px] text-[#9aab9f] uppercase tracking-wide font-semibold">Costo total</p>
-                          <p className="text-[14px] font-bold text-[#111d17] mt-0.5">{fmt(c.costoTotalConstruccion)}</p>
+                          <p className="text-[14px] font-bold text-[#111d17] mt-0.5">{fmt(totalEfectivo)}</p>
                         </div>
                       </div>
                     </DoneCard>

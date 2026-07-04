@@ -25,6 +25,7 @@ export interface ProgramaComercial {
 export interface ProgramaUnidades {
   habitacional?: ProgramaHabitacional
   comercial?: ProgramaComercial
+  amenidadesM2?: number  // áreas comunes y amenidades — genero 'amenidades_comunes' (no vendible)
 }
 
 function m2TotalDeMix(totalUnidades: number, mix: MixItem[]): number {
@@ -46,6 +47,10 @@ export function programaAUsos(programa: ProgramaUnidades): UsoDesarrollo[] {
     const { niveles, localesPorNivel, mix } = programa.comercial
     const totalLocales = niveles * localesPorNivel
     usos.push({ genero: 'comercio', m2Bruto: m2TotalDeMix(totalLocales, mix) })
+  }
+
+  if (programa.amenidadesM2 && programa.amenidadesM2 > 0) {
+    usos.push({ genero: 'amenidades_comunes', m2Bruto: programa.amenidadesM2 })
   }
 
   return usos
