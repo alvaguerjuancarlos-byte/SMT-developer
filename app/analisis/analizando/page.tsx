@@ -265,6 +265,106 @@ function AjustarSupuestosTerreno({
   )
 }
 
+const AMENIDADES_NIVEL_LABELS: Record<string, string> = {
+  '1': 'Mínimas', '2': 'Intermedias', '3': 'Top',
+}
+
+function AjustarSupuestosConstruccion({
+  bandaActual, nivelesActual, totalDeptosActual, totalLocalesActual, amenidadesNivelActual, mostrarLocales, onAplicar,
+}: {
+  bandaActual: number | string | undefined; nivelesActual: number | undefined
+  totalDeptosActual: number | undefined; totalLocalesActual: number | undefined
+  amenidadesNivelActual: number | undefined; mostrarLocales: boolean
+  onAplicar: (banda: string, niveles: string, totalDeptos: string, totalLocales: string, amenidadesNivel: string) => void
+}) {
+  const [abierto, setAbierto] = useState(false)
+  const [bandaEdit, setBandaEdit] = useState('')
+  const [nivelesEdit, setNivelesEdit] = useState('')
+  const [deptosEdit, setDeptosEdit] = useState('')
+  const [localesEdit, setLocalesEdit] = useState('')
+  const [amenidadesEdit, setAmenidadesEdit] = useState('')
+
+  const bandaEfectiva = bandaEdit || String(bandaActual ?? '')
+  const amenidadesEfectiva = amenidadesEdit || String(amenidadesNivelActual ?? '')
+  const cambio =
+    (bandaEdit !== '' && bandaEdit !== String(bandaActual ?? '')) ||
+    (nivelesEdit !== '' && nivelesEdit !== String(nivelesActual ?? '')) ||
+    (deptosEdit !== '' && deptosEdit !== String(totalDeptosActual ?? '')) ||
+    (localesEdit !== '' && localesEdit !== String(totalLocalesActual ?? '')) ||
+    (amenidadesEdit !== '' && amenidadesEdit !== String(amenidadesNivelActual ?? ''))
+
+  if (!abierto) {
+    return (
+      <button
+        onClick={() => setAbierto(true)}
+        className="text-[11px] font-medium text-[#1D9E75] hover:text-[#0F6E56] transition-colors cursor-pointer self-start"
+      >
+        Ajustar acabados, tipología o amenidades →
+      </button>
+    )
+  }
+
+  return (
+    <div className="bg-[#F7F8F6] rounded-xl px-4 py-3 flex flex-col gap-3">
+      <div>
+        <p className="text-[10px] font-bold text-[#9aab9f] uppercase tracking-wide mb-1.5">Banda de acabados</p>
+        <div className="flex flex-wrap gap-1.5">
+          {Object.entries(BANDA_LABELS).map(([id, label]) => (
+            <Chip key={id} selected={bandaEfectiva === id} onClick={() => setBandaEdit(id)}>{id} · {label}</Chip>
+          ))}
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <p className="text-[10px] font-bold text-[#9aab9f] uppercase tracking-wide mb-1.5">Niveles (pisos)</p>
+          <input type="number" value={nivelesEdit} onChange={e => setNivelesEdit(e.target.value)}
+            placeholder={String(nivelesActual ?? '')}
+            className="w-full border border-[#E2E8E4] rounded-xl px-3 py-2 text-[13px] text-[#111d17] bg-white focus:outline-none focus:border-[#1D9E75]" />
+        </div>
+        <div>
+          <p className="text-[10px] font-bold text-[#9aab9f] uppercase tracking-wide mb-1.5">Total departamentos</p>
+          <input type="number" value={deptosEdit} onChange={e => setDeptosEdit(e.target.value)}
+            placeholder={String(totalDeptosActual ?? '')}
+            className="w-full border border-[#E2E8E4] rounded-xl px-3 py-2 text-[13px] text-[#111d17] bg-white focus:outline-none focus:border-[#1D9E75]" />
+        </div>
+      </div>
+      {mostrarLocales && (
+        <div>
+          <p className="text-[10px] font-bold text-[#9aab9f] uppercase tracking-wide mb-1.5">Total locales comerciales</p>
+          <input type="number" value={localesEdit} onChange={e => setLocalesEdit(e.target.value)}
+            placeholder={String(totalLocalesActual ?? '')}
+            className="w-48 border border-[#E2E8E4] rounded-xl px-3 py-2 text-[13px] text-[#111d17] bg-white focus:outline-none focus:border-[#1D9E75]" />
+        </div>
+      )}
+      <div>
+        <p className="text-[10px] font-bold text-[#9aab9f] uppercase tracking-wide mb-1.5">Tamaño de amenidades</p>
+        <div className="flex flex-wrap gap-1.5">
+          {Object.entries(AMENIDADES_NIVEL_LABELS).map(([id, label]) => (
+            <Chip key={id} selected={amenidadesEfectiva === id} onClick={() => setAmenidadesEdit(id)}>{id} · {label}</Chip>
+          ))}
+        </div>
+      </div>
+      <div className="flex items-center gap-3">
+        <button
+          onClick={() => {
+            onAplicar(bandaEfectiva, nivelesEdit, deptosEdit, localesEdit, amenidadesEfectiva)
+            setAbierto(false); setBandaEdit(''); setNivelesEdit(''); setDeptosEdit(''); setLocalesEdit(''); setAmenidadesEdit('')
+          }}
+          disabled={!cambio}
+          className={`text-[12px] font-semibold px-4 py-2 rounded-xl transition-colors ${
+            cambio ? 'bg-[#1D9E75] text-white hover:bg-[#0F6E56] cursor-pointer' : 'bg-[#E2E8E4] text-[#9aab9f] cursor-not-allowed'
+          }`}
+        >
+          Aplicar y re-correr Construcción
+        </button>
+        <button onClick={() => setAbierto(false)} className="text-[11px] text-[#9aab9f] hover:text-[#111d17] cursor-pointer">
+          Cancelar
+        </button>
+      </div>
+    </div>
+  )
+}
+
 // ── Construcción interactiva — "usuario_define" ──────────────────────────────
 // Modo alterno al Agente de Construcción (LLM): el usuario arma su propio programa
 // de unidades y lib/estimador (puro, sin IA ni red) lo valida y costea al instante,
@@ -872,10 +972,13 @@ function PipelineContent() {
   }
 
   // ── Step 2: Construcción ──
-  const runConstruccion = async () => {
+  const runConstruccion = async (overrides?: {
+    bandaConstruccion?: string; nivelesOverride?: string; totalDeptosOverride?: string
+    totalLocalesOverride?: string; amenidadesNivelOverride?: string
+  }) => {
     const t = pipe.terreno.data!
     const m2 = pipe.terreno.overrideM2 !== '' ? Number(pipe.terreno.overrideM2) : t.costoTerrenoM2
-    const payload = { ...formData, costoTerrenoM2: m2, costoTerreno: m2 * Number(formData.superficie) }
+    const payload = { ...formData, ...overrides, costoTerrenoM2: m2, costoTerreno: m2 * Number(formData.superficie) }
     setPipe(p => ({ ...p, construccion: { ...p.construccion, status: 'running', data: null } }))
     try {
       const res = await fetch('/api/agentes/construccion', {
@@ -1499,7 +1602,7 @@ function PipelineContent() {
 
                     {modoConstruccion === 'agente_propone' && (
                       <button
-                        onClick={runConstruccion}
+                        onClick={() => runConstruccion()}
                         className="w-full bg-[#1D9E75] text-white rounded-xl py-3 text-[13px] font-semibold hover:bg-[#0F6E56] transition-colors cursor-pointer flex items-center justify-center gap-2"
                       >
                         Aprobar y continuar con Construcción
@@ -1588,7 +1691,7 @@ function PipelineContent() {
                         </div>
                         <div className="flex items-center gap-2">
                           <SemaforoChip sem={ic?.semaforo} />
-                          <button onClick={runConstruccion}
+                          <button onClick={() => runConstruccion()}
                             className="text-[11px] text-[#9aab9f] hover:text-[#1D9E75] transition-colors cursor-pointer">
                             Re-correr
                           </button>
@@ -1652,6 +1755,74 @@ function PipelineContent() {
                           <p className="text-[9px] text-[#c0cdc7] mt-1.5">Área vendible: {c.superficieVendible?.toLocaleString() || desglose.zonas[0]?.m2?.toLocaleString()} m² · Eficiencia {desglose.eficiencia}</p>
                         </div>
                       )}
+
+                      {/* Tipología propuesta */}
+                      {(() => {
+                        const tip = c.bitacoraConstruccion?.tipologiaPropuesta
+                        if (!tip) return null
+                        const mostrarLocales = (formData?.tiposDesarrollo ?? []).some((t: string) => t === 'comercial' || t === 'mixto')
+                        return (
+                          <div className="px-5 pb-4 flex flex-col gap-3">
+                            <p className="text-[10px] font-bold text-[#9aab9f] uppercase tracking-widest">Tipología propuesta</p>
+                            <div className="grid grid-cols-3 gap-2">
+                              <div className="bg-[#F7F8F6] rounded-xl px-3 py-2.5 text-center">
+                                <p className="text-[10px] text-[#9aab9f] uppercase tracking-wide font-semibold">Niveles</p>
+                                <p className="text-[14px] font-bold text-[#111d17] mt-0.5">{tip.niveles ?? '—'}</p>
+                              </div>
+                              {tip.habitacional && (
+                                <div className="bg-[#F7F8F6] rounded-xl px-3 py-2.5 text-center">
+                                  <p className="text-[10px] text-[#9aab9f] uppercase tracking-wide font-semibold">Departamentos</p>
+                                  <p className="text-[14px] font-bold text-[#111d17] mt-0.5">{tip.habitacional.totalDepartamentos}</p>
+                                </div>
+                              )}
+                              {tip.comercial && (
+                                <div className="bg-[#F7F8F6] rounded-xl px-3 py-2.5 text-center">
+                                  <p className="text-[10px] text-[#9aab9f] uppercase tracking-wide font-semibold">Locales</p>
+                                  <p className="text-[14px] font-bold text-[#111d17] mt-0.5">{tip.comercial.totalLocales} · {tip.comercial.niveles} niv.</p>
+                                </div>
+                              )}
+                              <div className="bg-[#F7F8F6] rounded-xl px-3 py-2.5 text-center">
+                                <p className="text-[10px] text-[#9aab9f] uppercase tracking-wide font-semibold">Amenidades</p>
+                                <p className="text-[14px] font-bold text-[#111d17] mt-0.5">{AMENIDADES_NIVEL_LABELS[String(tip.tamanoAmenidades)] ?? '—'}</p>
+                              </div>
+                            </div>
+                            {tip.habitacional?.mix && tip.habitacional.mix.length > 0 && (
+                              <div className="rounded-xl border border-[#E2E8E4] overflow-hidden">
+                                <div className="grid grid-cols-3 bg-[#F0F4F2] px-3 py-1.5">
+                                  {['Tipo', 'Unidades', 'm² prom.'].map(h => (
+                                    <span key={h} className="text-[9px] font-bold text-[#9aab9f] uppercase tracking-wider">{h}</span>
+                                  ))}
+                                </div>
+                                {tip.habitacional.mix.map((row: any, i: number) => (
+                                  <div key={i} className={`grid grid-cols-3 px-3 py-2 ${i % 2 === 0 ? 'bg-white' : 'bg-[#FAFBFA]'} border-t border-[#F0F4F2]`}>
+                                    <span className="text-[11px] font-semibold text-[#111d17]">{row.tipo}</span>
+                                    <span className="text-[11px] text-[#5a7065]">{row.unidades}</span>
+                                    <span className="text-[11px] text-[#5a7065]">{row.m2Promedio} m²</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            {tip.fijadoManualmente?.length > 0 && (
+                              <p className="text-[9px] text-[#9aab9f]">Fijado manualmente: {tip.fijadoManualmente.join(', ')}</p>
+                            )}
+                            <AjustarSupuestosConstruccion
+                              bandaActual={c.bitacoraConstruccion?.bandaElegida}
+                              nivelesActual={tip.niveles}
+                              totalDeptosActual={tip.habitacional?.totalDepartamentos}
+                              totalLocalesActual={tip.comercial?.totalLocales}
+                              amenidadesNivelActual={tip.tamanoAmenidades}
+                              mostrarLocales={mostrarLocales}
+                              onAplicar={(banda, niveles, totalDeptos, totalLocales, amenidadesNivel) => runConstruccion({
+                                bandaConstruccion: banda !== String(c.bitacoraConstruccion?.bandaElegida ?? '') ? banda : undefined,
+                                nivelesOverride: niveles || undefined,
+                                totalDeptosOverride: totalDeptos || undefined,
+                                totalLocalesOverride: totalLocales || undefined,
+                                amenidadesNivelOverride: amenidadesNivel !== String(tip.tamanoAmenidades ?? '') ? amenidadesNivel : undefined,
+                              })}
+                            />
+                          </div>
+                        )
+                      })()}
 
                       {/* Costo ponderado + total */}
                       <div className="px-5 pb-4 grid grid-cols-2 gap-3">

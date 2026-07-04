@@ -32,6 +32,10 @@ DATOS DEL PROYECTO:
 - Tipo(s) de desarrollo: ${tiposLabels}
 - Banda de construcción elegida por el inversionista: ${bandaLabels[data.bandaConstruccion] || 'No especificada'}
 - Pendiente del terreno: ${data.pendiente || 'No proporcionada'}
+${data.nivelesOverride ? `- Niveles FIJADOS por el usuario: ${data.nivelesOverride} — no los cambies` : ''}
+${data.totalDeptosOverride ? `- Total de departamentos FIJADO por el usuario: ${data.totalDeptosOverride} — no lo cambies` : ''}
+${data.totalLocalesOverride ? `- Total de locales comerciales FIJADO por el usuario: ${data.totalLocalesOverride} — no lo cambies` : ''}
+${data.amenidadesNivelOverride ? `- Tamaño de amenidades FIJADO por el usuario: nivel ${data.amenidadesNivelOverride} de 3 — no lo cambies` : ''}
 
 CONTEXTO DE VALUACIÓN DEL TERRENO:
 - Uso de suelo: ${data.usoSuelo}
@@ -94,15 +98,33 @@ URBANIZACIÓN Y EXTERIORES (aplica al área libre/verde del lote — NO es super
   Se suma al costo total pero no se cuenta como m² construido
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-PASO 3 — COSTO POR PARTIDAS (sobre área vendible)
+PASO 3 — ${(data.nivelesOverride || data.totalDeptosOverride || data.totalLocalesOverride || data.amenidadesNivelOverride) ? 'TIPOLOGÍA FIJADA MANUALMENTE POR EL USUARIO' : 'PROPONER TIPOLOGÍA DE LA CONSTRUCCIÓN'}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${(data.nivelesOverride || data.totalDeptosOverride || data.totalLocalesOverride || data.amenidadesNivelOverride)
+  ? `El usuario revisó tu propuesta de una corrida anterior y fijó algunos valores manualmente — úsalos EXACTAMENTE como se indican arriba y ajusta el resto de la tipología (mix de recámaras, m² promedio) para que sea consistente con ellos y con el área vendible de Zona 1. En "tipologiaPropuesta" documenta cuáles valores fueron fijados manualmente.`
+  : `Con base en la superficie construida bruta y el área vendible (Zona 1), propón una tipología concreta y realista — no dejes esto solo en porcentajes de zona.`}
+
+Para HABITACIONAL (residencial vertical/horizontal/unifamiliar):
+- Determina el número de NIVELES (pisos) del edificio, coherente con el CUS estimado.
+- Para UNIFAMILIAR: 1 sola unidad — documenta los niveles de la vivienda (1-3 típico), no el total de deptos.
+- Para vertical/horizontal: propón el número TOTAL de departamentos y su mix por número de recámaras (1, 2 y 3 recámaras) con unidades y m² promedio de cada tipo. La suma de (unidades × m² promedio) del mix debe ser consistente con el área vendible de Zona 1.
+
+Para COMERCIAL/MIXTO (si el tipo de desarrollo lo incluye):
+- Propón el número de locales y en cuántos niveles se distribuyen.
+
+Para AMENIDADES (Zona 4 — Áreas comunes):
+- Clasifica el tamaño en escala 1-3: 1 = mínimas (solo lobby + área de paquetería), 2 = intermedias (lobby + gimnasio + roof garden básico), 3 = top (alberca, salón de eventos, coworking, spa). Debe ser consistente con la banda de acabados (banda 1-2 → nivel 1, banda 3 → nivel 2, banda 4 → nivel 3), salvo que el usuario haya fijado el nivel manualmente.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PASO 4 — COSTO POR PARTIDAS (sobre área vendible)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Desglosa el costo/m² de la zona vendible en 8 partidas estándar (suman 100%).
 
-PASO 4 — MATERIALES PRINCIPALES (sobre área vendible)
+PASO 5 — MATERIALES PRINCIPALES (sobre área vendible)
 Lista 6 materiales con cantidad y precio unitario.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-PASO 5 — CÁLCULO FINAL
+PASO 6 — CÁLCULO FINAL
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 costoTotalConstruccion = suma(m² zona × costo/m² zona para zonas 1–5) + costo urbanización
 construccionM2 = costoTotalConstruccion / superficieConstruida (promedio ponderado)
@@ -133,6 +155,20 @@ OUTPUT — JSON EXACTO (sin texto adicional)
     "tipologiaAjuste": "Descripción del ajuste por tipología y niveles estimados",
     "cosEstimado": "60%",
     "cusEstimado": "1.8",
+    "tipologiaPropuesta": {
+      "niveles": 8,
+      "habitacional": {
+        "totalDepartamentos": 36,
+        "mix": [
+          { "tipo": "1 recámara", "unidades": 18, "m2Promedio": 55 },
+          { "tipo": "2 recámaras", "unidades": 12, "m2Promedio": 75 },
+          { "tipo": "3 recámaras", "unidades": 6, "m2Promedio": 100 }
+        ]
+      },
+      "comercial": null,
+      "tamanoAmenidades": 2,
+      "fijadoManualmente": []
+    },
     "ajustes": [
       {
         "concepto": "Ajuste por ciudad (ej: Culiacán — ciudad media del norte)",
@@ -273,6 +309,9 @@ OUTPUT — JSON EXACTO (sin texto adicional)
 }
 
 REGLAS:
+- tipologiaPropuesta.habitacional solo aplica si hay tipología habitacional; tipologiaPropuesta.comercial solo si el desarrollo incluye locales (si no aplica, usa null)
+- tipologiaPropuesta.habitacional.mix: unidades × m2Promedio sumado debe aproximar el área vendible de Zona 1 (±10%)
+- tipologiaPropuesta.fijadoManualmente: array con los nombres de los campos que el usuario fijó manualmente (ej. ["niveles", "totalDepartamentos"]), vacío si ninguno
 - construccionM2 es el costo PONDERADO total (costoTotalConstruccion / superficieConstruida)
 - bitacoraConstruccion.costoPorM2Final debe coincidir exactamente con construccionM2
 - bitacoraConstruccion.costoPorM2VendibleFinal es el costo/m² SOLO del área vendible (Zona 1)
