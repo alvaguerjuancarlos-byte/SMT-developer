@@ -207,9 +207,20 @@ function AjustarSupuestosTerreno({
     return (
       <button
         onClick={() => setAbierto(true)}
-        className="text-[11px] font-medium text-[#1D9E75] hover:text-[#0F6E56] transition-colors cursor-pointer self-start"
+        className="w-full flex items-center justify-between gap-2 bg-[#111d17] hover:bg-[#1f2e26] text-white rounded-xl px-4 py-3 transition-colors cursor-pointer"
       >
-        Ajustar banda, vialidad o precio →
+        <span className="flex items-center gap-2 text-[12px] font-semibold">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+            <path d="M2 4h8M2 8h5M2 12h8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+            <circle cx="12" cy="4" r="1.5" fill="currentColor"/>
+            <circle cx="9" cy="8" r="1.5" fill="currentColor"/>
+            <circle cx="12" cy="12" r="1.5" fill="currentColor"/>
+          </svg>
+          Ajustar banda, vialidad o precio
+        </span>
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+          <path d="M4 2L8 6L4 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+        </svg>
       </button>
     )
   }
@@ -297,9 +308,20 @@ function AjustarSupuestosConstruccion({
     return (
       <button
         onClick={() => setAbierto(true)}
-        className="text-[11px] font-medium text-[#1D9E75] hover:text-[#0F6E56] transition-colors cursor-pointer self-start"
+        className="w-full flex items-center justify-between gap-2 bg-[#111d17] hover:bg-[#1f2e26] text-white rounded-xl px-4 py-3 transition-colors cursor-pointer"
       >
-        Ajustar acabados, tipología o amenidades →
+        <span className="flex items-center gap-2 text-[12px] font-semibold">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+            <path d="M2 4h8M2 8h5M2 12h8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+            <circle cx="12" cy="4" r="1.5" fill="currentColor"/>
+            <circle cx="9" cy="8" r="1.5" fill="currentColor"/>
+            <circle cx="12" cy="12" r="1.5" fill="currentColor"/>
+          </svg>
+          Ajustar acabados, tipología o amenidades
+        </span>
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+          <path d="M4 2L8 6L4 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+        </svg>
       </button>
     )
   }
