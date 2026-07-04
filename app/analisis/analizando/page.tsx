@@ -276,6 +276,24 @@ function AjustarSupuestosTerreno({
   )
 }
 
+// Resume la mezcla de unidades que ya definió el Agente Construcción, para que
+// el Agente Mercado reparta el precio objetivo (promedio ponderado) entre
+// tipologías reales en vez de aplicarlo por igual a todo `segmentacion`.
+// Solo existe en modo "agente_propone" — en "usuario_define" (lib/estimador)
+// no hay desglose por tipología, así que regresa cadena vacía.
+function resumenMixUnidades(tip: any): string {
+  if (!tip) return ''
+  const partes: string[] = []
+  if (tip.habitacional?.mix?.length) {
+    const mix = tip.habitacional.mix.map((r: any) => `${r.unidades} unid. ${r.tipo} (${r.m2Promedio} m² prom.)`).join(', ')
+    partes.push(`Habitacional — ${tip.habitacional.totalDepartamentos} unidades: ${mix}`)
+  }
+  if (tip.comercial?.totalLocales) {
+    partes.push(`Comercial — ${tip.comercial.totalLocales} locales en ${tip.comercial.niveles} nivel(es)`)
+  }
+  return partes.join(' · ')
+}
+
 const AMENIDADES_NIVEL_LABELS: Record<string, string> = {
   '1': 'Mínimas', '2': 'Intermedias', '3': 'Top',
 }
@@ -428,7 +446,7 @@ function AjustarSupuestosMercado({
   return (
     <div className="bg-[#F7F8F6] rounded-xl px-4 py-3 flex flex-col gap-3">
       <div>
-        <p className="text-[10px] font-bold text-[#9aab9f] uppercase tracking-wide mb-1.5">Precio de venta objetivo (opcional)</p>
+        <p className="text-[10px] font-bold text-[#9aab9f] uppercase tracking-wide mb-1.5">Precio de venta objetivo — promedio ponderado de la mezcla (opcional)</p>
         <div className="relative w-48">
           <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[12px] text-[#9aab9f]">$</span>
           <input
@@ -440,7 +458,7 @@ function AjustarSupuestosMercado({
           />
           <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-[#9aab9f] font-medium">MXN/m²</span>
         </div>
-        <p className="text-[10px] text-[#9aab9f] mt-1">El agente lo usa como ancla de pricing y segmentación en vez de proponer uno propio.</p>
+        <p className="text-[10px] text-[#9aab9f] mt-1">No es el precio de una sola tipología: es el promedio ponderado por m² vendible de toda la mezcla (deptos + locales). El agente lo reparte por tipología usando el mix real que ya definió Construcción.</p>
       </div>
       <div>
         <p className="text-[10px] font-bold text-[#9aab9f] uppercase tracking-wide mb-1.5">Absorción real observada (opcional)</p>
@@ -1125,11 +1143,17 @@ function PipelineContent() {
   const runMercado = async (overrides?: { precioVentaObjetivo?: string; absorcionObjetivoManual?: string }) => {
     const precioVentaObjetivo = overrides?.precioVentaObjetivo ?? pipe.mercado.overridePrecioVenta
     const absorcionObjetivoManual = overrides?.absorcionObjetivoManual ?? pipe.mercado.overrideAbsorcion
+    const mixUnidadesResumen = resumenMixUnidades(pipe.construccion.data?.bitacoraConstruccion?.tipologiaPropuesta)
     setPipe(p => ({ ...p, mercado: { ...p.mercado, status: 'running', data: null, overridePrecioVenta: precioVentaObjetivo, overrideAbsorcion: absorcionObjetivoManual } }))
     try {
       const res = await fetch('/api/agentes/mercado', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...formData, precioVentaObjetivo: precioVentaObjetivo || undefined, absorcionObjetivoManual: absorcionObjetivoManual || undefined }),
+        body: JSON.stringify({
+          ...formData,
+          precioVentaObjetivo: precioVentaObjetivo || undefined,
+          absorcionObjetivoManual: absorcionObjetivoManual || undefined,
+          mixUnidadesResumen: mixUnidadesResumen || undefined,
+        }),
       })
       const json = await res.json()
       if (json.error) throw new Error(json.error)

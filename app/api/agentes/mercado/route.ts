@@ -34,7 +34,8 @@ DATOS DEL PROYECTO:
 - Superficie del terreno: ${data.superficie} m²
 - Costo terreno aprobado: $${Number(data.costoTerrenoM2 || 0).toLocaleString('es-MX')}/m²
 - Costo construcción aprobado: $${Number(data.construccionM2 || 0).toLocaleString('es-MX')}/m²
-${data.precioVentaObjetivo ? `- PRECIO DE VENTA OBJETIVO definido por el desarrollador: $${Number(data.precioVentaObjetivo).toLocaleString('es-MX')}/m² — úsalo como ancla de "precioPromedioZona", segmentacion y pricingFases en vez de proponer uno propio. Valida contra tus comparables si es razonable y menciónalo en la interpretación.` : ''}
+${data.mixUnidadesResumen ? `- MEZCLA DE UNIDADES ya definida por el Agente Construcción: ${data.mixUnidadesResumen}` : ''}
+${data.precioVentaObjetivo ? `- PRECIO DE VENTA OBJETIVO definido por el desarrollador: $${Number(data.precioVentaObjetivo).toLocaleString('es-MX')}/m² — es un PROMEDIO PONDERADO por m² vendible de TODA la mezcla, no un precio único por tipología. Repártelo en "segmentacion" usando la mezcla de unidades de arriba (si no hay mezcla, usa proporciones típicas del mercado): unidades más chicas (estudios/1 rec) suelen pagar un premium de $/m², unidades grandes (3 rec+) y locales comerciales suelen tener un $/m² distinto al residencial. El promedio ponderado de "segmentacion" por participación de mercado debe coincidir con este objetivo. Usa el mismo criterio para "precioPromedioZona" y "pricingFases". Valida contra tus comparables si es razonable y menciónalo en la interpretación.` : ''}
 ${data.absorcionObjetivoManual ? `- ABSORCIÓN REAL observada por el desarrollador (dato de campo): ${data.absorcionObjetivoManual} — úsala en "absorcion", inventario y segmentacion en vez de estimarla desde cero.` : ''}
 
 ANÁLISIS REQUERIDO:
