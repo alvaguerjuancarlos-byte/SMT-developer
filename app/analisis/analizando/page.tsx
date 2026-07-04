@@ -1281,22 +1281,6 @@ function PipelineContent() {
                           </p>
                         </div>
 
-                        {/* ¿No estás de acuerdo con la banda, la vialidad, o conocés el precio real? Ajustar y re-correr solo Terreno */}
-                        <AjustarSupuestosTerreno
-                          bandaActual={t.bitacoraTerreno.bandaTerreno}
-                          vialActual={formData?.clasificacionVial}
-                          precioActual={formData?.precioSolicitado}
-                          onAplicar={(banda, vial, precioSolicitado) => {
-                            const bandaOriginal = String(t.bitacoraTerreno.bandaTerreno ?? '')
-                            runTerreno({
-                              ...formData,
-                              clasificacionVial: vial,
-                              precioSolicitado,
-                              bandaOverride: banda !== bandaOriginal ? banda : undefined,
-                            })
-                          }}
-                        />
-
                         {/* Ajustes aplicados */}
                         {t.bitacoraTerreno.ajustes?.length > 0 && (
                           <div className="rounded-xl border border-[#E2E8E4] overflow-hidden">
@@ -1413,6 +1397,26 @@ function PipelineContent() {
                         'bg-[#FEF3C7] border-[#FDE68A] text-[#92400E]'
                       }`}>
                         {vp.interpretacion}
+                      </div>
+                    )}
+
+                    {/* ¿No estás de acuerdo con la banda, la vialidad, o conocés el precio real? Ajustar y re-correr solo Terreno — franja de ajuste entre el resultado y las preguntas */}
+                    {t.bitacoraTerreno && (
+                      <div className="border-t border-[#F0F4F2] px-5 py-4">
+                        <AjustarSupuestosTerreno
+                          bandaActual={t.bitacoraTerreno.bandaTerreno}
+                          vialActual={formData?.clasificacionVial}
+                          precioActual={formData?.precioSolicitado}
+                          onAplicar={(banda, vial, precioSolicitado) => {
+                            const bandaOriginal = String(t.bitacoraTerreno.bandaTerreno ?? '')
+                            runTerreno({
+                              ...formData,
+                              clasificacionVial: vial,
+                              precioSolicitado,
+                              bandaOverride: banda !== bandaOriginal ? banda : undefined,
+                            })
+                          }}
+                        />
                       </div>
                     )}
 
