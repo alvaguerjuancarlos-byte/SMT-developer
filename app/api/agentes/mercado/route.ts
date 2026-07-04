@@ -34,6 +34,8 @@ DATOS DEL PROYECTO:
 - Superficie del terreno: ${data.superficie} m²
 - Costo terreno aprobado: $${Number(data.costoTerrenoM2 || 0).toLocaleString('es-MX')}/m²
 - Costo construcción aprobado: $${Number(data.construccionM2 || 0).toLocaleString('es-MX')}/m²
+${data.precioVentaObjetivo ? `- PRECIO DE VENTA OBJETIVO definido por el desarrollador: $${Number(data.precioVentaObjetivo).toLocaleString('es-MX')}/m² — úsalo como ancla de "precioPromedioZona", segmentacion y pricingFases en vez de proponer uno propio. Valida contra tus comparables si es razonable y menciónalo en la interpretación.` : ''}
+${data.absorcionObjetivoManual ? `- ABSORCIÓN REAL observada por el desarrollador (dato de campo): ${data.absorcionObjetivoManual} — úsala en "absorcion", inventario y segmentacion en vez de estimarla desde cero.` : ''}
 
 ANÁLISIS REQUERIDO:
 1. Buscar proyectos comparables activos y recientes (radio 500 m primero, ampliar a 1 km si hay menos de 3)

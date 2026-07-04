@@ -63,7 +63,7 @@ interface PipelineState {
   terreno:     { status: AgentStatus; data: TerrenoResult | null;     overrideM2: string }
   construccion:{ status: AgentStatus; data: ConstruccionResult | null; overrideM2: string }
   legal:       { status: AgentStatus; data: LegalResult | null }
-  mercado:     { status: AgentStatus; data: MercadoResult | null }
+  mercado:     { status: AgentStatus; data: MercadoResult | null; overridePrecioVenta: string; overrideAbsorcion: string }
   financiero:  { status: AgentStatus; data: FinancieroResult | null }
   ubicacion:   { status: AgentStatus; data: UbicacionData | null }
   catastro:    { status: AgentStatus; data: CatastroData | null }
@@ -378,6 +378,90 @@ function AjustarSupuestosConstruccion({
           }`}
         >
           Aplicar y re-correr Construcción
+        </button>
+        <button onClick={() => setAbierto(false)} className="text-[11px] text-[#9aab9f] hover:text-[#111d17] cursor-pointer">
+          Cancelar
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function AjustarSupuestosMercado({
+  precioVentaActual, absorcionActual, onAplicar,
+}: {
+  precioVentaActual: string | undefined; absorcionActual: string | undefined
+  onAplicar: (precioVentaObjetivo: string, absorcionObjetivoManual: string) => void
+}) {
+  const [abierto, setAbierto] = useState(false)
+  const [precioEdit, setPrecioEdit] = useState('')
+  const [absorcionEdit, setAbsorcionEdit] = useState('')
+
+  const precioEfectivo = precioEdit !== '' ? precioEdit : (precioVentaActual ?? '')
+  const absorcionEfectiva = absorcionEdit !== '' ? absorcionEdit : (absorcionActual ?? '')
+  const cambio =
+    (precioEdit !== '' && precioEdit !== (precioVentaActual ?? '')) ||
+    (absorcionEdit !== '' && absorcionEdit !== (absorcionActual ?? ''))
+
+  if (!abierto) {
+    return (
+      <button
+        onClick={() => setAbierto(true)}
+        className="w-full flex items-center justify-between gap-2 bg-[#111d17] hover:bg-[#1f2e26] text-white rounded-xl px-4 py-3 transition-colors cursor-pointer"
+      >
+        <span className="flex items-center gap-2 text-[12px] font-semibold">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+            <path d="M2 4h8M2 8h5M2 12h8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+            <circle cx="12" cy="4" r="1.5" fill="currentColor"/>
+            <circle cx="9" cy="8" r="1.5" fill="currentColor"/>
+            <circle cx="12" cy="12" r="1.5" fill="currentColor"/>
+          </svg>
+          Ajustar precio de venta o absorción
+        </span>
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+          <path d="M4 2L8 6L4 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+        </svg>
+      </button>
+    )
+  }
+
+  return (
+    <div className="bg-[#F7F8F6] rounded-xl px-4 py-3 flex flex-col gap-3">
+      <div>
+        <p className="text-[10px] font-bold text-[#9aab9f] uppercase tracking-wide mb-1.5">Precio de venta objetivo (opcional)</p>
+        <div className="relative w-48">
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[12px] text-[#9aab9f]">$</span>
+          <input
+            type="number"
+            value={precioEfectivo}
+            onChange={e => setPrecioEdit(e.target.value)}
+            placeholder="0"
+            className="w-full border border-[#E2E8E4] rounded-xl pl-6 pr-16 py-2 text-[13px] text-[#111d17] bg-white focus:outline-none focus:border-[#1D9E75]"
+          />
+          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-[#9aab9f] font-medium">MXN/m²</span>
+        </div>
+        <p className="text-[10px] text-[#9aab9f] mt-1">El agente lo usa como ancla de pricing y segmentación en vez de proponer uno propio.</p>
+      </div>
+      <div>
+        <p className="text-[10px] font-bold text-[#9aab9f] uppercase tracking-wide mb-1.5">Absorción real observada (opcional)</p>
+        <input
+          type="text"
+          value={absorcionEfectiva}
+          onChange={e => setAbsorcionEdit(e.target.value)}
+          placeholder="Ej. 6 unidades/mes"
+          className="w-48 border border-[#E2E8E4] rounded-xl px-3 py-2 text-[13px] text-[#111d17] bg-white focus:outline-none focus:border-[#1D9E75]"
+        />
+        <p className="text-[10px] text-[#9aab9f] mt-1">Úsalo si tienes un dato de campo (broker/comparables) más preciso que el estimado.</p>
+      </div>
+      <div className="flex items-center gap-3">
+        <button
+          onClick={() => { onAplicar(precioEfectivo, absorcionEfectiva); setAbierto(false); setPrecioEdit(''); setAbsorcionEdit('') }}
+          disabled={!cambio}
+          className={`text-[12px] font-semibold px-4 py-2 rounded-xl transition-colors ${
+            cambio ? 'bg-[#1D9E75] text-white hover:bg-[#0F6E56] cursor-pointer' : 'bg-[#E2E8E4] text-[#9aab9f] cursor-not-allowed'
+          }`}
+        >
+          Aplicar y re-correr Mercado
         </button>
         <button onClick={() => setAbierto(false)} className="text-[11px] text-[#9aab9f] hover:text-[#111d17] cursor-pointer">
           Cancelar
@@ -832,7 +916,7 @@ function PipelineContent() {
     terreno:     { status: 'waiting', data: null, overrideM2: '' },
     construccion:{ status: 'waiting', data: null, overrideM2: '' },
     legal:       { status: 'waiting', data: null },
-    mercado:     { status: 'waiting', data: null },
+    mercado:     { status: 'waiting', data: null, overridePrecioVenta: '', overrideAbsorcion: '' },
     financiero:  { status: 'waiting', data: null },
     ubicacion:   { status: 'waiting', data: null },
     catastro:    { status: 'waiting', data: null },
@@ -1038,15 +1122,20 @@ function PipelineContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pipe.terreno.status])
 
-  const runMercado = async () => {
-    setPipe(p => ({ ...p, mercado: { status: 'running', data: null } }))
+  const runMercado = async (overrides?: { precioVentaObjetivo?: string; absorcionObjetivoManual?: string }) => {
+    const precioVentaObjetivo = overrides?.precioVentaObjetivo ?? pipe.mercado.overridePrecioVenta
+    const absorcionObjetivoManual = overrides?.absorcionObjetivoManual ?? pipe.mercado.overrideAbsorcion
+    setPipe(p => ({ ...p, mercado: { ...p.mercado, status: 'running', data: null, overridePrecioVenta: precioVentaObjetivo, overrideAbsorcion: absorcionObjetivoManual } }))
     try {
-      const res = await fetch('/api/agentes/mercado', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(formData) })
+      const res = await fetch('/api/agentes/mercado', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...formData, precioVentaObjetivo: precioVentaObjetivo || undefined, absorcionObjetivoManual: absorcionObjetivoManual || undefined }),
+      })
       const json = await res.json()
       if (json.error) throw new Error(json.error)
-      setPipe(p => ({ ...p, mercado: { status: 'done', data: json } }))
+      setPipe(p => ({ ...p, mercado: { ...p.mercado, status: 'done', data: json } }))
     } catch {
-      setPipe(p => ({ ...p, mercado: { status: 'error', data: null } }))
+      setPipe(p => ({ ...p, mercado: { ...p.mercado, status: 'error', data: null } }))
     }
   }
 
@@ -1879,7 +1968,7 @@ function PipelineContent() {
                       {pipe.mercado.status === 'waiting' && (
                         <div className="px-5 pb-5">
                           <button
-                            onClick={runMercado}
+                            onClick={() => runMercado()}
                             className="w-full bg-[#1D9E75] text-white rounded-xl py-3 text-[13px] font-semibold hover:bg-[#0F6E56] transition-colors cursor-pointer flex items-center justify-center gap-2"
                           >
                             Aprobar y continuar con Mercado
@@ -1918,7 +2007,7 @@ function PipelineContent() {
                       <div className="px-4 py-3 border-b border-[#F0F4F2] flex items-center gap-2">
                         <CheckIcon />
                         <span className="text-[12px] font-bold text-[#0F6E56]">Agente Mercado</span>
-                        <button onClick={runMercado} className="ml-auto text-[10px] text-[#9aab9f] hover:text-[#1D9E75] cursor-pointer">Re-correr</button>
+                        <button onClick={() => runMercado()} className="ml-auto text-[10px] text-[#9aab9f] hover:text-[#1D9E75] cursor-pointer">Re-correr</button>
                       </div>
                       <div className="px-4 py-3 space-y-2.5">
                         <div className="flex items-center justify-between">
@@ -1942,6 +2031,15 @@ function PipelineContent() {
                           <span className="text-[11px] font-semibold text-[#0F6E56]">{m?.plusvalia || '—'}</span>
                         </div>
                       </div>
+
+                      <div className="border-t border-[#F0F4F2] px-4 py-3">
+                        <AjustarSupuestosMercado
+                          precioVentaActual={pipe.mercado.overridePrecioVenta}
+                          absorcionActual={pipe.mercado.overrideAbsorcion}
+                          onAplicar={(precio, absorcion) => runMercado({ precioVentaObjetivo: precio, absorcionObjetivoManual: absorcion })}
+                        />
+                      </div>
+
                       <AgentChat agentKey="mercado" agentData={pipe.mercado.data} />
 
                       {pipe.financiero.status === 'waiting' && (
