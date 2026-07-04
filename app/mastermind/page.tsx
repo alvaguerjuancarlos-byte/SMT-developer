@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { MastermindProvider, useMastermind } from './state'
-import { extractTerrenoContext } from '@/lib/mastermind/contexto'
+import { extractFinanciamientoContext, extractMercadoContext, extractProyectoContext, extractTerrenoContext } from '@/lib/mastermind/contexto'
 import type { AnalisisData } from '@/lib/analisis/tipos'
 import InputPanel from './components/InputPanel'
 import IngresosCard from './components/IngresosCard'
@@ -17,17 +17,32 @@ import PrintSummary from './components/PrintSummary'
 
 function MastermindContent() {
   const router = useRouter()
-  const { setTerreno, modoInverso } = useMastermind()
+  const { setTerreno, setProyecto, setMercado, setFinanciamiento, modoInverso } = useMastermind()
   const [nombreProyecto, setNombreProyecto] = useState('proyecto')
+  const [analisisData, setAnalisisData] = useState<AnalisisData | null>(null)
+  const [origenAnalisis, setOrigenAnalisis] = useState({ proyecto: false, mercado: false, financiamiento: false })
+
+  const cargarDelAnalisis = (parsed: AnalisisData) => {
+    setTerreno(extractTerrenoContext(parsed))
+    setProyecto(extractProyectoContext(parsed))
+    setMercado(extractMercadoContext(parsed))
+    setFinanciamiento(extractFinanciamientoContext(parsed))
+    setOrigenAnalisis({
+      proyecto: !!parsed.bitacoraConstruccion?.tipologiaPropuesta,
+      mercado: !!(parsed.financiero?.precioVentaM2 || parsed.mercado?.precioPromedioZona),
+      financiamiento: !!parsed.estructuraCapital,
+    })
+  }
 
   useEffect(() => {
     const raw = localStorage.getItem('smt_analisis_data')
     if (raw) {
       try {
         const parsed: AnalisisData = JSON.parse(raw)
-        setTerreno(extractTerrenoContext(parsed))
+        setAnalisisData(parsed)
+        cargarDelAnalisis(parsed)
         if (parsed.proyecto) setNombreProyecto(parsed.proyecto)
-      } catch { /* sin datos previos — terreno queda editable manualmente */ }
+      } catch { /* sin datos previos — todo queda editable manualmente */ }
     }
     // Carga única al montar, igual que app/analisis/page.tsx.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -53,7 +68,21 @@ function MastermindContent() {
               Ajusta los parámetros del proyecto y ve la TIR recalcularse en vivo, o fija una TIR objetivo para saber qué necesitas alcanzarla.
             </p>
           </div>
-          <ExportButtons nombreProyecto={nombreProyecto} />
+          <div className="flex items-center gap-3 shrink-0">
+            {analisisData && (
+              <button
+                onClick={() => cargarDelAnalisis(analisisData)}
+                className="flex items-center gap-1.5 text-[12px] font-medium text-white/70 hover:text-white border border-white/15 hover:border-white/30 px-3 py-2 rounded-xl transition-colors cursor-pointer"
+              >
+                <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
+                  <path d="M12 7A5 5 0 1 1 10.5 3.3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+                  <path d="M12 2.5V6H8.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                Restaurar valores del análisis
+              </button>
+            )}
+            <ExportButtons nombreProyecto={nombreProyecto} />
+          </div>
         </div>
 
         {modoInverso && (
@@ -63,7 +92,7 @@ function MastermindContent() {
         )}
 
         <div className="grid grid-cols-1 lg:grid-cols-[2fr_3fr] gap-6 items-start">
-          <InputPanel />
+          <InputPanel origenAnalisis={origenAnalisis} />
           <div className="space-y-4">
             <IngresosCard />
             <CostosCard />

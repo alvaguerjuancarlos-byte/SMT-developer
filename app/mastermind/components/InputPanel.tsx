@@ -18,7 +18,15 @@ function Select({ label, value, onChange, options }: { label: string; value: str
   )
 }
 
-export default function InputPanel() {
+function OrigenBadge({ delAnalisis }: { delAnalisis: boolean }) {
+  return delAnalisis ? (
+    <span className="text-[9px] font-bold text-[#0F6E56] bg-[#E1F5EE] px-2 py-0.5 rounded-full uppercase tracking-wide">● Del análisis</span>
+  ) : (
+    <span className="text-[9px] font-medium text-[#9aab9f] bg-[#F0F4F2] px-2 py-0.5 rounded-full uppercase tracking-wide">○ Valor por default</span>
+  )
+}
+
+export default function InputPanel({ origenAnalisis }: { origenAnalisis?: { proyecto: boolean; mercado: boolean; financiamiento: boolean } }) {
   const { inputs, errores, modoInverso, setModoInverso, setProyecto, setMercado, setTiempo, setFinanciamiento, setTirObjetivo } = useMastermind()
 
   return (
@@ -32,7 +40,7 @@ export default function InputPanel() {
         </div>
       </div>
 
-      <CollapsibleSection titulo="Proyecto">
+      <CollapsibleSection titulo="Proyecto" badge={<OrigenBadge delAnalisis={!!origenAnalisis?.proyecto} />}>
         <Select
           label="Tipo de proyecto"
           value={inputs.proyecto.tipoProyecto}
@@ -63,7 +71,7 @@ export default function InputPanel() {
         <Slider label="m² comerciales PB" value={inputs.proyecto.m2ComercialesPlantaBaja} min={0} max={2000} step={10} unit=" m²" onChange={v => setProyecto({ m2ComercialesPlantaBaja: v })} />
       </CollapsibleSection>
 
-      <CollapsibleSection titulo="Mercado">
+      <CollapsibleSection titulo="Mercado" badge={<OrigenBadge delAnalisis={!!origenAnalisis?.mercado} />}>
         <Slider label="Precio venta depas" value={inputs.mercado.precioVentaDepasM2} min={5_000} max={100_000} step={500} unit=" MXN/m²" onChange={v => setMercado({ precioVentaDepasM2: v })} />
         <Select
           label="Modalidad locales"
@@ -81,7 +89,7 @@ export default function InputPanel() {
         <Slider label="Inicio ventas" value={inputs.tiempo.inicioVentasMes} min={0} max={60} unit=" mes" onChange={v => setTiempo({ inicioVentasMes: v })} />
       </CollapsibleSection>
 
-      <CollapsibleSection titulo="Financiamiento">
+      <CollapsibleSection titulo="Financiamiento" badge={<OrigenBadge delAnalisis={!!origenAnalisis?.financiamiento} />}>
         <Slider label="% financiado" value={inputs.financiamiento.porcentajeFinanciado} min={0} max={90} step={5} unit="%" onChange={v => setFinanciamiento({ porcentajeFinanciado: v })} />
         <Slider label="Tasa anual crédito" value={inputs.financiamiento.tasaAnualCredito} min={5} max={25} step={0.5} unit="%" onChange={v => setFinanciamiento({ tasaAnualCredito: v })} />
       </CollapsibleSection>

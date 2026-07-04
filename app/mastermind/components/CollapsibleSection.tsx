@@ -5,11 +5,13 @@ import { useState, type ReactNode } from 'react'
 export default function CollapsibleSection({
   titulo,
   subtitulo,
+  badge,
   defaultOpen = true,
   children,
 }: {
   titulo: string
   subtitulo?: string
+  badge?: ReactNode
   defaultOpen?: boolean
   children: ReactNode
 }) {
@@ -22,7 +24,10 @@ export default function CollapsibleSection({
         className="w-full flex items-center justify-between px-5 py-4 text-left hover:bg-[#FAFBFA] transition-colors cursor-pointer"
       >
         <div>
-          <h3 className="text-[13px] font-bold text-[#111d17]">{titulo}</h3>
+          <div className="flex items-center gap-2">
+            <h3 className="text-[13px] font-bold text-[#111d17]">{titulo}</h3>
+            {badge}
+          </div>
           {subtitulo && <p className="text-[11px] text-[#9aab9f] mt-0.5">{subtitulo}</p>}
         </div>
         <svg

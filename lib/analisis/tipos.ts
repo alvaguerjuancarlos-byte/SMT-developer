@@ -79,6 +79,14 @@ export interface MaterialClave {
   nota: string
 }
 
+export interface MixUnidad { tipo: string; unidades: number; m2Promedio: number }
+export interface TipologiaPropuesta {
+  niveles?: number
+  habitacional?: { totalDepartamentos: number; mix: MixUnidad[] }
+  comercial?: { totalLocales: number; niveles: number }
+  tamanoAmenidades?: number
+}
+
 export interface BitacoraConstruccion {
   bandaElegida: number
   nombreBanda: string
@@ -97,6 +105,7 @@ export interface BitacoraConstruccion {
   rangoReferencia: { minimo: number; maximo: number; interpretacion: string }
   desglosePorPartidas?: PartidaConstruccion[]
   materialesPrincipales?: MaterialClave[]
+  tipologiaPropuesta?: TipologiaPropuesta
 }
 
 export interface AnalisisData {
