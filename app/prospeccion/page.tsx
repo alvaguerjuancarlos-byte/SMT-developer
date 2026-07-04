@@ -18,8 +18,8 @@ export default function FlowSelector() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F7F8F6] flex flex-col">
-      <header className="px-8 py-5 flex items-center gap-3 border-b border-[#E2E8E4] bg-white">
+    <div className="min-h-screen bg-[#0C0F0E] flex flex-col">
+      <header className="px-8 py-5 flex items-center gap-3 border-b border-white/10 bg-[#0D2137]">
         <div className="w-8 h-8 rounded-lg bg-[#1D9E75] flex items-center justify-center">
           <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
             <path d="M9 2L16 6V12L9 16L2 12V6L9 2Z" stroke="white" strokeWidth="1.5" fill="none"/>
@@ -27,11 +27,11 @@ export default function FlowSelector() {
           </svg>
         </div>
         <div>
-          <span className="text-[15px] font-medium text-[#1a1a1a] tracking-wide">SMT Developer</span>
-          <span className="block text-[10px] text-[#6b7c74] tracking-[0.12em] uppercase">Inteligencia inmobiliaria</span>
+          <span className="text-[15px] font-medium text-white tracking-wide">SMT Developer</span>
+          <span className="block text-[10px] text-white/40 tracking-[0.12em] uppercase">Inteligencia inmobiliaria</span>
         </div>
         <div className="ml-auto flex items-center gap-4">
-          <div className="flex items-center gap-2 text-[12px] text-[#9aab9f]">
+          <div className="flex items-center gap-2 text-[12px] text-white/40">
             <span className="text-[#1D9E75] font-medium">Nueva oportunidad</span>
             <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
               <path d="M4 2L8 6L4 10" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
@@ -42,7 +42,7 @@ export default function FlowSelector() {
             </svg>
             <span>Propuesta</span>
           </div>
-          <button onClick={() => router.push('/dashboard')} className="flex items-center gap-1.5 text-[13px] text-[#5a7065] hover:text-[#111d17] border border-[#E2E8E4] hover:border-[#C8D5CF] px-3 py-1.5 rounded-xl transition-colors">
+          <button onClick={() => router.push('/dashboard')} className="flex items-center gap-1.5 text-[13px] text-white/60 hover:text-white border border-white/15 hover:border-white/30 px-3 py-1.5 rounded-xl transition-colors">
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
               <rect x="1" y="1" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.3"/>
               <rect x="8" y="1" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.3"/>
@@ -60,10 +60,10 @@ export default function FlowSelector() {
             <p className="text-[12px] font-medium text-[#1D9E75] tracking-[0.14em] uppercase mb-3">
               Módulo de prospección
             </p>
-            <h1 className="text-[28px] font-semibold text-[#111d17] leading-tight mb-3">
+            <h1 className="text-[28px] font-semibold text-white leading-tight mb-3">
               ¿Cómo quieres comenzar<br />el análisis?
             </h1>
-            <p className="text-[15px] text-[#5a7065] leading-relaxed">
+            <p className="text-[15px] text-white/55 leading-relaxed">
               Elige tu punto de partida. Puedes analizar un terreno que ya tienes<br />
               o dejar que el Scout encuentre candidatos por ti.
             </p>
