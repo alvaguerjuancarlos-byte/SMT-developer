@@ -1042,22 +1042,6 @@ function AnalisisContent() {
             </Card>
           </div>
 
-          {/* Entrada a Mastermind */}
-          <div className="bg-[#0A1F13] rounded-2xl p-5 flex items-center justify-between gap-4">
-            <div>
-              <p className="text-white font-semibold text-[14px] mb-0.5">¿Quieres ajustar los números en vivo?</p>
-              <p className="text-white/50 text-[12px]">
-                Abre Mastermind para editar el proyecto y ver la TIR recalcularse al instante, o fija una TIR objetivo y calcula qué necesitas para alcanzarla.
-              </p>
-            </div>
-            <button
-              onClick={() => router.push('/mastermind')}
-              className="flex-shrink-0 bg-[#1D9E75] text-white text-[13px] font-medium px-5 py-2.5 rounded-xl hover:bg-[#0F6E56] transition-colors whitespace-nowrap"
-            >
-              Abrir Mastermind →
-            </button>
-          </div>
-
           {/* Estructura de Capital */}
           {d.estructuraCapital && (
             <div>
@@ -1396,6 +1380,22 @@ function AnalisisContent() {
                 <p className="text-[12px] text-[#0F6E56]">{d.puntoQuiebre.resumen}</p>
               </div>
             </Card>
+          </div>
+
+          {/* Entrada a Mastermind */}
+          <div className="bg-[#0A1F13] rounded-2xl p-5 flex items-center justify-between gap-4">
+            <div>
+              <p className="text-white font-semibold text-[14px] mb-0.5">¿Quieres ajustar los números en vivo?</p>
+              <p className="text-white/50 text-[12px]">
+                Abre Mastermind para editar el proyecto y ver la TIR recalcularse al instante, o fija una TIR objetivo y calcula qué necesitas para alcanzarla.
+              </p>
+            </div>
+            <button
+              onClick={() => router.push('/mastermind')}
+              className="flex-shrink-0 bg-[#1D9E75] text-white text-[13px] font-medium px-5 py-2.5 rounded-xl hover:bg-[#0F6E56] transition-colors whitespace-nowrap"
+            >
+              Abrir Mastermind →
+            </button>
           </div>
 
           {/* Fuentes de Información */}
