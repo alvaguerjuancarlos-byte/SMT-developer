@@ -23,6 +23,10 @@ export async function POST(req: NextRequest) {
   const construccionM2 = data.construccionM2
   const costoTotalConstruccion = data.costoTotalConstruccion
   const superficieConstruida = data.superficieConstruida
+  // Fallback a superficieConstruida por si un caller viejo no manda superficieVendible —
+  // no debería pasar (el pipeline actual siempre la manda, ver analizando/page.tsx), pero
+  // es mejor que interpolar "undefined" literal en el prompt.
+  const superficieVendible = data.superficieVendible ?? superficieConstruida
 
   const prompt = `Eres el Agente Financiero y Mastermind de SMT Developer.
 Tu tarea es construir el modelo financiero completo del proyecto inmobiliario, usando los valores ya validados de terreno, construcción, normativa y mercado.
@@ -40,6 +44,7 @@ DATOS DEL PROYECTO:
 VALORES APROBADOS — USA EXACTAMENTE ESTOS NÚMEROS:
 - Costo terreno: $${Number(costoTerreno).toLocaleString('es-MX')} MXN (${costoTerrenoM2}/m²)
 - Costo construcción: $${Number(costoTotalConstruccion).toLocaleString('es-MX')} MXN (${construccionM2}/m²)
+- Superficie vendible: ${superficieVendible} m² — YA fue calculada por el Agente Construcción (m² de zona vendible, descontando áreas comunes/circulación). NO la recalcules a partir de COS/CUS ni de la superficie del terreno — las unidades que propongas deben sumar aproximadamente esta cifra, no más.
 
 NORMATIVA (Agente Legal):
 - Uso de suelo compatible: ${data.fichaLegal?.compatible ? 'Sí' : 'Requiere cambio'}
@@ -61,7 +66,7 @@ MERCADO (Agente Mercado):
 INSTRUCCIONES FINANCIERAS:
 1. Calcula indirectos (15–18% de costoTotalConstruccion), honorarios de proyecto (8–10%), imprevistos (5%)
 2. inversionTotal = costoTerreno + costoTotalConstruccion + indirectos + honorarios + imprevistos
-3. Estima el número de unidades vendibles según superficieConstruida, COS/CUS y tipología.
+3. Reparte la superficie vendible aprobada (${superficieVendible} m²) en unidades según la tipología — el número de unidades sale de dividir esa superficie entre el m² promedio por unidad típico de la tipología, NO de recalcular el envolvente con COS/CUS (eso ya lo hizo el Agente Construcción).
    REGLA CRÍTICA: Si el tipo de desarrollo incluye "unifamiliar" o "Unifamiliar", el número de unidades es EXACTAMENTE 1 — una sola vivienda. No importa la superficie. NUNCA recomiendes 2 o más casas para un desarrollo unifamiliar.
 4. ingresosProyectados = unidades × precio promedio ponderado de las fases de venta
 5. utilidadBruta = ingresosProyectados − inversionTotal
@@ -203,6 +208,7 @@ REGLAS:
 - financiero.costoTerrenoM2 DEBE ser exactamente ${costoTerrenoM2} (no lo cambies)
 - financiero.construccionM2 DEBE ser exactamente ${construccionM2} (no lo cambies)
 - financiero.costoTotalConstruccion DEBE ser exactamente ${costoTotalConstruccion} (no lo cambies)
+- Las unidades que propongas en recomendacion.tipologia, sumadas por su m² típico, NO deben exceder ${superficieVendible} m² de superficie vendible aprobada (±10% de tolerancia) — ingresosProyectados debe ser consistente con esa superficie, no con un envolvente propio recalculado
 - UNIFAMILIAR: si tiposDesarrollo incluye "unifamiliar", recomendacion.tipologia DEBE decir "Casa Unifamiliar · 1 vivienda" (nunca más de 1). Los ingresos son el precio de venta de 1 sola vivienda.
 - Todos los valores financieros son números sin formato (sin $, sin comas)
 - tir y margenBruto son números decimales (ej: 22.4, no "22.4%")
