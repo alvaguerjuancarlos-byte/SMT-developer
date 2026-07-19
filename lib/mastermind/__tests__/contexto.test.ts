@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { extractProyectoContext } from '../contexto'
+import { extractProyectoContext, extractTiempoContext } from '../contexto'
 import type { AnalisisData } from '@/lib/analisis/tipos'
 
 // Fixture mínimo — solo llenamos lo que extractProyectoContext efectivamente lee.
@@ -107,5 +107,27 @@ describe('extractProyectoContext — análisis con superficieConstruccionM2 pero
     ))
     // 61,928,640 / 4,160 ≈ 14,887 MXN/m² → más cercano a oficinas (15,000)
     expect(out.benchmarkConstruccion).toBe('oficinas')
+  })
+})
+
+describe('extractTiempoContext', () => {
+  it('sin financiero, no extrae nada (defaults del catálogo se quedan)', () => {
+    expect(extractTiempoContext(undefined)).toEqual({})
+    expect(extractTiempoContext({ } as AnalisisData)).toEqual({})
+  })
+
+  it('extrae plazoObraMeses/plazoVentaMeses/inicioVentasMes cuando el análisis los calculó', () => {
+    const d = { financiero: { plazoObraMeses: 14, plazoVentaMeses: 20, inicioVentasMes: 3 } } as unknown as AnalisisData
+    expect(extractTiempoContext(d)).toEqual({ plazoObraMeses: 14, plazoVentaMeses: 20, inicioVentasMes: 3 })
+  })
+
+  it('inicioVentasMes = 0 es un valor válido (preventa desde el mes 0), no se descarta', () => {
+    const d = { financiero: { plazoObraMeses: 12, plazoVentaMeses: 18, inicioVentasMes: 0 } } as unknown as AnalisisData
+    expect(extractTiempoContext(d).inicioVentasMes).toBe(0)
+  })
+
+  it('análisis viejo sin estos campos (undefined) — extrae solo lo que sí venga poblado', () => {
+    const d = { financiero: { plazoObraMeses: 16 } } as unknown as AnalisisData
+    expect(extractTiempoContext(d)).toEqual({ plazoObraMeses: 16 })
   })
 })

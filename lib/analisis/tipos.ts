@@ -134,6 +134,10 @@ export interface AnalisisData {
     costoTotalConstruccion: number; indirectos: number; honorarios: number
     imprevistos: number; inversionTotal: number; precioVentaM2: number
     ingresosProyectados: number; utilidadBruta: number; margenBruto: number; tir: number
+    // Duraciones calculadas por el Agente Financiero según escala del proyecto y absorción
+    // de mercado (no la plantilla fija de flujoMensual) — opcionales porque análisis previos
+    // a este campo no lo traen. Ver lib/mastermind/contexto.ts para cómo se usan en Mastermind.
+    plazoObraMeses?: number; plazoVentaMeses?: number; inicioVentasMes?: number
   }
   mercado: {
     demanda: string; zona: string; absorcion: string; proyectosActivos: string

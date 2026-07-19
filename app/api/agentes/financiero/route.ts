@@ -71,14 +71,19 @@ INSTRUCCIONES FINANCIERAS:
 4. ingresosProyectados = unidades × precio promedio ponderado de las fases de venta
 5. utilidadBruta = ingresosProyectados − inversionTotal
 6. margenBruto = (utilidadBruta / inversionTotal) × 100
-7. TIR: calcula la tasa interna de retorno basándote en el flujo de caja proyectado (meses de inversión vs. recuperación)
+7. TIR: calcula la tasa interna de retorno basándote en el flujo de caja proyectado (meses de inversión vs. recuperación). GUARDARRAÍL: la TIR debe ser coherente con margenBruto — si utilidadBruta/margenBruto son negativos, la TIR NO puede ser positiva ni superar el benchmark sectorial (18%); repórtala negativa o, si el flujo no lo permite calcular con sentido, usa 0 y acláralo en la descripción de estructuraCapital
 8. Estructura de capital: propón equity/deuda óptimo según presupuesto del inversionista y perfil del proyecto
 9. Preventa mínima: 30% de unidades para apertura de crédito puente
-10. Flujo mensual: 9 hitos clave (no mes a mes, sino eventos relevantes: adquisición, permisos, preventa, crédito, inicio obra, avance 50%, fin obra, entregas, cierre)
-11. Score de Resiliencia: 3 dimensiones (Solidez Financiera 40%, Riesgo Regulatorio 35%, Exposición Mercado 25%)
-12. Stress test: 3 escenarios adversos (costos +15%, ventas -50%, precio -10%)
-13. Punto de quiebre: máxima desviación sostenible en cada variable
-14. Recomendación Mastermind: tipología óptima y justificación en 2-3 oraciones
+10. Duraciones del proyecto — calcúlalas, NO uses siempre 18 meses fijos:
+    - plazoObraMeses: según superficieConstruida (${superficieConstruida} m²) — <1,500 m²: 8-12 meses · 1,500-4,000 m²: 12-18 meses · 4,000-8,000 m²: 18-24 meses · >8,000 m²: 24-36 meses
+    - inicioVentasMes: normalmente 2-4 (apertura de preventa, alineado con el hito "Preventa" del flujo mensual)
+    - velocidad de absorción mensual (unidades/mes) según Absorción: "Baja"≈1-2, "Media"≈2-3, "Alta"≈4-6
+    - plazoVentaMeses = inicioVentasMes + ceil(unidades totales / velocidad de absorción), con mínimo plazoObraMeses + 2 (no se puede terminar de vender antes de terminar de construir, más margen de entrega)
+11. Flujo mensual: 9 hitos clave (no mes a mes, sino eventos relevantes: adquisición, permisos, preventa, crédito, inicio obra, avance 50%, fin obra, entregas, cierre) — los "mes" de cada hito deben ser consistentes con plazoObraMeses/plazoVentaMeses/inicioVentasMes calculados en el punto 10, NO la plantilla genérica de ejemplo de abajo
+12. Score de Resiliencia: 3 dimensiones (Solidez Financiera 40%, Riesgo Regulatorio 35%, Exposición Mercado 25%)
+13. Stress test: 3 escenarios adversos (costos +15%, ventas -50%, precio -10%)
+14. Punto de quiebre: máxima desviación sostenible en cada variable
+15. Recomendación Mastermind: tipología óptima y justificación en 2-3 oraciones
 
 OUTPUT — JSON EXACTO (sin texto adicional):
 {
@@ -99,7 +104,10 @@ OUTPUT — JSON EXACTO (sin texto adicional):
     "ingresosProyectados": 0,
     "utilidadBruta": 0,
     "margenBruto": 0,
-    "tir": 0
+    "tir": 0,
+    "plazoObraMeses": 0,
+    "plazoVentaMeses": 0,
+    "inicioVentasMes": 0
   },
   "estructuraCapital": {
     "equity": 40,
@@ -216,6 +224,9 @@ REGLAS:
 - score.total = promedio ponderado (solidez×0.4 + regulatorio×0.35 + mercado×0.25)
 - stressTest status: "green" (TIR > 18%), "amber" (TIR 12–18%), "red" (TIR < 12%)
 - flujoMensual: exactamente 9 hitos, todos los montos ajustados a los números reales del proyecto
+- Los "mes" del ejemplo de flujoMensual arriba (1,2,3,4,6,10,14,16,18) son solo ilustrativos de un proyecto típico de ~18 meses — NO los copies tal cual. Recalcúlalos para que "Inicio obra" = inicioVentasMes o después, "Construcción finaliza" = "Inicio obra" + plazoObraMeses, y "Cierre" = plazoVentaMeses, todos consistentes con las duraciones que calculaste en el punto 10
+- financiero.plazoObraMeses, financiero.plazoVentaMeses y financiero.inicioVentasMes son obligatorios y deben ser consistentes entre sí y con flujoMensual (no pueden quedar en 0)
+- financiero.tir NUNCA puede ser positiva si financiero.margenBruto es negativo — son la misma historia contada de dos formas, no pueden contradecirse
 - estructuraCapital: montoEquity + montoDeuda = inversionTotal; equity + deuda = 100
 - Retorna ÚNICAMENTE el JSON, sin markdown, sin texto extra`
 
@@ -228,7 +239,8 @@ REGLAS:
     const text = message.content[0].type === 'text' ? message.content[0].text : ''
     const match = text.match(/\{[\s\S]*\}/)
     if (!match) throw new Error('No JSON in response')
-    return NextResponse.json(JSON.parse(match[0]))
+    const parsed = JSON.parse(match[0])
+    return NextResponse.json(parsed)
   } catch (error) {
     console.error('Agente Financiero error:', error)
     return NextResponse.json({ error: 'Error en Agente Financiero' }, { status: 500 })

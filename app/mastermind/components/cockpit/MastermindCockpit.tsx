@@ -22,7 +22,7 @@ function pctRango(v: number, min: number, max: number) {
 }
 
 export default function MastermindCockpit({ origenAnalisis, tirAnalisisOriginal }: {
-  origenAnalisis?: { proyecto: boolean; mercado: boolean; financiamiento: boolean; costos: boolean }
+  origenAnalisis?: { proyecto: boolean; mercado: boolean; financiamiento: boolean; costos: boolean; tiempo: boolean }
   tirAnalisisOriginal?: number
 }) {
   const { inputs, outputs, errores, modoInverso } = useMastermind()

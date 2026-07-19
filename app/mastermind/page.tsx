@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { MastermindProvider, useMastermind } from './state'
-import { extractFinanciamientoContext, extractMercadoContext, extractProyectoContext, extractTerrenoContext } from '@/lib/mastermind/contexto'
+import { extractFinanciamientoContext, extractMercadoContext, extractProyectoContext, extractTerrenoContext, extractTiempoContext } from '@/lib/mastermind/contexto'
 import type { AnalisisData } from '@/lib/analisis/tipos'
 import MastermindCockpit from './components/cockpit/MastermindCockpit'
 import ExportButtons from './components/ExportButtons'
@@ -11,21 +11,23 @@ import PrintSummary from './components/PrintSummary'
 
 function MastermindContent() {
   const router = useRouter()
-  const { setTerreno, setProyecto, setMercado, setFinanciamiento } = useMastermind()
+  const { setTerreno, setProyecto, setMercado, setTiempo, setFinanciamiento } = useMastermind()
   const [nombreProyecto, setNombreProyecto] = useState('proyecto')
   const [analisisData, setAnalisisData] = useState<AnalisisData | null>(null)
-  const [origenAnalisis, setOrigenAnalisis] = useState({ proyecto: false, mercado: false, financiamiento: false, costos: false })
+  const [origenAnalisis, setOrigenAnalisis] = useState({ proyecto: false, mercado: false, financiamiento: false, costos: false, tiempo: false })
 
   const cargarDelAnalisis = (parsed: AnalisisData) => {
     setTerreno(extractTerrenoContext(parsed))
     setProyecto(extractProyectoContext(parsed))
     setMercado(extractMercadoContext(parsed))
+    setTiempo(extractTiempoContext(parsed))
     setFinanciamiento(extractFinanciamientoContext(parsed))
     setOrigenAnalisis({
       proyecto: !!(parsed.bitacoraConstruccion?.tipologiaPropuesta || parsed.bitacoraConstruccion?.envolvente?.construibleMax),
       mercado: !!(parsed.financiero?.precioVentaM2 || parsed.mercado?.precioPromedioZona),
       financiamiento: !!parsed.estructuraCapital,
       costos: !!(parsed.financiero?.indirectos || parsed.financiero?.honorarios),
+      tiempo: !!parsed.financiero?.plazoObraMeses,
     })
   }
 

@@ -29,7 +29,7 @@ function ReadOnlyRow({ label, value }: { label: string; value: string }) {
 
 export default function DetailDrawer({ leverId, origenAnalisis }: {
   leverId: LeverId
-  origenAnalisis?: { proyecto: boolean; mercado: boolean; financiamiento: boolean; costos: boolean }
+  origenAnalisis?: { proyecto: boolean; mercado: boolean; financiamiento: boolean; costos: boolean; tiempo: boolean }
 }) {
   const { inputs, outputs, setProyecto, setMercado, setTiempo, setFinanciamiento } = useMastermind()
 
@@ -39,6 +39,7 @@ export default function DetailDrawer({ leverId, origenAnalisis }: {
     leverId === 'precio' ? origenAnalisis?.mercado :
     leverId === 'financiero' ? origenAnalisis?.financiamiento :
     leverId === 'administrativo' ? origenAnalisis?.costos :
+    leverId === 'velocidad' ? origenAnalisis?.tiempo :
     undefined
 
   return (

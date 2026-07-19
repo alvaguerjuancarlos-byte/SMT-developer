@@ -4,7 +4,7 @@
 
 import type { AnalisisData } from '@/lib/analisis/tipos'
 import { BENCHMARKS_CONSTRUCCION_MXN_M2 } from './catalogo'
-import type { BenchmarkConstruccion, InputsFinanciamiento, InputsMercado, InputsProyecto, TerrenoContext, TipoProyecto } from './tipos'
+import type { BenchmarkConstruccion, InputsFinanciamiento, InputsMercado, InputsProyecto, InputsTiempo, TerrenoContext, TipoProyecto } from './tipos'
 
 export function extractTerrenoContext(d: AnalisisData | null | undefined): TerrenoContext {
   if (!d) {
@@ -121,6 +121,19 @@ export function extractMercadoContext(d: AnalisisData | null | undefined): Parti
   const segmentoLocal = d.mercado?.segmentacion?.find(s => /local|comercial/i.test(s.tipo))
   if (segmentoLocal?.precioM2) out.precioLocalesM2 = segmentoLocal.precioM2
 
+  return out
+}
+
+// Solo disponible si el análisis se corrió después de que el Agente Financiero empezara a
+// calcular duraciones reales (en vez de la plantilla fija de 9 hitos con meses 1,2,3,4,6,10,
+// 14,16,18) — análisis previos a ese cambio no traen estos campos, y Mastermind se queda en
+// los defaults del catálogo (18/24/6 meses), igual que hoy.
+export function extractTiempoContext(d: AnalisisData | null | undefined): Partial<InputsTiempo> {
+  const f = d?.financiero
+  const out: Partial<InputsTiempo> = {}
+  if (f?.plazoObraMeses && f.plazoObraMeses > 0) out.plazoObraMeses = f.plazoObraMeses
+  if (f?.plazoVentaMeses && f.plazoVentaMeses > 0) out.plazoVentaMeses = f.plazoVentaMeses
+  if (f?.inicioVentasMes !== undefined && f.inicioVentasMes >= 0) out.inicioVentasMes = f.inicioVentasMes
   return out
 }
 
