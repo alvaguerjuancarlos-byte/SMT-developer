@@ -32,9 +32,9 @@ function TarjetaSolver({
 }) {
   if (!resultado.converged || resultado.valor === null) {
     return (
-      <div className="bg-white rounded-2xl border border-[#E2E8E4] p-4">
-        <h4 className="text-[12px] font-bold text-[#111d17] mb-2">{titulo}</h4>
-        <p className="text-[12px] text-[#9aab9f]">No se encontró un valor viable en el rango explorado.</p>
+      <div className="bg-white/[0.03] rounded-xl border border-white/10 p-4">
+        <h4 className="text-[12px] font-bold text-white mb-2">{titulo}</h4>
+        <p className="text-[12px] text-white/40">No se encontró un valor viable en el rango explorado.</p>
       </div>
     )
   }
@@ -46,14 +46,14 @@ function TarjetaSolver({
     : objetivo > 0 ? ((objetivo - valorActual) / objetivo) * 100 : 0
 
   return (
-    <div className="bg-white rounded-2xl border border-[#E2E8E4] p-4">
-      <h4 className="text-[12px] font-bold text-[#111d17] mb-2">{titulo}</h4>
-      <p className="text-[20px] font-black" style={{ color: cumple ? '#1D9E75' : '#DC2626' }}>{fmt(objetivo)}</p>
-      <p className="text-[10px] text-[#9aab9f] mb-3">{mejorEsMayor ? 'mínimo' : 'máximo'} para {resultado.tirAlcanzada?.toFixed(1)}% TIR</p>
+    <div className="bg-white/[0.03] rounded-xl border border-white/10 p-4">
+      <h4 className="text-[12px] font-bold text-white mb-2">{titulo}</h4>
+      <p className="font-mono text-[20px] font-black" style={{ color: cumple ? '#1D9E75' : '#DC2626' }}>{fmt(objetivo)}</p>
+      <p className="text-[10px] text-white/30 mb-3">{mejorEsMayor ? 'mínimo' : 'máximo'} para {resultado.tirAlcanzada?.toFixed(1)}% TIR</p>
 
       <div className="flex items-center justify-between mb-1">
-        <span className="text-[10px] text-[#5a7065]">Valor actual: {fmt(valorActual)}</span>
-        <span className="text-[10px] font-semibold" style={{ color: cumple ? '#0F6E56' : '#DC2626' }}>
+        <span className="text-[10px] text-white/40">Valor actual: {fmt(valorActual)}</span>
+        <span className="text-[10px] font-semibold" style={{ color: cumple ? '#1D9E75' : '#DC2626' }}>
           {cumple ? `+${Math.abs(margen).toFixed(0)}%` : `${margen.toFixed(0)}%`} margen
         </span>
       </div>
@@ -68,13 +68,13 @@ function TarjetaSolver({
             onChange={e => onChange(e.target.valueAsNumber)}
             className="w-full accent-[#1D9E75] cursor-pointer"
           />
-          <div className="flex justify-between text-[9px] text-[#C4CEC8] mt-0.5">
+          <div className="flex justify-between text-[9px] font-mono text-white/25 mt-0.5">
             <span>{fmt(min)}{unidad}</span>
             <span>{fmt(max)}{unidad}</span>
           </div>
         </>
       ) : (
-        <div className="h-3 rounded-full bg-[#F0F4F2] overflow-hidden">
+        <div className="h-2 rounded-full bg-white/5 overflow-hidden">
           <div
             className="h-full rounded-full"
             style={{ width: `${Math.min(100, Math.max(0, (valorActual / max) * 100))}%`, backgroundColor: cumple ? '#1D9E75' : '#DC2626' }}
@@ -96,9 +96,12 @@ export default function ReverseEngineeringPanel() {
     && unidades.valor * inputs.proyecto.m2PromedioDepa > outputs.costos.m2Construidos
 
   return (
-    <div className="bg-[#0A1F13] rounded-2xl p-5">
-      <h3 className="text-[13px] font-bold text-white mb-1">Ingeniería inversa</h3>
-      <p className="text-[11px] text-white/50 mb-4">Qué necesita el proyecto para alcanzar {inputs.tirObjetivo}% de TIR Socio</p>
+    <div className="rounded-xl border border-[#1D9E75]/25 bg-[#1D9E75]/[0.04] p-5">
+      <div className="flex items-center gap-2 mb-1">
+        <span className="w-1.5 h-1.5 rounded-full bg-[#1D9E75] animate-pulse" />
+        <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-[#1D9E75]">Autopilot · Ingeniería inversa</h3>
+      </div>
+      <p className="text-[11px] text-white/40 mb-4">Qué necesita el proyecto para alcanzar {inputs.tirObjetivo}% de TIR Socio</p>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         <TarjetaSolver

@@ -5,22 +5,16 @@ import { useRouter } from 'next/navigation'
 import { MastermindProvider, useMastermind } from './state'
 import { extractFinanciamientoContext, extractMercadoContext, extractProyectoContext, extractTerrenoContext } from '@/lib/mastermind/contexto'
 import type { AnalisisData } from '@/lib/analisis/tipos'
-import InputPanel from './components/InputPanel'
-import IngresosCard from './components/IngresosCard'
-import CostosCard from './components/CostosCard'
-import UtilidadCard from './components/UtilidadCard'
-import RetornoCard from './components/RetornoCard'
-import ReverseEngineeringPanel from './components/ReverseEngineeringPanel'
-import SensitivityMatrix from './components/SensitivityMatrix'
+import MastermindCockpit from './components/cockpit/MastermindCockpit'
 import ExportButtons from './components/ExportButtons'
 import PrintSummary from './components/PrintSummary'
 
 function MastermindContent() {
   const router = useRouter()
-  const { setTerreno, setProyecto, setMercado, setFinanciamiento, modoInverso } = useMastermind()
+  const { setTerreno, setProyecto, setMercado, setFinanciamiento } = useMastermind()
   const [nombreProyecto, setNombreProyecto] = useState('proyecto')
   const [analisisData, setAnalisisData] = useState<AnalisisData | null>(null)
-  const [origenAnalisis, setOrigenAnalisis] = useState({ proyecto: false, mercado: false, financiamiento: false })
+  const [origenAnalisis, setOrigenAnalisis] = useState({ proyecto: false, mercado: false, financiamiento: false, costos: false })
 
   const cargarDelAnalisis = (parsed: AnalisisData) => {
     setTerreno(extractTerrenoContext(parsed))
@@ -28,9 +22,10 @@ function MastermindContent() {
     setMercado(extractMercadoContext(parsed))
     setFinanciamiento(extractFinanciamientoContext(parsed))
     setOrigenAnalisis({
-      proyecto: !!parsed.bitacoraConstruccion?.tipologiaPropuesta,
+      proyecto: !!(parsed.bitacoraConstruccion?.tipologiaPropuesta || parsed.bitacoraConstruccion?.envolvente?.construibleMax),
       mercado: !!(parsed.financiero?.precioVentaM2 || parsed.mercado?.precioPromedioZona),
       financiamiento: !!parsed.estructuraCapital,
+      costos: !!(parsed.financiero?.indirectos || parsed.financiero?.honorarios),
     })
   }
 
@@ -85,22 +80,7 @@ function MastermindContent() {
           </div>
         </div>
 
-        {modoInverso && (
-          <div className="mb-6">
-            <ReverseEngineeringPanel />
-          </div>
-        )}
-
-        <div className="grid grid-cols-1 lg:grid-cols-[2fr_3fr] gap-6 items-start">
-          <InputPanel origenAnalisis={origenAnalisis} />
-          <div className="space-y-4">
-            <IngresosCard />
-            <CostosCard />
-            <UtilidadCard />
-            <RetornoCard />
-            <SensitivityMatrix />
-          </div>
-        </div>
+        <MastermindCockpit origenAnalisis={origenAnalisis} tirAnalisisOriginal={analisisData?.financiero?.tir} />
       </div>
 
       <PrintSummary nombreProyecto={nombreProyecto} />
