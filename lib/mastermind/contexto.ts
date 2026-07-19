@@ -38,11 +38,49 @@ function benchmarkMasCercano(costoPorM2Final: number): BenchmarkConstruccion {
   return mejor
 }
 
-export function extractProyectoContext(d: AnalisisData | null | undefined): Partial<InputsProyecto> {
-  const tip = d?.bitacoraConstruccion?.tipologiaPropuesta
-  if (!tip) return {}
+// El Agente Financiero corre igual sin importar el modo de construcción (agente_propone o
+// usuario_define), así que la calibración de indirectos aplica a ambos por igual — se calcula
+// una sola vez y se mezcla en el resultado de cualquier rama de extractProyectoContext.
+// Nota: comercialización y descuentos NO se calibran — se quedan fijos (decisión del usuario,
+// ver catalogo.ts), el análisis no modela esos rubros por separado.
+function calibrarPorcentajeIndirectos(d: AnalisisData | null | undefined): number | undefined {
+  const overheadReal = (d?.financiero?.indirectos ?? 0) + (d?.financiero?.honorarios ?? 0) + (d?.financiero?.imprevistos ?? 0)
+  const costoConstruccionReal = d?.financiero?.costoTotalConstruccion ?? 0
+  return costoConstruccionReal > 0 && overheadReal > 0
+    ? Math.round((overheadReal / costoConstruccionReal) * 1000) / 10
+    : undefined
+}
 
+export function extractProyectoContext(d: AnalisisData | null | undefined): Partial<InputsProyecto> {
+  const bc = d?.bitacoraConstruccion
+  const tip = bc?.tipologiaPropuesta
   const out: Partial<InputsProyecto> = {}
+
+  const porcentajeIndirectos = calibrarPorcentajeIndirectos(d)
+  if (porcentajeIndirectos !== undefined) out.porcentajeIndirectos = porcentajeIndirectos
+
+  // superficieConstruccionM2/costoPorM2Final son campos "base" de BitacoraConstruccion que
+  // existen desde antes de que se agregara tipologiaPropuesta (el desglose de tipología es
+  // más nuevo, solo para el bridge con Mastermind) — así que se leen SIEMPRE, sin importar si
+  // hay tipologiaPropuesta o no. Un análisis viejo, o uno en modo "usuario_define", puede tener
+  // uno sin el otro. Fallbacks en orden: campo base → envolvente/indicadores (usuario_define)
+  // → derivado del financiero real (costoTotalConstruccion / superficie), si no hay nada mejor.
+  const superficieConstruida = (bc?.superficieConstruccionM2 && bc.superficieConstruccionM2 > 0)
+    ? bc.superficieConstruccionM2
+    : bc?.envolvente?.construibleMax
+  if (superficieConstruida && superficieConstruida > 0) out.superficieConstruccionM2 = Math.round(superficieConstruida)
+
+  const costoPorM2 = bc?.costoPorM2Final
+    ?? bc?.indicadores?.costoPorM2Bruto?.base
+    ?? (superficieConstruida && superficieConstruida > 0 && d?.financiero?.costoTotalConstruccion
+      ? d.financiero.costoTotalConstruccion / superficieConstruida
+      : undefined)
+  if (costoPorM2) out.benchmarkConstruccion = benchmarkMasCercano(costoPorM2)
+
+  // Lo que sigue SÍ requiere tipologiaPropuesta — solo el modo "agente_propone" desglosa
+  // niveles/unidades/mix de tipologías. Sin eso (análisis viejo o modo "usuario_define"),
+  // estos campos se quedan en los defaults del catálogo, editables a mano en el drawer.
+  if (!tip) return out
 
   const tieneHab = !!tip.habitacional
   const tieneCom = !!tip.comercial
@@ -60,14 +98,10 @@ export function extractProyectoContext(d: AnalisisData | null | undefined): Part
     out.m2PromedioDepa = Math.round(m2Ponderado)
   }
 
-  const superficieConstruida = d?.bitacoraConstruccion?.superficieConstruccionM2 ?? 0
   if (tip.comercial) {
     const areaHab = (out.unidadesHabitacionales ?? 0) * (out.m2PromedioDepa ?? 0)
-    out.m2ComercialesPlantaBaja = Math.max(0, Math.round(superficieConstruida - areaHab))
+    out.m2ComercialesPlantaBaja = Math.max(0, Math.round((superficieConstruida ?? 0) - areaHab))
   }
-
-  const costoPorM2Final = d?.bitacoraConstruccion?.costoPorM2Final
-  if (costoPorM2Final) out.benchmarkConstruccion = benchmarkMasCercano(costoPorM2Final)
 
   return out
 }

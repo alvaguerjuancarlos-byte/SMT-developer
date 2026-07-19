@@ -106,6 +106,13 @@ export interface BitacoraConstruccion {
   desglosePorPartidas?: PartidaConstruccion[]
   materialesPrincipales?: MaterialClave[]
   tipologiaPropuesta?: TipologiaPropuesta
+  // Presentes solo en modo "usuario_define" (construcción interactiva vía lib/estimador,
+  // ver app/analisis/analizando/page.tsx) — en ese modo no hay tipologiaPropuesta ni
+  // superficieConstruccionM2, el usuario arma su propio programa y estos campos documentan
+  // el resultado del estimador en su lugar (envolvente normativo + costo/m² paramétrico).
+  modo?: 'agente_propone' | 'usuario_define'
+  envolvente?: { construibleMax: number; huellaMax?: number; unidadesMax?: number }
+  indicadores?: { costoPorM2Bruto?: { base: number; piso?: number; techo?: number } }
 }
 
 export interface AnalisisData {

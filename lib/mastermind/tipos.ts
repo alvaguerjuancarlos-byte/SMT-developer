@@ -27,6 +27,16 @@ export interface InputsProyecto {
   m2PromedioDepa: number
   m2ComercialesPlantaBaja: number
   benchmarkConstruccion: BenchmarkConstruccion
+  // Superficie de construcción real (m²), validada por el Agente Construcción del análisis.
+  // Cuando está presente y > 0, el motor la usa en vez de estimar m2Construidos como
+  // superficieM2(terreno) × niveles — esa estimación asume 100% de cobertura del lote,
+  // lo cual sobreestima muchísimo el costo si el edificio no ocupa todo el terreno.
+  superficieConstruccionM2?: number
+  // % de indirectos sobre el costo directo de construcción (15 = 15%). Por default es el
+  // genérico del catálogo, pero se calibra con el dato real del análisis (indirectos +
+  // honorarios + imprevistos, todos % de costoTotalConstruccion en ese modelo) cuando está
+  // disponible — ver lib/mastermind/contexto.ts.
+  porcentajeIndirectos: number
 }
 
 export interface InputsMercado {

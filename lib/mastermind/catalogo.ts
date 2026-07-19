@@ -16,8 +16,12 @@ export const BENCHMARKS_CONSTRUCCION_MXN_M2: Record<BenchmarkConstruccion, numbe
 // ── Factores fijos del motor ─────────────────────────────────────────────────
 export const FACTOR_EFICIENCIA_CONSTRUCCION = 0.85 // m² construidos → m² vendibles equivalentes
 export const DESCUENTOS_CANCELACIONES = 0.05        // -5% sobre ingreso bruto
-export const PORCENTAJE_INDIRECTOS = 0.15            // 15% sobre costo directo
 export const PORCENTAJE_COMERCIALIZACION = 0.03      // 3% sobre ingreso neto
+// PORCENTAJE_INDIRECTOS ya no es una constante fija — es DEFAULTS.proyecto.porcentajeIndirectos,
+// editable por proyecto y calibrable desde el análisis real (ver lib/mastermind/contexto.ts).
+// Comercialización y descuentos sí se quedan fijos para todo proyecto — decisión explícita:
+// se tratan como costos reales de cualquier desarrollo, aunque el análisis original no los
+// haya modelado por separado (no siempre van a cuadrar centavo a centavo con el análisis).
 
 // ── Defaults de inputs de usuario ────────────────────────────────────────────
 export const DEFAULTS: Omit<MastermindInputs, 'terreno'> = {
@@ -28,6 +32,7 @@ export const DEFAULTS: Omit<MastermindInputs, 'terreno'> = {
     m2PromedioDepa: 65,
     m2ComercialesPlantaBaja: 0,
     benchmarkConstruccion: 'habitacional_medio',
+    porcentajeIndirectos: 15,
   },
   mercado: {
     precioVentaDepasM2: 0,

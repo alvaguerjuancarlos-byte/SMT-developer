@@ -16,6 +16,7 @@ const inputs: MastermindInputs = {
     m2PromedioDepa: 65,
     m2ComercialesPlantaBaja: 0,
     benchmarkConstruccion: 'habitacional_medio',
+    porcentajeIndirectos: 15,
   },
   mercado: {
     precioVentaDepasM2: 45_000,
@@ -147,5 +148,43 @@ describe('Modalidad renta: no debe duplicar el valor capitalizado de locales', (
 
     const esperado = rRenta.ingresos.ingresoBrutoHabitacional * 0.95 - rRenta.costos.comercializacion + rRenta.ingresos.ingresoBrutoComercial
     expect(totalIngresos).toBeCloseTo(esperado, 6)
+  })
+})
+
+describe('superficieConstruccionM2 — anula la estimación por huella de terreno', () => {
+  it('sin superficieConstruccionM2, usa superficieM2(terreno) × niveles × factor (comportamiento previo)', () => {
+    expect(r.costos.m2Construidos).toBe(1_700)
+  })
+
+  it('con superficieConstruccionM2 > 0, la usa tal cual en vez de recalcularla del terreno', () => {
+    const rReal = calcularMastermind({
+      ...inputs,
+      proyecto: { ...inputs.proyecto, superficieConstruccionM2: 1_040 },
+    })
+    expect(rReal.costos.m2Construidos).toBe(1_040)
+    expect(rReal.costos.costoDirectoConstruccion).toBe(1_040 * 13_500)
+  })
+
+  it('con superficieConstruccionM2 = 0, cae de vuelta a la estimación por terreno (0 se trata como "sin dato")', () => {
+    const rCero = calcularMastermind({
+      ...inputs,
+      proyecto: { ...inputs.proyecto, superficieConstruccionM2: 0 },
+    })
+    expect(rCero.costos.m2Construidos).toBe(1_700)
+  })
+})
+
+describe('porcentajeIndirectos — ahora es un input por proyecto, no una constante fija', () => {
+  it('con 15% (default), indirectos = 15% del directo = 3,442,500 (comportamiento previo)', () => {
+    expect(r.costos.indirectos).toBe(22_950_000 * 0.15)
+  })
+
+  it('con un % distinto (20%), indirectos y costoTotal cambian en consecuencia', () => {
+    const r20 = calcularMastermind({
+      ...inputs,
+      proyecto: { ...inputs.proyecto, porcentajeIndirectos: 20 },
+    })
+    expect(r20.costos.indirectos).toBe(22_950_000 * 0.20)
+    expect(r20.costos.costoTotal).toBe(r.costos.costoTotal + (22_950_000 * 0.05))
   })
 })

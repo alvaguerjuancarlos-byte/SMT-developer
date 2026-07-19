@@ -13,6 +13,7 @@ const inputs: MastermindInputs = {
     m2PromedioDepa: 65,
     m2ComercialesPlantaBaja: 0,
     benchmarkConstruccion: 'habitacional_medio',
+    porcentajeIndirectos: 15,
   },
   mercado: { precioVentaDepasM2: 45_000, modalidadLocales: 'venta', precioLocalesM2: 0, tasaCapRate: 8 },
   tiempo: { plazoObraMeses: 18, plazoVentaMeses: 24, inicioVentasMes: 6 },

@@ -15,7 +15,6 @@ import {
   DESCUENTOS_CANCELACIONES,
   FACTOR_EFICIENCIA_CONSTRUCCION,
   PORCENTAJE_COMERCIALIZACION,
-  PORCENTAJE_INDIRECTOS,
 } from './catalogo'
 import { calcularTIR } from './irr'
 
@@ -51,11 +50,15 @@ export function calcularIngresos(inputs: MastermindInputs): BloqueIngresos {
 export function calcularCostos(inputs: MastermindInputs, ingresos: BloqueIngresos, benchmarkOverrideMxnM2?: number): BloqueCostos {
   const { terreno, proyecto, tiempo, financiamiento } = inputs
 
-  const m2Construidos = terreno.superficieM2 * proyecto.niveles * FACTOR_EFICIENCIA_CONSTRUCCION
+  // Preferimos la superficie de construcción real (validada por el Agente Construcción)
+  // sobre la estimación por huella de terreno — ver nota en tipos.ts InputsProyecto.
+  const m2Construidos = proyecto.superficieConstruccionM2 && proyecto.superficieConstruccionM2 > 0
+    ? proyecto.superficieConstruccionM2
+    : terreno.superficieM2 * proyecto.niveles * FACTOR_EFICIENCIA_CONSTRUCCION
   const benchmarkMxnM2 = benchmarkOverrideMxnM2 ?? BENCHMARKS_CONSTRUCCION_MXN_M2[proyecto.benchmarkConstruccion]
   const costoDirectoConstruccion = m2Construidos * benchmarkMxnM2
 
-  const indirectos = costoDirectoConstruccion * PORCENTAJE_INDIRECTOS
+  const indirectos = costoDirectoConstruccion * (proyecto.porcentajeIndirectos / 100)
   const comercializacion = ingresos.ingresoNeto * PORCENTAJE_COMERCIALIZACION
   const financieros =
     (financiamiento.porcentajeFinanciado / 100) *
