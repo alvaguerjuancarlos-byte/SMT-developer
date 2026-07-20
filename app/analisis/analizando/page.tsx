@@ -1102,7 +1102,10 @@ function PipelineContent() {
   }) => {
     const t = pipe.terreno.data!
     const m2 = pipe.terreno.overrideM2 !== '' ? Number(pipe.terreno.overrideM2) : t.costoTerrenoM2
-    const payload = { ...formData, ...overrides, costoTerrenoM2: m2, costoTerreno: m2 * Number(formData.superficie) }
+    const payload = {
+      ...formData, ...overrides, costoTerrenoM2: m2, costoTerreno: m2 * Number(formData.superficie),
+      mercado: pipe.mercado.data?.mercado,
+    }
     setPipe(p => ({ ...p, construccion: { ...p.construccion, status: 'running', data: null } }))
     try {
       const res = await fetch('/api/agentes/construccion', {
@@ -1130,12 +1133,17 @@ function PipelineContent() {
     }
   }
 
-  // Legal es guardarraíl "siempre prendido": arranca solo apenas Terreno termina,
-  // sin esperar a que el usuario apruebe y continúe — así sus COS/CUS ya están
-  // listos para cuando el usuario llegue al paso interactivo de Construcción.
+  // Legal y Mercado corren en paralelo apenas Terreno termina, sin esperar a que el
+  // usuario apruebe y continúe — así COS/CUS y demanda/absorción ya están listos para
+  // cuando el usuario llegue al paso interactivo de Construcción, que ahora los necesita
+  // para no proponer más unidades de las que el mercado puede absorber. Ninguno de los
+  // dos depende del otro ni de Construcción, así que corren sin condición de carrera.
   useEffect(() => {
     if (pipe.terreno.status === 'done' && pipe.legal.status === 'waiting') {
       runLegal()
+    }
+    if (pipe.terreno.status === 'done' && pipe.mercado.status === 'waiting') {
+      runMercado()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pipe.terreno.status])
@@ -1227,15 +1235,15 @@ function PipelineContent() {
   }
 
   // ── Progress ──
-  // Orden: Terreno → Legal (guardarraíl, corre apenas termina Terreno) → Construcción
-  // (interactivo) → Mercado → Financiero. Legal ya no corre junto con Mercado — sus
-  // valores de COS/CUS tienen que estar listos ANTES de que el usuario ajuste el
-  // programa de Construcción, no después.
+  // Orden: Terreno → (Legal + Mercado en paralelo, ambos corren apenas termina Terreno,
+  // ninguno depende del otro) → Construcción (usa COS/CUS de Legal y demanda/absorción
+  // de Mercado para no proponer más unidades de las que el mercado puede absorber) →
+  // Financiero.
   const stepsDone = [
     pipe.terreno.status === 'done',
     pipe.legal.status === 'done',
-    pipe.construccion.status === 'done',
     pipe.mercado.status === 'done',
+    pipe.construccion.status === 'done',
     pipe.financiero.status === 'done',
   ].filter(Boolean).length
   const pct = (stepsDone / 5) * 100
@@ -1278,8 +1286,8 @@ function PipelineContent() {
           <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest">Agentes</p>
           <StepBadge n={1} status={pipe.terreno.status} label="Terreno" />
           <StepBadge n={2} status={pipe.legal.status} label="Legal (guardarraíl)" />
-          <StepBadge n={3} status={pipe.construccion.status} label="Construcción" />
-          <StepBadge n={4} status={pipe.mercado.status} label="Mercado" />
+          <StepBadge n={3} status={pipe.mercado.status} label="Mercado" />
+          <StepBadge n={4} status={pipe.construccion.status} label="Construcción" />
           <StepBadge n={5} status={pipe.financiero.status} label="Financiero" />
         </aside>
 
@@ -1712,10 +1720,68 @@ function PipelineContent() {
               </section>
             )}
 
-            {/* ══ STEP 3 — CONSTRUCCIÓN ══ */}
-            {pipe.terreno.status === 'done' && (
+            {/* ══ STEP 3 — MERCADO (antes de Construcción, para que Construcción sepa cuánto puede absorber el mercado) ══ */}
+            {pipe.mercado.status !== 'waiting' && (
               <section>
-                <SectionHeader n={3} label="Agente de Construcción" />
+                <SectionHeader n={3} label="Agente Mercado" />
+
+                {pipe.mercado.status === 'running' && (
+                  <RunningCard label="Agente Mercado…" hint="Buscando comparables, analizando absorción y pricing" />
+                )}
+                {pipe.mercado.status === 'error' && (
+                  <ErrorCard label="Agente Mercado" onRetry={runMercado} />
+                )}
+                {pipe.mercado.status === 'done' && pipe.mercado.data && (() => {
+                  const m = pipe.mercado.data.mercado
+                  return (
+                    <DoneCard>
+                      <div className="px-4 py-3 border-b border-[#F0F4F2] flex items-center gap-2">
+                        <CheckIcon />
+                        <span className="text-[12px] font-bold text-[#0F6E56]">Agente Mercado</span>
+                        <button onClick={() => runMercado()} className="ml-auto text-[10px] text-[#9aab9f] hover:text-[#1D9E75] cursor-pointer">Re-correr</button>
+                      </div>
+                      <div className="px-4 py-3 space-y-2.5">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] text-[#5a7065]">Precio/m² zona</span>
+                          <span className="text-[11px] font-bold text-[#111d17]">{m?.precioPromedioZona || '—'}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] text-[#5a7065]">Absorción</span>
+                          <span className="text-[11px] font-semibold text-[#111d17]">{m?.absorcion || '—'}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] text-[#5a7065]">Demanda</span>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                            m?.demanda === 'Alta' ? 'bg-[#E1F5EE] text-[#0F6E56]' :
+                            m?.demanda === 'Media' ? 'bg-[#FEF3C7] text-[#92400E]' :
+                            'bg-[#FEE2E2] text-[#991B1B]'
+                          }`}>{m?.demanda || '—'}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] text-[#5a7065]">Plusvalía</span>
+                          <span className="text-[11px] font-semibold text-[#0F6E56]">{m?.plusvalia || '—'}</span>
+                        </div>
+                      </div>
+
+                      <div className="border-t border-[#F0F4F2] px-4 py-3">
+                        <AjustarSupuestosMercado
+                          precioVentaActual={pipe.mercado.overridePrecioVenta}
+                          absorcionActual={pipe.mercado.overrideAbsorcion}
+                          onAplicar={(precio, absorcion) => runMercado({ precioVentaObjetivo: precio, absorcionObjetivoManual: absorcion })}
+                        />
+                      </div>
+
+                      <AgentChat agentKey="mercado" agentData={pipe.mercado.data} />
+                    </DoneCard>
+                  )
+                })()}
+              </section>
+            )}
+
+            {/* ══ STEP 4 — CONSTRUCCIÓN (después de Mercado, para no proponer más unidades de las que el mercado absorbe) ══ */}
+            {pipe.legal.status === 'done' && pipe.mercado.status === 'done' && (
+              <section>
+                <SectionHeader n={4} label="Agente de Construcción" />
 
                 {pipe.construccion.status === 'waiting' && (
                   <div className="bg-white rounded-2xl border border-[#E2E8E4] p-4 mb-3">
@@ -1758,7 +1824,6 @@ function PipelineContent() {
                         cusStr={pipe.legal.data?.fichaLegal?.cus}
                         onContinuar={(construccionResult) => {
                           setPipe(p => ({ ...p, construccion: { status: 'done', data: construccionResult, overrideM2: '' } }))
-                          runMercado()
                         }}
                       />
                     )}
@@ -1988,100 +2053,28 @@ function PipelineContent() {
                       })()}
 
                       <AgentChat agentKey="construccion" agentData={pipe.construccion.data} />
-
-                      {pipe.mercado.status === 'waiting' && (
-                        <div className="px-5 pb-5">
-                          <button
-                            onClick={() => runMercado()}
-                            className="w-full bg-[#1D9E75] text-white rounded-xl py-3 text-[13px] font-semibold hover:bg-[#0F6E56] transition-colors cursor-pointer flex items-center justify-center gap-2"
-                          >
-                            Aprobar y continuar con Mercado
-                            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                              <path d="M5 3l4 4-4 4" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
-                            </svg>
-                          </button>
-                          {pipe.construccion.overrideM2 !== '' && (
-                            <p className="text-[10px] text-[#9aab9f] text-center mt-2">
-                              Se usará tu valor corregido: ${Number(pipe.construccion.overrideM2).toLocaleString()}/m²
-                            </p>
-                          )}
-                        </div>
-                      )}
                     </DoneCard>
                   )
                 })()}
-              </section>
-            )}
 
-            {/* ══ STEP 4 — MERCADO ══ */}
-            {pipe.mercado.status !== 'waiting' && (
-              <section>
-                <SectionHeader n={4} label="Agente Mercado" />
-
-                {pipe.mercado.status === 'running' && (
-                  <RunningCard label="Agente Mercado…" hint="Buscando comparables, analizando absorción y pricing" />
+                {pipe.construccion.status === 'done' && pipe.financiero.status === 'waiting' && (
+                  <div className="px-5 pb-5">
+                    <button
+                      onClick={runFinanciero}
+                      className="w-full bg-[#1D9E75] text-white rounded-xl py-3 text-[13px] font-semibold hover:bg-[#0F6E56] transition-colors cursor-pointer flex items-center justify-center gap-2"
+                    >
+                      Aprobar y generar Análisis Financiero
+                      <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                        <path d="M5 3l4 4-4 4" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
+                      </svg>
+                    </button>
+                    {pipe.construccion.overrideM2 !== '' && (
+                      <p className="text-[10px] text-[#9aab9f] text-center mt-2">
+                        Se usará tu valor corregido: ${Number(pipe.construccion.overrideM2).toLocaleString()}/m²
+                      </p>
+                    )}
+                  </div>
                 )}
-                {pipe.mercado.status === 'error' && (
-                  <ErrorCard label="Agente Mercado" onRetry={runMercado} />
-                )}
-                {pipe.mercado.status === 'done' && pipe.mercado.data && (() => {
-                  const m = pipe.mercado.data.mercado
-                  return (
-                    <DoneCard>
-                      <div className="px-4 py-3 border-b border-[#F0F4F2] flex items-center gap-2">
-                        <CheckIcon />
-                        <span className="text-[12px] font-bold text-[#0F6E56]">Agente Mercado</span>
-                        <button onClick={() => runMercado()} className="ml-auto text-[10px] text-[#9aab9f] hover:text-[#1D9E75] cursor-pointer">Re-correr</button>
-                      </div>
-                      <div className="px-4 py-3 space-y-2.5">
-                        <div className="flex items-center justify-between">
-                          <span className="text-[11px] text-[#5a7065]">Precio/m² zona</span>
-                          <span className="text-[11px] font-bold text-[#111d17]">{m?.precioPromedioZona || '—'}</span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-[11px] text-[#5a7065]">Absorción</span>
-                          <span className="text-[11px] font-semibold text-[#111d17]">{m?.absorcion || '—'}</span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-[11px] text-[#5a7065]">Demanda</span>
-                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                            m?.demanda === 'Alta' ? 'bg-[#E1F5EE] text-[#0F6E56]' :
-                            m?.demanda === 'Media' ? 'bg-[#FEF3C7] text-[#92400E]' :
-                            'bg-[#FEE2E2] text-[#991B1B]'
-                          }`}>{m?.demanda || '—'}</span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-[11px] text-[#5a7065]">Plusvalía</span>
-                          <span className="text-[11px] font-semibold text-[#0F6E56]">{m?.plusvalia || '—'}</span>
-                        </div>
-                      </div>
-
-                      <div className="border-t border-[#F0F4F2] px-4 py-3">
-                        <AjustarSupuestosMercado
-                          precioVentaActual={pipe.mercado.overridePrecioVenta}
-                          absorcionActual={pipe.mercado.overrideAbsorcion}
-                          onAplicar={(precio, absorcion) => runMercado({ precioVentaObjetivo: precio, absorcionObjetivoManual: absorcion })}
-                        />
-                      </div>
-
-                      <AgentChat agentKey="mercado" agentData={pipe.mercado.data} />
-
-                      {pipe.financiero.status === 'waiting' && (
-                        <div className="px-4 pb-4">
-                          <button
-                            onClick={runFinanciero}
-                            className="w-full bg-[#1D9E75] text-white rounded-xl py-3 text-[13px] font-semibold hover:bg-[#0F6E56] transition-colors cursor-pointer flex items-center justify-center gap-2"
-                          >
-                            Aprobar y generar Análisis Financiero
-                            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                              <path d="M5 3l4 4-4 4" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
-                            </svg>
-                          </button>
-                        </div>
-                      )}
-                    </DoneCard>
-                  )
-                })()}
               </section>
             )}
 

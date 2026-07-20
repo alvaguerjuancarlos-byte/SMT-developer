@@ -41,6 +41,13 @@ CONTEXTO DE VALUACIÓN DEL TERRENO:
 - Uso de suelo: ${data.usoSuelo}
 - Costo del terreno aprobado: $${Number(data.costoTerrenoM2 || 0).toLocaleString('es-MX')}/m²
 
+MERCADO (Agente Mercado, ya calculado — úsalo para no sobredimensionar el proyecto):
+${data.mercado ? `- Demanda: ${data.mercado.demanda || 'No especificada'}
+- Absorción de la zona: ${data.mercado.absorcion || 'No especificada'}
+- Inventario activo: ${data.mercado.inventario || 'No especificado'}
+- Producto recomendado por el mercado: ${data.mercado.productoRecomendado || 'No especificado'}
+- Absorción por segmento: ${(data.mercado.segmentacion || []).map((s: any) => `${s.tipo}: ${s.absorcionMensual ?? '?'} unidades/mes (${s.participacion ?? '?'} de participación)`).join('; ') || 'No especificada'}` : '- No disponible — procede con el envolvente legal como única referencia de tamaño'}
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 PASO 1 — DETERMINAR COS, CUS Y ÁREAS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -52,8 +59,17 @@ COS (Coeficiente de Ocupación del Suelo): porcentaje del terreno que puede cubr
   (jardines, accesos, estacionamiento descubierto, área libre normativa)
 
 CUS (Coeficiente de Utilización del Suelo): múltiplo del lote que puede construirse en total de niveles.
-  superficie_construida_bruta = superficie_lote × CUS
-  (es el total de todos los metros construidos sumando todos los pisos)
+  superficie_construida_bruta_MAXIMA = superficie_lote × CUS
+  (este es el TECHO NORMATIVO — lo máximo que la ley permite, NO necesariamente el tamaño del proyecto)
+
+TAMAÑO REAL DEL PROYECTO — no siempre uses el máximo legal:
+  El tamaño real a construir es el MENOR entre el techo normativo (arriba) y lo que el mercado puede
+  absorber en un horizonte comercial razonable de 18-36 meses. Si hay datos de MERCADO arriba, suma la
+  absorción mensual de los segmentos relevantes × 24 meses (horizonte típico) como techo de unidades —
+  si el envolvente legal permite más unidades que ese techo de absorción, propón un proyecto MÁS CHICO
+  (documenta en tu razonamiento que el envolvente legal permitiría más, pero el mercado no lo justifica;
+  no hace falta agotar el envolvente legal solo porque la normativa lo permite). Si no hay datos de
+  mercado disponibles, usa el envolvente legal completo como hoy.
 
 Si el terreno tiene pendiente moderada o pronunciada:
   - Reduce superficie construible efectiva 10–20%
@@ -324,6 +340,7 @@ REGLAS:
 - materialesPrincipales: exactamente 6 materiales
 - Si pendiente pronunciada: suma el sobrecosto en el total y documenta en cuartos de servicio / ajustes
 - superficieVendible en raíz = m2 de Zona 1 (área vendible)
+- Si hay datos de MERCADO disponibles: el número total de unidades propuestas (tipologiaPropuesta) no debe exceder significativamente lo que la absorción de mercado sugiere vender en 18-36 meses, aunque el envolvente legal (COS/CUS) permita más — el máximo legal es un TECHO, no una meta a alcanzar siempre
 - Retorna ÚNICAMENTE el JSON, sin markdown, sin texto extra`
 
   try {
