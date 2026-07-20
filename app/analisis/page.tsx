@@ -197,6 +197,7 @@ function AnalisisContent() {
   const chatEndRef = useRef<HTMLDivElement>(null)
   const [showBitacora, setShowBitacora] = useState(false)
   const [showBitacoraConstruccion, setShowBitacoraConstruccion] = useState(false)
+  const [showBitacoraFinanciero, setShowBitacoraFinanciero] = useState(false)
 
   useEffect(() => {
     const raw = localStorage.getItem('smt_analisis_data')
@@ -731,10 +732,77 @@ function AnalisisContent() {
     )
   }
 
+  const BitacoraFinancieroModal = () => {
+    const secciones = [
+      { titulo: 'Indirectos', total: f.indirectos, items: f.indirectosDesglose },
+      { titulo: 'Honorarios de proyecto', total: f.honorarios, items: f.honorariosDesglose },
+      { titulo: 'Imprevistos', total: f.imprevistos, items: f.imprevistosDesglose },
+    ].filter(s => s.items && s.items.length > 0)
+
+    if (secciones.length === 0) return null
+
+    return (
+      <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/40 backdrop-blur-sm" onClick={() => setShowBitacoraFinanciero(false)}>
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-[640px] max-h-[88vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+          <div className="sticky top-0 bg-white border-b border-[#E2E8E4] px-6 py-4 flex items-center justify-between rounded-t-2xl">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-[#F0FBF6] border border-[#9FE1CB] flex items-center justify-center">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                  <rect x="2" y="1" width="9" height="12" rx="1" stroke="#1D9E75" strokeWidth="1.3"/>
+                  <path d="M4 4.5h5M4 7h5M4 9.5h3" stroke="#1D9E75" strokeWidth="1.3" strokeLinecap="round"/>
+                  <path d="M11 9l2 2-2 2" stroke="#1D9E75" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </div>
+              <div>
+                <p className="text-[14px] font-bold text-[#111d17]">Desglose de costos administrativos</p>
+                <p className="text-[11px] text-[#9aab9f]">Indirectos · Honorarios · Imprevistos</p>
+              </div>
+            </div>
+            <button onClick={() => setShowBitacoraFinanciero(false)} className="w-8 h-8 rounded-lg flex items-center justify-center text-[#9aab9f] hover:bg-[#F7F8F6] hover:text-[#111d17] transition-colors">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                <path d="M2 2l10 10M12 2L2 12" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
+              </svg>
+            </button>
+          </div>
+
+          <div className="px-6 py-5 flex flex-col gap-5">
+            {secciones.map(({ titulo, total, items }) => {
+              const maxMonto = Math.max(...items!.map(it => it.monto))
+              return (
+                <div key={titulo}>
+                  <p className="text-[11px] font-bold text-[#5a7065] uppercase tracking-wide mb-3">{titulo}</p>
+                  <div className="bg-[#F7F8F6] border border-[#E2E8E4] rounded-xl overflow-hidden">
+                    {items!.map((it, i) => (
+                      <div key={i} className={`px-4 py-3 ${i > 0 ? 'border-t border-[#E2E8E4]' : ''}`}>
+                        <div className="flex items-center justify-between gap-2 mb-1.5">
+                          <p className="text-[12px] font-semibold text-[#111d17]">{it.concepto}</p>
+                          <span className="text-[12px] font-bold text-[#1D9E75] shrink-0">${it.monto.toLocaleString('es-MX')}</span>
+                        </div>
+                        <div className="relative h-1.5 bg-[#E2E8E4] rounded-full">
+                          <div className="h-full bg-[#1D9E75] rounded-full" style={{ width: `${maxMonto > 0 ? (it.monto / maxMonto) * 100 : 0}%` }} />
+                        </div>
+                      </div>
+                    ))}
+                    <div className="bg-[#111d17] px-4 py-3 flex items-center justify-between">
+                      <span className="text-[11px] font-bold text-white/60">Total {titulo.toLowerCase()}</span>
+                      <span className="text-[14px] font-black text-[#4ade80]">${total.toLocaleString('es-MX')}</span>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+            <p className="text-[10px] text-[#9aab9f] italic">Desglose informativo — cada sección suma aproximadamente el total ya reflejado en la Estimación de Costos. No cambia la inversión total ni la TIR.</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <>
     {showBitacora && <BitacoraModal />}
     {showBitacoraConstruccion && <BitacoraConstruccionModal />}
+    {showBitacoraFinanciero && <BitacoraFinancieroModal />}
     <div className="min-h-screen bg-[#0C0F0E] flex flex-col">
       <header className="px-8 py-5 flex items-center gap-3 border-b border-white/10 bg-[#0C0F0E] sticky top-0 z-10">
         <div className="w-8 h-8 rounded-lg bg-[#1D9E75] flex items-center justify-center">
@@ -994,7 +1062,7 @@ function AnalisisContent() {
                     { label: 'Costo del terreno', value: fmt(f.costoTerreno), sub: `${fmt(f.costoTerrenoM2)}/m²`, highlight: false, bitacora: true },
                     { label: 'Construcción por m²', value: `${fmt(f.construccionM2)}/m²`, sub: 'Costo directo por m² construido', highlight: false, bitacora: false, bitacoraCons: true },
                     { label: 'Costo total construcción', value: fmt(f.costoTotalConstruccion), sub: '', highlight: false, bitacora: false, bitacoraCons: false },
-                    { label: 'Indirectos y permisos', value: fmt(f.indirectos), sub: '8% sobre costo de obra', highlight: false, bitacora: false, bitacoraCons: false },
+                    { label: 'Indirectos y permisos', value: fmt(f.indirectos), sub: '8% sobre costo de obra', highlight: false, bitacora: false, bitacoraCons: false, bitacoraFin: true },
                     { label: 'Honorarios y diseño', value: fmt(f.honorarios), sub: '4.5% sobre costo de obra', highlight: false, bitacora: false, bitacoraCons: false },
                     { label: 'Imprevistos (5%)', value: fmt(f.imprevistos), sub: 'Reserva de contingencia', highlight: false, bitacora: false, bitacoraCons: false },
                     { label: 'Inversión Total', value: fmt(f.inversionTotal), sub: '', highlight: true, bitacora: false, bitacoraCons: false },
@@ -1028,6 +1096,16 @@ function AnalisisContent() {
                                 <path d="M3 3.5h4M3 5.5h4M3 7.5h2" stroke="currentColor" strokeWidth="1" strokeLinecap="round"/>
                               </svg>
                               Bitácora
+                            </button>
+                          )}
+                          {row.bitacoraFin && f.indirectosDesglose && (
+                            <button onClick={() => setShowBitacoraFinanciero(true)} title="Ver desglose de indirectos, honorarios e imprevistos"
+                              className="flex items-center gap-1 text-[10px] font-bold text-[#1D9E75] border border-[#9FE1CB] bg-[#F0FBF6] px-2 py-0.5 rounded-full hover:bg-[#E1F5EE] transition-colors shrink-0 cursor-pointer">
+                              <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                                <rect x="1" y="0.5" width="7" height="9" rx="1" stroke="currentColor" strokeWidth="1"/>
+                                <path d="M3 3.5h4M3 5.5h4M3 7.5h2" stroke="currentColor" strokeWidth="1" strokeLinecap="round"/>
+                              </svg>
+                              Desglose
                             </button>
                           )}
                         </div>

@@ -79,6 +79,7 @@ export interface MaterialClave {
   nota: string
 }
 
+export interface ItemDesglose { concepto: string; monto: number }
 export interface MixUnidad { tipo: string; unidades: number; m2Promedio: number }
 export interface TipologiaPropuesta {
   niveles?: number
@@ -138,6 +139,13 @@ export interface AnalisisData {
     // de mercado (no la plantilla fija de flujoMensual) — opcionales porque análisis previos
     // a este campo no lo traen. Ver lib/mastermind/contexto.ts para cómo se usan en Mastermind.
     plazoObraMeses?: number; plazoVentaMeses?: number; inicioVentasMes?: number
+    // Desglose de indirectos/honorarios/imprevistos por concepto — opcional (análisis previos
+    // a este campo solo traen el total). Cada arreglo debe sumar aproximadamente el total
+    // correspondiente (indirectos/honorarios/imprevistos), que NO cambia — esto es un desglose
+    // informativo del mismo monto, no un recálculo.
+    indirectosDesglose?: ItemDesglose[]
+    honorariosDesglose?: ItemDesglose[]
+    imprevistosDesglose?: ItemDesglose[]
   }
   mercado: {
     demanda: string; zona: string; absorcion: string; proyectosActivos: string

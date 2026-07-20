@@ -64,7 +64,11 @@ MERCADO (Agente Mercado):
 - Segmentación: ${JSON.stringify(data.mercado?.segmentacion?.map((s: any) => s.tipo) || [])}
 
 INSTRUCCIONES FINANCIERAS:
-1. Calcula indirectos (15–18% de costoTotalConstruccion), honorarios de proyecto (8–10%), imprevistos (5%)
+1. Calcula indirectos (15–18% de costoTotalConstruccion), honorarios de proyecto (8–10%), imprevistos (5%). Desglosa cada uno por concepto (el desglose debe sumar aproximadamente el total del rubro, ±5%):
+   - indirectosDesglose: supervisión de obra, permisos y licencias de construcción, estudios técnicos (mecánica de suelos, topografía), seguros de obra, administración de obra (caseta/luz/agua provisional/vigilancia), IMSS/INFONAVIT de nómina de construcción
+   - honorariosDesglose: arquitecto (diseño arquitectónico), ingeniero estructural, ingenierías especiales (hidrosanitaria/eléctrica/aire acondicionado), Director Responsable de Obra (DRO), gerencia de proyecto (si aplica)
+   - imprevistosDesglose: contingencia por incremento de materiales, ajustes de diseño en obra, condiciones de suelo no previstas, costos por retrasos, requerimientos municipales adicionales
+   No inventes rubros que no apliquen a la escala del proyecto (ej. un desarrollo unifamiliar pequeño no necesita gerencia de proyecto como línea separada) — usa 3-6 conceptos por desglose, los que realmente apliquen.
 2. inversionTotal = costoTerreno + costoTotalConstruccion + indirectos + honorarios + imprevistos
 3. Reparte la superficie vendible aprobada (${superficieVendible} m²) en unidades según la tipología — el número de unidades sale de dividir esa superficie entre el m² promedio por unidad típico de la tipología, NO de recalcular el envolvente con COS/CUS (eso ya lo hizo el Agente Construcción).
    REGLA CRÍTICA: Si el tipo de desarrollo incluye "unifamiliar" o "Unifamiliar", el número de unidades es EXACTAMENTE 1 — una sola vivienda. No importa la superficie. NUNCA recomiendes 2 o más casas para un desarrollo unifamiliar.
@@ -97,8 +101,11 @@ OUTPUT — JSON EXACTO (sin texto adicional):
     "construccionM2": ${construccionM2},
     "costoTotalConstruccion": ${costoTotalConstruccion},
     "indirectos": 0,
+    "indirectosDesglose": [{ "concepto": "Supervisión de obra", "monto": 0 }],
     "honorarios": 0,
+    "honorariosDesglose": [{ "concepto": "Arquitecto", "monto": 0 }],
     "imprevistos": 0,
+    "imprevistosDesglose": [{ "concepto": "Incremento de materiales", "monto": 0 }],
     "inversionTotal": 0,
     "precioVentaM2": 0,
     "ingresosProyectados": 0,
@@ -227,6 +234,7 @@ REGLAS:
 - Los "mes" del ejemplo de flujoMensual arriba (1,2,3,4,6,10,14,16,18) son solo ilustrativos de un proyecto típico de ~18 meses — NO los copies tal cual. Recalcúlalos para que "Inicio obra" = inicioVentasMes o después, "Construcción finaliza" = "Inicio obra" + plazoObraMeses, y "Cierre" = plazoVentaMeses, todos consistentes con las duraciones que calculaste en el punto 10
 - financiero.plazoObraMeses, financiero.plazoVentaMeses y financiero.inicioVentasMes son obligatorios y deben ser consistentes entre sí y con flujoMensual (no pueden quedar en 0)
 - financiero.tir NUNCA puede ser positiva si financiero.margenBruto es negativo — son la misma historia contada de dos formas, no pueden contradecirse
+- La suma de indirectosDesglose[*].monto debe aproximar financiero.indirectos (±5%); igual honorariosDesglose con honorarios e imprevistosDesglose con imprevistos — el desglose documenta el total, no lo reemplaza
 - estructuraCapital: montoEquity + montoDeuda = inversionTotal; equity + deuda = 100
 - Retorna ÚNICAMENTE el JSON, sin markdown, sin texto extra`
 
