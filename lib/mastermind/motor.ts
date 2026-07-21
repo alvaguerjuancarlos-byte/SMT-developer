@@ -60,9 +60,16 @@ export function calcularCostos(inputs: MastermindInputs, ingresos: BloqueIngreso
 
   const indirectos = costoDirectoConstruccion * (proyecto.porcentajeIndirectos / 100)
   const comercializacion = ingresos.ingresoNeto * PORCENTAJE_COMERCIALIZACION
+  // La deuda real se dimensiona sobre terreno + construcción + indirectos (el análisis exige
+  // montoEquity + montoDeuda = inversionTotal, no solo % de la construcción) — antes solo se
+  // financiaba costoDirectoConstruccion, subestimando el costo financiero real. Ver también
+  // construirFlujoSocio y calcularRetorno, que deben repartir equity/deuda sobre esta misma
+  // base para quedar consistentes entre sí (si no, el interés implicaría deuda que el flujo de
+  // caja del socio nunca refleja como alivio real).
+  const baseFinanciable = terreno.costoTerreno + costoDirectoConstruccion + indirectos
   const financieros =
     (financiamiento.porcentajeFinanciado / 100) *
-    costoDirectoConstruccion *
+    baseFinanciable *
     (financiamiento.tasaAnualCredito / 100 / 12) *
     tiempo.plazoObraMeses
 
@@ -127,16 +134,19 @@ export function construirFlujoSocio(inputs: MastermindInputs, ingresos: BloqueIn
   const { terreno, tiempo, financiamiento } = inputs
   const N = tiempo.plazoVentaMeses
   const flujo = new Array(N + 1).fill(0)
-  flujo[0] = -terreno.costoTerreno
 
+  // La deuda financia terreno + construcción + indirectos (misma base que calcularCostos
+  // usa para financieros) — el socio solo pone de su bolsillo aportacionSociosPct de cada
+  // uno, no el 100% de terreno/indirectos como antes.
   const aportacionSociosPct = 100 - financiamiento.porcentajeFinanciado
+  flujo[0] = -(aportacionSociosPct / 100) * terreno.costoTerreno
+
   const costoDirectoMensual = costos.costoDirectoConstruccion / tiempo.plazoObraMeses
   const financierosMensual = costos.financieros / tiempo.plazoObraMeses
-
   const indirectosMensual = costos.indirectos / tiempo.plazoObraMeses
 
   for (let m = 1; m <= Math.min(tiempo.plazoObraMeses, N); m++) {
-    flujo[m] += -(aportacionSociosPct / 100) * costoDirectoMensual - indirectosMensual - financierosMensual
+    flujo[m] += -(aportacionSociosPct / 100) * costoDirectoMensual - (aportacionSociosPct / 100) * indirectosMensual - financierosMensual
   }
 
   const flujoIngresos = construirFlujoIngresos(inputs, ingresos, costos)
@@ -189,8 +199,12 @@ export function calcularRetorno(
 ): BloqueRetorno {
   const { financiamiento, tiempo } = inputs
 
+  // Misma base financiable que calcularCostos/construirFlujoSocio (terreno + construcción +
+  // indirectos) — antes solo costoDirectoConstruccion se beneficiaba del apalancamiento aquí,
+  // inconsistente con financieros ya cobrando intereses sobre una base más amplia.
   const aportacionSociosPct = 100 - financiamiento.porcentajeFinanciado
-  const inversionSocios = costos.costoTerreno + (aportacionSociosPct / 100) * costos.costoDirectoConstruccion + costos.indirectos
+  const baseFinanciable = costos.costoTerreno + costos.costoDirectoConstruccion + costos.indirectos
+  const inversionSocios = (aportacionSociosPct / 100) * baseFinanciable
   const inversionProyecto = costos.costoTerreno + costos.costoDirectoConstruccion + costos.indirectos
 
   const roiSimple = inversionSocios > 0 ? (utilidad.utilidadAntesImpuestos / inversionSocios) * 100 : 0

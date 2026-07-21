@@ -127,6 +127,25 @@ describe('Apalancamiento: % financiado mueve la TIR Socio pero no la TIR Proyect
   })
 })
 
+describe('Base financiable: la deuda cubre terreno + construcción + indirectos, no solo construcción', () => {
+  // El análisis exige montoEquity + montoDeuda = inversionTotal — la deuda real se dimensiona
+  // sobre todo lo anterior a financieros, no solo el costo directo de construcción. Este test
+  // fija el valor exacto para detectar si alguien vuelve a angostar la base sin querer.
+  it('financieros e inversionSocios usan costoTerreno + costoDirectoConstruccion + indirectos como base', () => {
+    const apalancado = calcularMastermind({
+      ...inputs,
+      financiamiento: { porcentajeFinanciado: 50, tasaAnualCredito: 14 },
+    })
+    // baseFinanciable = 4,000,000 (terreno) + 22,950,000 (directo) + 3,442,500 (indirectos 15%) = 30,392,500
+    const baseFinanciable = 4_000_000 + 22_950_000 + 3_442_500
+    const financierosEsperado = 0.5 * baseFinanciable * (0.14 / 12) * 18
+    expect(apalancado.costos.financieros).toBeCloseTo(financierosEsperado, 2)
+    // inversionSocios = 50% de la misma base (antes solo el terreno + indirectos quedaban
+    // 100% a cargo del socio, y solo costoDirectoConstruccion se apalancaba)
+    expect(apalancado.retorno.inversionSocios).toBeCloseTo(0.5 * baseFinanciable, 2)
+  })
+})
+
 describe('Modalidad renta: no debe duplicar el valor capitalizado de locales', () => {
   it('ingresos totales del flujo = habitacional neto - comercialización + remanente comercial (una sola vez)', () => {
     const rentaInputs: MastermindInputs = {
