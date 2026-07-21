@@ -146,6 +146,10 @@ export interface AnalisisData {
     indirectosDesglose?: ItemDesglose[]
     honorariosDesglose?: ItemDesglose[]
     imprevistosDesglose?: ItemDesglose[]
+    // true cuando ingresosProyectados/utilidadBruta/margenBruto se recalcularon en código
+    // (ver app/api/agentes/financiero/route.ts) y el signo de margenBruto cambió respecto al
+    // que el modelo asumió al calcular tir — en ese caso tir quedó basada en números viejos.
+    tirPuedeEstarDesactualizada?: boolean
   }
   mercado: {
     demanda: string; zona: string; absorcion: string; proyectosActivos: string

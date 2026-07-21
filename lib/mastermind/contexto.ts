@@ -93,7 +93,12 @@ export function extractProyectoContext(d: AnalisisData | null | undefined): Part
   const mix = tip.habitacional?.mix ?? []
   const totalUnidades = mix.reduce((s, r) => s + (r.unidades || 0), 0)
   if (tip.habitacional && totalUnidades > 0) {
-    out.unidadesHabitacionales = tip.habitacional.totalDepartamentos ?? totalUnidades
+    // unidadesHabitacionales SIEMPRE sale de totalUnidades (suma del mix), no de
+    // totalDepartamentos — son dos campos separados que la IA no valida entre sí, y si
+    // no coinciden, unidadesHabitacionales × m2PromedioDepa deja de representar el área
+    // real del mix (unidadesHabitacionales sería de una fuente, m2PromedioDepa de otra).
+    // Usar totalUnidades para ambos garantiza que el producto sea exacto al mix real.
+    out.unidadesHabitacionales = totalUnidades
     const m2Ponderado = mix.reduce((s, r) => s + (r.unidades || 0) * (r.m2Promedio || 0), 0) / totalUnidades
     out.m2PromedioDepa = Math.round(m2Ponderado)
   }

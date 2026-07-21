@@ -281,6 +281,20 @@ function AjustarSupuestosTerreno({
 // tipologías reales en vez de aplicarlo por igual a todo `segmentacion`.
 // Solo existe en modo "agente_propone" — en "usuario_define" (lib/estimador)
 // no hay desglose por tipología, así que regresa cadena vacía.
+// superficieVendible (raíz de la respuesta de Construcción) es un campo "resumen" que la IA
+// reporta por separado de su propio tipologiaPropuesta.habitacional.mix — igual que pasaba con
+// totalDepartamentos, nada garantiza que ambos coincidan (visto en producción: superficieVendible
+// implicaba ~2.6x más área vendible de la que el propio mix sumaba, inflando ingresosProyectados
+// en el Financiero). Cuando el proyecto es puramente habitacional (sin comercial, que no trae m²
+// por local en tipologiaPropuesta y no se puede derivar), preferimos el área real del mix.
+function superficieVendibleDelMix(tip: any): number | undefined {
+  if (tip?.comercial) return undefined // no derivable sin m² por local — se confía en c.superficieVendible
+  const mix = tip?.habitacional?.mix
+  if (!Array.isArray(mix) || mix.length === 0) return undefined
+  const area = mix.reduce((s: number, r: any) => s + (r.unidades || 0) * (r.m2Promedio || 0), 0)
+  return area > 0 ? area : undefined
+}
+
 function resumenMixUnidades(tip: any): string {
   if (!tip) return ''
   const partes: string[] = []
@@ -1182,12 +1196,15 @@ function PipelineContent() {
     const costoTotalConstruccion = pipe.construccion.overrideM2 !== ''
       ? m2c * (c.superficieConstruida || Number(formData.superficie) * 1.2)
       : (c.costoTotalConstruccion || m2c * (c.superficieConstruida || Number(formData.superficie) * 1.2))
+    // Preferimos el área vendible derivada del mix real de Construcción sobre el campo
+    // "resumen" superficieVendible que la IA reporta por separado — ver superficieVendibleDelMix.
+    const superficieVendibleReal = superficieVendibleDelMix(c.bitacoraConstruccion?.tipologiaPropuesta) ?? c.superficieVendible
     const payload = {
       ...formData,
       costoTerrenoM2: m2t, costoTerreno,
       construccionM2: m2c, costoTotalConstruccion,
       superficieConstruida: c.superficieConstruida,
-      superficieVendible: c.superficieVendible,
+      superficieVendible: superficieVendibleReal,
       fichaLegal: pipe.legal.data?.fichaLegal,
       mercado: pipe.mercado.data?.mercado,
     }

@@ -248,6 +248,42 @@ REGLAS:
     const match = text.match(/\{[\s\S]*\}/)
     if (!match) throw new Error('No JSON in response')
     const parsed = JSON.parse(match[0])
+
+    // ingresosProyectados/inversionTotal/utilidadBruta/margenBruto son multiplicaciones y
+    // sumas simples (ver instrucciones 2-6 arriba) que el modelo debería calcular bien, pero
+    // en la práctica hemos visto ingresosProyectados salir hasta 2.5x más alto de lo que
+    // superficieVendible × precioVentaM2 da — el modelo no siempre sigue el ancla al pie de
+    // la letra pese a la instrucción. Estos 4 valores dependen solo de números que ya
+    // conocemos con certeza (superficieVendible, y lo que el modelo eligió para precioVentaM2/
+    // indirectos/honorarios/imprevistos), así que se recalculan aquí en código en vez de
+    // confiar en la aritmética del modelo — no requiere que el modelo "razone" nada, solo que
+    // haya elegido bien el precio y los porcentajes, que sí es su trabajo.
+    if (parsed.financiero) {
+      const precioVentaM2Real = Number(parsed.financiero.precioVentaM2) || 0
+      const indirectosReal = Number(parsed.financiero.indirectos) || 0
+      const honorariosReal = Number(parsed.financiero.honorarios) || 0
+      const imprevistosReal = Number(parsed.financiero.imprevistos) || 0
+
+      const ingresosProyectadosReal = Math.round(superficieVendible * precioVentaM2Real)
+      const inversionTotalReal = Math.round(costoTerreno + costoTotalConstruccion + indirectosReal + honorariosReal + imprevistosReal)
+      const utilidadBrutaReal = ingresosProyectadosReal - inversionTotalReal
+      const margenBrutoReal = inversionTotalReal > 0 ? Math.round((utilidadBrutaReal / inversionTotalReal) * 1000) / 10 : 0
+
+      parsed.financiero.ingresosProyectados = ingresosProyectadosReal
+      parsed.financiero.inversionTotal = inversionTotalReal
+      parsed.financiero.utilidadBruta = utilidadBrutaReal
+      parsed.financiero.margenBruto = margenBrutoReal
+
+      // financiero.tir sigue siendo la que "razonó" el modelo, basada en SUS propios números
+      // originales (antes de esta corrección) — si el signo de margenBruto cambió al
+      // recalcular, esa tir ya no tiene sustento y queda desactualizada. No se puede
+      // recalcular en código sin reconstruir el flujo de caja completo (evaluado y
+      // descartado en esta misma sesión por producir raíces espurias al mezclar movimientos
+      // de crédito) — se marca tirPuedeEstarDesactualizada para que el frontend lo muestre.
+      const signoOriginal = (Number(parsed.financiero.tir) || 0) >= 0
+      parsed.financiero.tirPuedeEstarDesactualizada = signoOriginal !== (margenBrutoReal >= 0)
+    }
+
     return NextResponse.json(parsed)
   } catch (error) {
     console.error('Agente Financiero error:', error)

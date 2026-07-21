@@ -131,3 +131,34 @@ describe('extractTiempoContext', () => {
     expect(extractTiempoContext(d)).toEqual({ plazoObraMeses: 16 })
   })
 })
+
+describe('extractProyectoContext — unidadesHabitacionales siempre sale de la suma del mix, no de totalDepartamentos', () => {
+  // Caso real encontrado en producción: Construcción reportó totalDepartamentos=96 pero su
+  // propio mix solo sumaba unidades para un área mucho menor a la que el resto del análisis
+  // (ingresosProyectados) asumía — totalDepartamentos y el mix son dos campos que la IA no
+  // valida entre sí. Si Mastermind usa totalDepartamentos para las unidades pero pondera
+  // m2PromedioDepa con la suma del mix, el producto final (m2 vendibles) no representa
+  // ninguno de los dos números reales — queda descalibrado sin razón.
+  it('usa la suma del mix aunque totalDepartamentos diga otra cosa, para que unidades × m2Promedio sea exacto al mix', () => {
+    const out = extractProyectoContext(fixture({
+      tipologiaPropuesta: {
+        niveles: 6,
+        habitacional: {
+          totalDepartamentos: 96, // inconsistente con el mix a propósito
+          mix: [
+            { tipo: '1 recámara', unidades: 40, m2Promedio: 45 },
+            { tipo: '2 recámaras', unidades: 20, m2Promedio: 75 },
+          ],
+        },
+      },
+    } as AnalisisData['bitacoraConstruccion']))
+
+    // totalUnidades real del mix = 60, no 96
+    expect(out.unidadesHabitacionales).toBe(60)
+    // m2Ponderado = (40×45 + 20×75) / 60 = (1800+1500)/60 = 55
+    expect(out.m2PromedioDepa).toBe(55)
+    // unidades × m2Promedio = 60 × 55 = 3,300 — coincide exacto con la suma real del mix
+    // (40×45 + 20×75 = 3,300), no con 96 × 55 = 5,280 que hubiera dado el bug viejo.
+    expect((out.unidadesHabitacionales ?? 0) * (out.m2PromedioDepa ?? 0)).toBe(3_300)
+  })
+})
