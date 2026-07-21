@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { NextRequest, NextResponse } from 'next/server'
+import { DESCUENTOS_CANCELACIONES, PORCENTAJE_COMERCIALIZACION } from '@/lib/mastermind/catalogo'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -69,7 +70,7 @@ INSTRUCCIONES FINANCIERAS:
    - honorariosDesglose: arquitecto (diseño arquitectónico), ingeniero estructural, ingenierías especiales (hidrosanitaria/eléctrica/aire acondicionado), Director Responsable de Obra (DRO), gerencia de proyecto (si aplica)
    - imprevistosDesglose: contingencia por incremento de materiales, ajustes de diseño en obra, condiciones de suelo no previstas, costos por retrasos, requerimientos municipales adicionales
    No inventes rubros que no apliquen a la escala del proyecto (ej. un desarrollo unifamiliar pequeño no necesita gerencia de proyecto como línea separada) — usa 3-6 conceptos por desglose, los que realmente apliquen.
-2. inversionTotal = costoTerreno + costoTotalConstruccion + indirectos + honorarios + imprevistos
+2. inversionTotal = costoTerreno + costoTotalConstruccion + indirectos + honorarios + imprevistos + comercialización. El proyecto también paga descuentos y cancelaciones (5% del ingreso bruto) y comercialización/comisión de venta (3% del ingreso neto tras descuentos) — estos dos y el resto de la aritmética financiera (ingresosProyectados, inversionTotal, utilidadBruta, margenBruto) se recalculan automáticamente en código después de tu respuesta, así que NO necesitas calcularlos tú con precisión — concéntrate en elegir bien precioVentaM2 y los porcentajes de indirectos/honorarios/imprevistos; usa cifras aproximadas razonables para estos campos en tu respuesta y para que tu narrativa (descripción, stress test, punto de quiebre) sea coherente con que estos costos existen.
 3. Reparte la superficie vendible aprobada (${superficieVendible} m²) en unidades según la tipología — el número de unidades sale de dividir esa superficie entre el m² promedio por unidad típico de la tipología, NO de recalcular el envolvente con COS/CUS (eso ya lo hizo el Agente Construcción).
    REGLA CRÍTICA: Si el tipo de desarrollo incluye "unifamiliar" o "Unifamiliar", el número de unidades es EXACTAMENTE 1 — una sola vivienda. No importa la superficie. NUNCA recomiendes 2 o más casas para un desarrollo unifamiliar.
 4. ingresosProyectados = unidades × precio promedio ponderado de las fases de venta
@@ -109,6 +110,9 @@ OUTPUT — JSON EXACTO (sin texto adicional):
     "inversionTotal": 0,
     "precioVentaM2": 0,
     "ingresosProyectados": 0,
+    "descuentos": 0,
+    "ingresosNetos": 0,
+    "comercializacion": 0,
     "utilidadBruta": 0,
     "margenBruto": 0,
     "tir": 0,
@@ -264,12 +268,22 @@ REGLAS:
       const honorariosReal = Number(parsed.financiero.honorarios) || 0
       const imprevistosReal = Number(parsed.financiero.imprevistos) || 0
 
+      // ingresosProyectados se queda como el ingreso BRUTO (mismo significado de siempre).
+      // descuentos/comercializacion son costos reales que Mastermind ya cobraba desde el
+      // principio pero el análisis nunca modeló — mismas constantes, para que ambos lados
+      // dejen de divergir por esto. No son estimación del modelo, son aritmética fija.
       const ingresosProyectadosReal = Math.round(superficieVendible * precioVentaM2Real)
-      const inversionTotalReal = Math.round(costoTerreno + costoTotalConstruccion + indirectosReal + honorariosReal + imprevistosReal)
-      const utilidadBrutaReal = ingresosProyectadosReal - inversionTotalReal
+      const descuentosReal = Math.round(ingresosProyectadosReal * DESCUENTOS_CANCELACIONES)
+      const ingresosNetosReal = ingresosProyectadosReal - descuentosReal
+      const comercializacionReal = Math.round(ingresosNetosReal * PORCENTAJE_COMERCIALIZACION)
+      const inversionTotalReal = Math.round(costoTerreno + costoTotalConstruccion + indirectosReal + honorariosReal + imprevistosReal + comercializacionReal)
+      const utilidadBrutaReal = ingresosNetosReal - inversionTotalReal
       const margenBrutoReal = inversionTotalReal > 0 ? Math.round((utilidadBrutaReal / inversionTotalReal) * 1000) / 10 : 0
 
       parsed.financiero.ingresosProyectados = ingresosProyectadosReal
+      parsed.financiero.descuentos = descuentosReal
+      parsed.financiero.ingresosNetos = ingresosNetosReal
+      parsed.financiero.comercializacion = comercializacionReal
       parsed.financiero.inversionTotal = inversionTotalReal
       parsed.financiero.utilidadBruta = utilidadBrutaReal
       parsed.financiero.margenBruto = margenBrutoReal

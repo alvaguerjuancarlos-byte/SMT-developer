@@ -150,6 +150,14 @@ export interface AnalisisData {
     // (ver app/api/agentes/financiero/route.ts) y el signo de margenBruto cambió respecto al
     // que el modelo asumió al calcular tir — en ese caso tir quedó basada en números viejos.
     tirPuedeEstarDesactualizada?: boolean
+    // Costos reales que antes no se modelaban aquí (Mastermind sí los cobraba desde el
+    // principio) — se calculan en código con las mismas constantes de lib/mastermind/catalogo.ts
+    // (DESCUENTOS_CANCELACIONES, PORCENTAJE_COMERCIALIZACION), no los estima el modelo.
+    // ingresosProyectados sigue siendo el ingreso BRUTO (sin cambiar su significado anterior);
+    // ingresosNetos = ingresosProyectados − descuentos, y es lo que ya usa utilidadBruta/margenBruto.
+    descuentos?: number
+    comercializacion?: number
+    ingresosNetos?: number
   }
   mercado: {
     demanda: string; zona: string; absorcion: string; proyectosActivos: string

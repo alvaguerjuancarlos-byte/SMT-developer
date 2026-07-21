@@ -1065,9 +1065,12 @@ function AnalisisContent() {
                     { label: 'Indirectos y permisos', value: fmt(f.indirectos), sub: '8% sobre costo de obra', highlight: false, bitacora: false, bitacoraCons: false, bitacoraFin: true },
                     { label: 'Honorarios y diseño', value: fmt(f.honorarios), sub: '4.5% sobre costo de obra', highlight: false, bitacora: false, bitacoraCons: false },
                     { label: 'Imprevistos (5%)', value: fmt(f.imprevistos), sub: 'Reserva de contingencia', highlight: false, bitacora: false, bitacoraCons: false },
+                    ...(f.comercializacion !== undefined ? [{ label: 'Comercialización (3%)', value: fmt(f.comercializacion), sub: 'Comisión de venta sobre ingreso neto', highlight: false, bitacora: false, bitacoraCons: false }] : []),
                     { label: 'Inversión Total', value: fmt(f.inversionTotal), sub: '', highlight: true, bitacora: false, bitacoraCons: false },
                     { label: 'Precio venta estimado / m²', value: `${fmt(f.precioVentaM2)}/m²`, sub: `Mercado ${d.mercado.zona} · NSE ${d.mercado.perfilNSE.split('·')[0].trim()}`, highlight: false, bitacora: false, bitacoraCons: false },
-                    { label: 'Ingresos proyectados', value: fmt(f.ingresosProyectados), sub: '100% absorción', highlight: false, bitacora: false, bitacoraCons: false },
+                    { label: 'Ingresos proyectados (bruto)', value: fmt(f.ingresosProyectados), sub: '100% absorción', highlight: false, bitacora: false, bitacoraCons: false },
+                    ...(f.descuentos !== undefined ? [{ label: 'Descuentos y cancelaciones (5%)', value: `-${fmt(f.descuentos)}`, sub: 'Sobre ingreso bruto', highlight: false, bitacora: false, bitacoraCons: false }] : []),
+                    ...(f.ingresosNetos !== undefined ? [{ label: 'Ingresos netos', value: fmt(f.ingresosNetos), sub: '', highlight: false, bitacora: false, bitacoraCons: false }] : []),
                     { label: 'Utilidad bruta', value: fmt(f.utilidadBruta), sub: '', highlight: false, bitacora: false, bitacoraCons: false },
                     { label: 'Margen bruto', value: `${f.margenBruto}%`, sub: 'sobre inversión total', highlight: true, bitacora: false, bitacoraCons: false },
                   ].map((row, i) => (
