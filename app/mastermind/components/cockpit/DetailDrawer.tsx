@@ -131,7 +131,12 @@ export default function DetailDrawer({ leverId, origenAnalisis }: {
             <Slider label="% financiado" value={inputs.financiamiento.porcentajeFinanciado} min={0} max={90} step={5} unit="%" onChange={v => setFinanciamiento({ porcentajeFinanciado: v })} />
             <Slider label="Tasa anual crédito" value={inputs.financiamiento.tasaAnualCredito} min={5} max={25} step={0.5} unit="%" onChange={v => setFinanciamiento({ tasaAnualCredito: v })} />
             <Slider label="Plazo obra" value={inputs.tiempo.plazoObraMeses} min={6} max={60} unit=" meses" onChange={v => setTiempo({ plazoObraMeses: v })} />
-            <ReadOnlyRow label="Costo financiero" value={fmt(outputs.costos.financieros)} />
+            <ReadOnlyRow label="Aportación socios (equity)" value={fmt(outputs.retorno.inversionSocios)} />
+            <ReadOnlyRow label="Monto financiado (banco)" value={fmt(outputs.retorno.inversionProyecto - outputs.retorno.inversionSocios)} />
+            <ReadOnlyRow label="Costo financiero (interés)" value={fmt(outputs.costos.financieros)} />
+            <p className="col-span-2 text-[10px] text-white/25 -mt-1">
+              El banco cobra su parte (principal) con el producto de las ventas, además del interés — la TIR Socio ya lo descuenta.
+            </p>
           </>
         )}
 

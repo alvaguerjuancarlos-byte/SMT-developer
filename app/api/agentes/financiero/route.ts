@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { NextRequest, NextResponse } from 'next/server'
 import { DESCUENTOS_CANCELACIONES, PORCENTAJE_COMERCIALIZACION } from '@/lib/mastermind/catalogo'
+import { calcularFlujoFinanciero } from '@/lib/analisis/flujoFinanciero'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -76,8 +77,8 @@ INSTRUCCIONES FINANCIERAS:
 4. ingresosProyectados = unidades × precio promedio ponderado de las fases de venta
 5. utilidadBruta = ingresosProyectados − inversionTotal
 6. margenBruto = (utilidadBruta / inversionTotal) × 100
-7. TIR: calcula la tasa interna de retorno basándote en el flujo de caja proyectado (meses de inversión vs. recuperación). GUARDARRAÍL: la TIR debe ser coherente con margenBruto — si utilidadBruta/margenBruto son negativos, la TIR NO puede ser positiva ni superar el benchmark sectorial (18%); repórtala negativa o, si el flujo no lo permite calcular con sentido, usa 0 y acláralo en la descripción de estructuraCapital
-8. Estructura de capital: propón equity/deuda óptimo según presupuesto del inversionista y perfil del proyecto
+7. financiero.tir y financiero.tirProyecto se calculan automáticamente en código a partir de un flujo de caja mensual determinista (no los calcules tú) — deja cualquier valor razonable en el JSON, será sobrescrito. Lo que SÍ debes cuidar es que las narrativas (stress test, punto de quiebre, interpretaciones del score) sean coherentes con que el margenBruto ya calculado (ver punto 2) es la fuente de verdad de si el proyecto es viable o no.
+8. Estructura de capital: propón equity/deuda óptimo según presupuesto del inversionista y perfil del proyecto. tasaDeudaAnual es el número limpio (ej. 14.5) que corresponde a tasaDeuda — se usa para calcular financiero.tir/tirProyecto en código, así que debe ser un valor numérico realista de mercado (TIIE + spread), no un string.
 9. Preventa mínima: 30% de unidades para apertura de crédito puente
 10. Duraciones del proyecto — calcúlalas, NO uses siempre 18 meses fijos:
     - plazoObraMeses: según superficieConstruida (${superficieConstruida} m²) — <1,500 m²: 8-12 meses · 1,500-4,000 m²: 12-18 meses · 4,000-8,000 m²: 18-24 meses · >8,000 m²: 24-36 meses
@@ -116,6 +117,7 @@ OUTPUT — JSON EXACTO (sin texto adicional):
     "utilidadBruta": 0,
     "margenBruto": 0,
     "tir": 0,
+    "tirProyecto": 0,
     "plazoObraMeses": 0,
     "plazoVentaMeses": 0,
     "inicioVentasMes": 0
@@ -127,6 +129,7 @@ OUTPUT — JSON EXACTO (sin texto adicional):
     "montoDeuda": 0,
     "tipoDeuda": "Crédito puente bancario",
     "tasaDeuda": "TIIE + 3.5% anual (aprox. 14.5%)",
+    "tasaDeudaAnual": 14.5,
     "costoFinanciero": 0,
     "preventa": {
       "unidadesMinimas": 0,
@@ -237,9 +240,8 @@ REGLAS:
 - flujoMensual: exactamente 9 hitos, todos los montos ajustados a los números reales del proyecto
 - Los "mes" del ejemplo de flujoMensual arriba (1,2,3,4,6,10,14,16,18) son solo ilustrativos de un proyecto típico de ~18 meses — NO los copies tal cual. Recalcúlalos para que "Inicio obra" = inicioVentasMes o después, "Construcción finaliza" = "Inicio obra" + plazoObraMeses, y "Cierre" = plazoVentaMeses, todos consistentes con las duraciones que calculaste en el punto 10
 - financiero.plazoObraMeses, financiero.plazoVentaMeses y financiero.inicioVentasMes son obligatorios y deben ser consistentes entre sí y con flujoMensual (no pueden quedar en 0)
-- financiero.tir NUNCA puede ser positiva si financiero.margenBruto es negativo — son la misma historia contada de dos formas, no pueden contradecirse
 - La suma de indirectosDesglose[*].monto debe aproximar financiero.indirectos (±5%); igual honorariosDesglose con honorarios e imprevistosDesglose con imprevistos — el desglose documenta el total, no lo reemplaza
-- estructuraCapital: montoEquity + montoDeuda = inversionTotal; equity + deuda = 100
+- estructuraCapital: equity + deuda = 100; tasaDeudaAnual es un número (ej. 14.5), nunca un string — montoEquity/montoDeuda se recalculan en código, no hace falta que cuadren exactamente con inversionTotal en tu respuesta
 - Retorna ÚNICAMENTE el JSON, sin markdown, sin texto extra`
 
   try {
@@ -288,14 +290,55 @@ REGLAS:
       parsed.financiero.utilidadBruta = utilidadBrutaReal
       parsed.financiero.margenBruto = margenBrutoReal
 
-      // financiero.tir sigue siendo la que "razonó" el modelo, basada en SUS propios números
-      // originales (antes de esta corrección) — si el signo de margenBruto cambió al
-      // recalcular, esa tir ya no tiene sustento y queda desactualizada. No se puede
-      // recalcular en código sin reconstruir el flujo de caja completo (evaluado y
-      // descartado en esta misma sesión por producir raíces espurias al mezclar movimientos
-      // de crédito) — se marca tirPuedeEstarDesactualizada para que el frontend lo muestre.
-      const signoOriginal = (Number(parsed.financiero.tir) || 0) >= 0
-      parsed.financiero.tirPuedeEstarDesactualizada = signoOriginal !== (margenBrutoReal >= 0)
+      // TIR Proyecto (sin apalancar) y TIR Socio (con la deuda propuesta en estructuraCapital)
+      // se calculan aquí en código, con un flujo de caja mensual determinista — ver
+      // lib/analisis/flujoFinanciero.ts. Reemplaza el intento anterior de que el modelo
+      // "razonara" un solo número de TIR (evaluado y descartado en esta misma sesión: usar
+      // flujoMensual del propio modelo produce raíces espurias porque mezcla movimientos
+      // brutos de crédito con el flujo real). El análisis es ahora el origen de la verdad
+      // para ambas TIR — Mastermind las recalcula por separado para simular escenarios, pero
+      // ya no debería partir de una cifra adivinada por el LLM.
+      const plazoObraMeses = Number(parsed.financiero.plazoObraMeses) || 0
+      const inicioVentasMes = Number(parsed.financiero.inicioVentasMes) || 0
+      // El prompt (punto 10) ya le pide al modelo plazoVentaMeses ≥ plazoObraMeses + 2 ("no se
+      // puede terminar de vender antes de terminar de construir") pero en la práctica no
+      // siempre lo respeta — visto en producción con 26 vs 30. Si el flujo de ventas termina
+      // antes que la obra, el flujo de caja nunca tiene un mes positivo (siempre está pagando
+      // construcción) y la TIR sale "no calculable" aunque el proyecto no sea tan malo. Se
+      // aplica el mismo mínimo aquí en código, no se confía en que el modelo lo haya cumplido.
+      const plazoVentaMeses = Math.max(Number(parsed.financiero.plazoVentaMeses) || 0, plazoObraMeses + 2)
+      parsed.financiero.plazoVentaMeses = plazoVentaMeses
+      const porcentajeEquity = Number(parsed.estructuraCapital?.equity) || 0
+      const tasaAnualCredito = Number(parsed.estructuraCapital?.tasaDeudaAnual) || 14.5
+
+      const flujo = calcularFlujoFinanciero({
+        costoTerreno,
+        costoTotalConstruccion,
+        indirectos: indirectosReal,
+        honorarios: honorariosReal,
+        imprevistos: imprevistosReal,
+        ingresosNetos: ingresosNetosReal,
+        comercializacion: comercializacionReal,
+        plazoObraMeses,
+        plazoVentaMeses,
+        inicioVentasMes,
+        porcentajeEquity,
+        tasaAnualCredito,
+      })
+
+      // calcularTIR devuelve el % con muchos decimales (ej. -96.10642816572748) — se redondea
+      // a 1 decimal, mismo criterio que ya usa margenBruto, para que no se desborde en la UI.
+      const redondear1 = (n: number | null) => n === null ? null : Math.round(n * 10) / 10
+      parsed.financiero.tir = redondear1(flujo.tirSocioAnual)
+      parsed.financiero.tirConverge = flujo.tirSocioConverge
+      parsed.financiero.tirProyecto = redondear1(flujo.tirProyectoAnual)
+      parsed.financiero.tirProyectoConverge = flujo.tirProyectoConverge
+
+      if (parsed.estructuraCapital) {
+        parsed.estructuraCapital.montoEquity = Math.round(flujo.montoEquity)
+        parsed.estructuraCapital.montoDeuda = Math.round(flujo.montoDeuda)
+        parsed.estructuraCapital.costoFinanciero = Math.round(flujo.costoFinanciero)
+      }
     }
 
     return NextResponse.json(parsed)

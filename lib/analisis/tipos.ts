@@ -23,6 +23,11 @@ export interface AlertaLegal { tipo: string; descripcion: string; impacto: strin
 export interface EstructuraCapital {
   equity: number; deuda: number; montoEquity: number; montoDeuda: number
   tipoDeuda: string; tasaDeuda: string; costoFinanciero: number
+  // tasaDeudaAnual: versión numérica de tasaDeuda (que es texto libre, ej. "TIIE + 3.5%
+  // anual (aprox. 14.5%)") — necesaria para calcular financiero.tir/tirProyecto en código
+  // (ver lib/analisis/flujoFinanciero.ts). Opcional por compatibilidad con análisis
+  // guardados antes de este campo.
+  tasaDeudaAnual?: number
   preventa: { unidadesMinimas: number; porcentajeMinimo: string; montoMinimo: number; condicion: string }
   tasaDescuento: string; isrEstimado: number; utilidadNeta: number; descripcion: string
 }
@@ -134,7 +139,20 @@ export interface AnalisisData {
     costoTerreno: number; costoTerrenoM2: number; construccionM2: number
     costoTotalConstruccion: number; indirectos: number; honorarios: number
     imprevistos: number; inversionTotal: number; precioVentaM2: number
-    ingresosProyectados: number; utilidadBruta: number; margenBruto: number; tir: number
+    ingresosProyectados: number; utilidadBruta: number; margenBruto: number
+    // tir = TIR Socio (apalancada, la que le toca a quien pone el equity) — antes la
+    // "razonaba" el modelo como un solo número que podía contradecir margenBruto; ahora se
+    // calcula en código a partir de un flujo de caja mensual determinista (ver
+    // lib/analisis/flujoFinanciero.ts), igual que ya hacía Mastermind. Puede ser null si el
+    // flujo no tiene una raíz calculable (caso raro, ver tirConverge).
+    tir: number | null
+    tirConverge?: boolean
+    // tirProyecto = TIR sin apalancar (como si todo el proyecto se pagara de contado) —
+    // separa "qué tan bueno es el negocio" de "qué tan bien le va a quien puso el equity
+    // con esta estructura de deuda". Opcional por compatibilidad con análisis guardados
+    // antes de este campo.
+    tirProyecto?: number | null
+    tirProyectoConverge?: boolean
     // Duraciones calculadas por el Agente Financiero según escala del proyecto y absorción
     // de mercado (no la plantilla fija de flujoMensual) — opcionales porque análisis previos
     // a este campo no lo traen. Ver lib/mastermind/contexto.ts para cómo se usan en Mastermind.
@@ -146,9 +164,9 @@ export interface AnalisisData {
     indirectosDesglose?: ItemDesglose[]
     honorariosDesglose?: ItemDesglose[]
     imprevistosDesglose?: ItemDesglose[]
-    // true cuando ingresosProyectados/utilidadBruta/margenBruto se recalcularon en código
-    // (ver app/api/agentes/financiero/route.ts) y el signo de margenBruto cambió respecto al
-    // que el modelo asumió al calcular tir — en ese caso tir quedó basada en números viejos.
+    // Legado — de cuando tir venía del modelo y podía quedar desactualizada respecto al
+    // margenBruto recalculado en código. Ya no se genera para análisis nuevos (tir ahora es
+    // determinista, ver arriba), se deja opcional solo para no romper análisis guardados viejos.
     tirPuedeEstarDesactualizada?: boolean
     // Costos reales que antes no se modelaban aquí (Mastermind sí los cobraba desde el
     // principio) — se calculan en código con las mismas constantes de lib/mastermind/catalogo.ts

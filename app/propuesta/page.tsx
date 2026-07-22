@@ -28,7 +28,7 @@ interface AnalisisData {
     costoTerreno: number; costoTerrenoM2: number; construccionM2: number
     costoTotalConstruccion: number; indirectos: number; honorarios: number
     imprevistos: number; inversionTotal: number; precioVentaM2: number
-    ingresosProyectados: number; utilidadBruta: number; margenBruto: number; tir: number
+    ingresosProyectados: number; utilidadBruta: number; margenBruto: number; tir: number | null
   }
   mercado: {
     demanda: string; zona: string; absorcion: string; proyectosActivos: string
@@ -289,7 +289,7 @@ function PropuestaContent() {
             </div>
             <div className="grid grid-cols-4 divide-x divide-white/10">
               {[
-                { label: 'TIR Proyectada',    num: `${f.tir}`,                                       sym: '%'   },
+                { label: 'TIR Socio',         num: f.tir === null ? 'N/D' : `${f.tir.toFixed(1)}`,   sym: f.tir === null ? '' : '%' },
                 { label: 'Inversión Total',   num: `$${(f.inversionTotal  / 1_000_000).toFixed(1)}`, sym: ' M'  },
                 { label: 'Utilidad Bruta',    num: `$${(f.utilidadBruta   / 1_000_000).toFixed(1)}`, sym: ' M'  },
                 { label: 'Score Resiliencia', num: `${d.score.total}`,                               sym: '/100' },
@@ -310,7 +310,7 @@ function PropuestaContent() {
             <Card className="p-6">
               <div className="grid grid-cols-4 gap-4 mb-6">
                 {[
-                  { label: 'TIR Anual',           num: `${f.tir}`,   sym: '%',   sub: 'caso base',    dark: true  },
+                  { label: 'TIR Socio',           num: f.tir === null ? 'N/D' : `${f.tir.toFixed(1)}`, sym: f.tir === null ? '' : '%', sub: 'caso base', dark: true },
                   { label: 'Inversión Total',      num: `$${(f.inversionTotal / 1_000_000).toFixed(1)}`, sym: ' M', sub: 'MXN',          dark: false },
                   { label: 'Utilidad Proyectada',  num: `$${(f.utilidadBruta  / 1_000_000).toFixed(1)}`, sym: ' M', sub: 'MXN bruto',    dark: false },
                   { label: 'Score Resiliencia',    num: `${d.score.total}`, sym: '',   sub: '/ 100 · Viable', dark: false },
@@ -328,7 +328,7 @@ function PropuestaContent() {
                 <p className="text-[14px] text-[#5C7186] leading-relaxed">
                   El proyecto <strong className="text-[#111d17]">{proyecto}</strong>{form ? ` ubicado en ${form.ciudad}${form.colonia ? `, ${form.colonia}` : ''}` : ''} tiene una tipología recomendada de <strong className="text-[#111d17]">{d.recomendacion.tipologia}</strong>.
                   Con una inversión total de <strong className="text-[#111d17]">{fmt(f.inversionTotal)}</strong> y precio de venta estimado de {fmt(f.precioVentaM2)}/m², el proyecto genera una{' '}
-                  <strong className="text-[#0F6E56]">TIR del {f.tir}% anual</strong> y una utilidad bruta de {fmt(f.utilidadBruta)}.
+                  <strong className="text-[#0F6E56]">TIR Socio {f.tir === null ? 'no calculable' : `del ${f.tir.toFixed(1)}% anual`}</strong> y una utilidad bruta de {fmt(f.utilidadBruta)}.
                   El Score de Resiliencia de <strong className="text-[#0F6E56]">{d.score.total}/100</strong> confirma viabilidad ante desviaciones moderadas en costos, absorción y precio de mercado.
                 </p>
               </div>

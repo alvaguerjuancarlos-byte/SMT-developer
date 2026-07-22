@@ -23,6 +23,13 @@ const FALLBACK: AnalisisData = {
 }
 
 function fmt(n: number) { return `$${n.toLocaleString('es-MX')}` }
+// Versión corta para montos grandes en espacios chicos (hero banner) — $276,150,214 no cabe
+// en una columna angosta sin desbordarse, $276.2M sí.
+function fmtCompact(n: number) {
+  if (Math.abs(n) >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`
+  if (Math.abs(n) >= 1_000) return `$${(n / 1_000).toFixed(0)}K`
+  return fmt(n)
+}
 
 function CheckIcon({ color = '#1D9E75' }: { color?: string }) {
   return (
@@ -866,20 +873,43 @@ function AnalisisContent() {
                 <p className="text-[13px] text-white/50 mt-1">Reporte de inversión · Flujo A · {d.mercado.zona}</p>
               </div>
             </div>
-            <div className="grid grid-cols-3 gap-4 pt-5 border-t border-white/10">
-              <div>
-                <p className="text-[11px] text-white/40 uppercase tracking-wide mb-1">TIR Proyectada</p>
-                <p className="text-[28px] font-black text-[#4ade80]">{f.tir}%</p>
-                <p className="text-[11px] text-white/40">anual</p>
+            {/* Fila 1 — las dos TIR, protagonistas, mismo tamaño entre ellas */}
+            <div className={`grid gap-4 pt-5 border-t border-white/10 ${f.tirProyecto !== undefined ? 'grid-cols-2' : 'grid-cols-1'}`}>
+              <div className="min-w-0">
+                <p className="text-[11px] text-white/40 uppercase tracking-wide mb-1">TIR Socio</p>
+                <p className={`text-[28px] font-black whitespace-nowrap ${f.tir === null ? 'text-white/30' : f.tir >= 0 ? 'text-[#4ade80]' : 'text-[#F87171]'}`}>
+                  {f.tir === null ? 'N/D' : `${f.tir.toFixed(1)}%`}
+                </p>
+                <p className="text-[11px] text-white/40">anual · apalancada</p>
               </div>
-              <div>
-                <p className="text-[11px] text-white/40 uppercase tracking-wide mb-1">Inversión Total</p>
-                <p className="text-[28px] font-black text-white">{fmt(f.inversionTotal)}</p>
+              {f.tirProyecto !== undefined && (
+                <div className="min-w-0">
+                  <p className="text-[11px] text-white/40 uppercase tracking-wide mb-1">TIR Proyecto</p>
+                  <p className={`text-[28px] font-black whitespace-nowrap ${f.tirProyecto === null ? 'text-white/30' : f.tirProyecto >= 0 ? 'text-[#4ade80]' : 'text-[#F87171]'}`}>
+                    {f.tirProyecto === null ? 'N/D' : `${f.tirProyecto.toFixed(1)}%`}
+                  </p>
+                  <p className="text-[11px] text-white/40">anual · sin apalancar</p>
+                </div>
+              )}
+            </div>
+
+            {/* Fila 2 — datos secundarios, letra más chica y montos abreviados (M) para que quepan */}
+            <div className={`grid grid-cols-2 gap-4 pt-4 mt-4 border-t border-white/10 ${d.estructuraCapital ? 'sm:grid-cols-3' : 'sm:grid-cols-2'}`}>
+              {d.estructuraCapital && (
+                <div className="min-w-0">
+                  <p className="text-[10px] text-white/40 uppercase tracking-wide mb-1">Financiamiento Externo</p>
+                  <p className="text-[19px] font-black text-[#818CF8] whitespace-nowrap">{fmtCompact(d.estructuraCapital.montoDeuda)}</p>
+                  <p className="text-[11px] text-white/40">Banca · {d.estructuraCapital.deuda}%</p>
+                </div>
+              )}
+              <div className="min-w-0">
+                <p className="text-[10px] text-white/40 uppercase tracking-wide mb-1">Inversión Total</p>
+                <p className="text-[19px] font-black text-white whitespace-nowrap">{fmtCompact(f.inversionTotal)}</p>
                 <p className="text-[11px] text-white/40">MXN</p>
               </div>
-              <div>
-                <p className="text-[11px] text-white/40 uppercase tracking-wide mb-1">Score Resiliencia</p>
-                <p className="text-[28px] font-black text-[#4ade80]">{d.score.total}</p>
+              <div className="min-w-0">
+                <p className="text-[10px] text-white/40 uppercase tracking-wide mb-1">Score Resiliencia</p>
+                <p className="text-[19px] font-black text-[#4ade80]">{d.score.total}</p>
                 <p className="text-[11px] text-white/40">/ 100</p>
               </div>
             </div>

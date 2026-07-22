@@ -42,7 +42,7 @@ export default function KpiGauge({ tirAnalisisOriginal }: { tirAnalisisOriginal?
         </button>
       }
     >
-      <div className="flex justify-center mb-3">
+      <div className="flex justify-center gap-2 mb-3">
         <InstrumentDial
           value={r.tirSocioAnual}
           target={inputs.tirObjetivo}
@@ -51,10 +51,21 @@ export default function KpiGauge({ tirAnalisisOriginal }: { tirAnalisisOriginal?
           label="TIR Socio"
           formatValue={v => `${v.toFixed(0)}%`}
         />
+        <InstrumentDial
+          value={r.tirProyectoAnual}
+          target={inputs.tirObjetivo}
+          converge={r.tirProyectoConverge}
+          size="lg"
+          label="TIR Proyecto"
+          formatValue={v => `${v.toFixed(0)}%`}
+        />
       </div>
+      <p className="text-center text-[9px] text-white/25 -mt-2 mb-3 px-2 leading-snug">
+        Socio: lo que gana quien pone el equity, con la deuda ya descontada. Proyecto: el negocio sin apalancar, si todo se pagara de contado.
+      </p>
 
       {tirAnalisisOriginal !== undefined && (
-        <p className="text-center text-[10px] text-white/30 -mt-2 mb-3">
+        <p className="text-center text-[10px] text-white/30 -mt-1 mb-3">
           TIR del análisis original: <span className="font-mono text-white/50">{tirAnalisisOriginal.toFixed(1)}%</span>
         </p>
       )}
@@ -69,13 +80,23 @@ export default function KpiGauge({ tirAnalisisOriginal }: { tirAnalisisOriginal?
         {!r.tirSocioConverge ? 'No calculable' : viable ? '✓ Viable' : '✕ Ajustar parámetros'}
       </div>
 
-      <div className="grid grid-cols-3 gap-2 mb-3 text-center">
-        <div>
-          <div className="font-mono text-[14px] font-bold text-white">
-            {r.tirProyectoConverge ? `${(r.tirProyectoAnual as number).toFixed(0)}%` : '—'}
-          </div>
-          <div className="text-[9px] text-white/30 uppercase tracking-wider mt-0.5">TIR Proyecto</div>
+      {/* Estructura de capital — mismo peso visual que las TIR, no solo dentro de la palanca Financiero */}
+      <div className="mb-3">
+        <div className="flex items-center justify-between mb-1.5">
+          <span className="text-[10px] font-bold text-[#1D9E75]">Socio {(100 - inputs.financiamiento.porcentajeFinanciado)}%</span>
+          <span className="text-[10px] font-bold text-[#818CF8]">Banca {inputs.financiamiento.porcentajeFinanciado}%</span>
         </div>
+        <div className="flex h-2.5 rounded-full overflow-hidden">
+          <div className="bg-[#1D9E75] transition-all duration-500" style={{ width: `${100 - inputs.financiamiento.porcentajeFinanciado}%` }} />
+          <div className="bg-[#818CF8]" style={{ width: `${inputs.financiamiento.porcentajeFinanciado}%` }} />
+        </div>
+        <div className="flex justify-between mt-1">
+          <span className="font-mono text-[13px] font-bold text-white">{fmtCompact(r.inversionSocios)}</span>
+          <span className="font-mono text-[13px] font-bold text-white">{fmtCompact(r.inversionProyecto - r.inversionSocios)}</span>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2 mb-3 text-center">
         <div>
           <div className="font-mono text-[14px] font-bold text-white">{r.roiSimple.toFixed(0)}%</div>
           <div className="text-[9px] text-white/30 uppercase tracking-wider mt-0.5">ROI</div>

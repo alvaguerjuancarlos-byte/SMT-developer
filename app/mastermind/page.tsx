@@ -82,7 +82,7 @@ function MastermindContent() {
           </div>
         </div>
 
-        <MastermindCockpit origenAnalisis={origenAnalisis} tirAnalisisOriginal={analisisData?.financiero?.tir} />
+        <MastermindCockpit origenAnalisis={origenAnalisis} tirAnalisisOriginal={analisisData?.financiero?.tir ?? undefined} />
       </div>
 
       <PrintSummary nombreProyecto={nombreProyecto} />
