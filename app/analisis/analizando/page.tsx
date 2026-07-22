@@ -60,10 +60,13 @@ interface ComparableItem {
 
 interface PipelineState {
   comparables: { status: AgentStatus; data: ComparableItem[] }
-  terreno:     { status: AgentStatus; data: TerrenoResult | null;     overrideM2: string }
-  construccion:{ status: AgentStatus; data: ConstruccionResult | null; overrideM2: string }
+  // terreno/construccion/mercado permiten "Ajustar parámetros" las veces que hagan falta:
+  // cada corrida se agrega a `corridas` (nunca se reemplaza) y `seleccionada` indexa cuál
+  // usan los pasos siguientes — el analista elige a su criterio, sin sugerencia automática.
+  terreno:     { status: AgentStatus; corridas: TerrenoResult[];      seleccionada: number | null; overrideM2: string }
+  construccion:{ status: AgentStatus; corridas: ConstruccionResult[]; seleccionada: number | null; overrideM2: string }
   legal:       { status: AgentStatus; data: LegalResult | null }
-  mercado:     { status: AgentStatus; data: MercadoResult | null; overridePrecioVenta: string; overrideAbsorcion: string }
+  mercado:     { status: AgentStatus; corridas: MercadoResult[];      seleccionada: number | null; overridePrecioVenta: string; overrideAbsorcion: string }
   financiero:  { status: AgentStatus; data: FinancieroResult | null }
   ubicacion:   { status: AgentStatus; data: UbicacionData | null }
   catastro:    { status: AgentStatus; data: CatastroData | null }
@@ -184,6 +187,66 @@ function Chip({ selected, onClick, children }: { selected: boolean; onClick: () 
   )
 }
 
+// Selector de corridas — solo aparece cuando "Ajustar parámetros" generó 2+ opciones para
+// un mismo paso (Terreno/Construcción/Mercado). Colapsado por default (mismo lenguaje visual
+// que el botón "Ajustar parámetros") para no saturar la pantalla — al abrirlo se ve la fila de
+// cards clicables, estilo app/prospeccion/scout/page.tsx: borde+sombra verde y check en la
+// seleccionada. La selección es 100% manual — no hay puntaje ni "mejor opción" sugerida.
+function SelectorCorridas<T>({
+  corridas, seleccionada, onSeleccionar, resumen,
+}: {
+  corridas: T[]; seleccionada: number | null
+  onSeleccionar: (i: number) => void
+  resumen: (item: T, i: number) => React.ReactNode
+}) {
+  const [abierto, setAbierto] = useState(false)
+  if (corridas.length < 2) return null
+  return (
+    <div className="px-5 pt-4 pb-1">
+      <button
+        onClick={() => setAbierto(a => !a)}
+        className="w-full flex items-center justify-between gap-2 bg-[#111d17] hover:bg-[#1f2e26] text-white rounded-xl px-4 py-3 transition-colors cursor-pointer"
+      >
+        <span className="flex items-center gap-2 text-[12px] font-semibold">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+            <rect x="2" y="3" width="5" height="10" rx="1" stroke="currentColor" strokeWidth="1.5"/>
+            <rect x="9" y="3" width="5" height="10" rx="1" stroke="currentColor" strokeWidth="1.5"/>
+          </svg>
+          Elegir opción final · {corridas.length} corridas generadas
+        </span>
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+          <path d={abierto ? 'M2 7L6 3L10 7' : 'M4 2L8 6L4 10'} stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+        </svg>
+      </button>
+      {abierto && (
+        <div className="flex gap-2 overflow-x-auto mt-3 pb-1">
+          {corridas.map((item, i) => (
+            <button
+              key={i}
+              onClick={() => { onSeleccionar(i); setAbierto(false) }}
+              className={`text-left shrink-0 min-w-[160px] rounded-xl border px-3 py-2.5 transition-all duration-150 cursor-pointer ${
+                seleccionada === i
+                  ? 'border-[#1D9E75] shadow-[0_0_0_2px_#1D9E75] bg-[#F0FBF6]'
+                  : 'border-[#E2E8E4] bg-white hover:border-[#9FE1CB]'
+              }`}
+            >
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <span className="text-[10px] font-bold text-[#9aab9f] uppercase tracking-wide">Opción {i + 1}</span>
+                {seleccionada === i && (
+                  <span className="flex-shrink-0 w-4 h-4 rounded-full bg-[#1D9E75] flex items-center justify-center">
+                    <svg width="9" height="9" viewBox="0 0 10 10" fill="none"><polyline points="2,5 4,7 8,3" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                  </span>
+                )}
+              </div>
+              {resumen(item, i)}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function AjustarSupuestosTerreno({
   bandaActual, vialActual, precioActual, onAplicar,
 }: {
@@ -198,10 +261,6 @@ function AjustarSupuestosTerreno({
   const bandaEfectiva = bandaEdit || String(bandaActual ?? '')
   const vialEfectiva = vialEdit || (vialActual ?? '')
   const precioEfectivo = precioEdit !== '' ? precioEdit : (precioActual ?? '')
-  const cambio =
-    (bandaEdit !== '' && bandaEdit !== String(bandaActual ?? '')) ||
-    (vialEdit !== '' && vialEdit !== (vialActual ?? '')) ||
-    (precioEdit !== '' && precioEdit !== (precioActual ?? ''))
 
   if (!abierto) {
     return (
@@ -216,7 +275,7 @@ function AjustarSupuestosTerreno({
             <circle cx="9" cy="8" r="1.5" fill="currentColor"/>
             <circle cx="12" cy="12" r="1.5" fill="currentColor"/>
           </svg>
-          Ajustar banda, vialidad o precio
+          Ajustar parámetros
         </span>
         <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
           <path d="M4 2L8 6L4 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
@@ -261,12 +320,9 @@ function AjustarSupuestosTerreno({
       <div className="flex items-center gap-3">
         <button
           onClick={() => { onAplicar(bandaEfectiva, vialEfectiva, precioEfectivo); setAbierto(false); setBandaEdit(''); setVialEdit(''); setPrecioEdit('') }}
-          disabled={!cambio}
-          className={`text-[12px] font-semibold px-4 py-2 rounded-xl transition-colors ${
-            cambio ? 'bg-[#1D9E75] text-white hover:bg-[#0F6E56] cursor-pointer' : 'bg-[#E2E8E4] text-[#9aab9f] cursor-not-allowed'
-          }`}
+          className="text-[12px] font-semibold px-4 py-2 rounded-xl transition-colors bg-[#1D9E75] text-white hover:bg-[#0F6E56] cursor-pointer"
         >
-          Aplicar y re-correr Terreno
+          Generar nueva opción
         </button>
         <button onClick={() => setAbierto(false)} className="text-[11px] text-[#9aab9f] hover:text-[#111d17] cursor-pointer">
           Cancelar
@@ -329,12 +385,6 @@ function AjustarSupuestosConstruccion({
 
   const bandaEfectiva = bandaEdit || String(bandaActual ?? '')
   const amenidadesEfectiva = amenidadesEdit || String(amenidadesNivelActual ?? '')
-  const cambio =
-    (bandaEdit !== '' && bandaEdit !== String(bandaActual ?? '')) ||
-    (nivelesEdit !== '' && nivelesEdit !== String(nivelesActual ?? '')) ||
-    (deptosEdit !== '' && deptosEdit !== String(totalDeptosActual ?? '')) ||
-    (localesEdit !== '' && localesEdit !== String(totalLocalesActual ?? '')) ||
-    (amenidadesEdit !== '' && amenidadesEdit !== String(amenidadesNivelActual ?? ''))
 
   if (!abierto) {
     return (
@@ -349,7 +399,7 @@ function AjustarSupuestosConstruccion({
             <circle cx="9" cy="8" r="1.5" fill="currentColor"/>
             <circle cx="12" cy="12" r="1.5" fill="currentColor"/>
           </svg>
-          Ajustar acabados, tipología o amenidades
+          Ajustar parámetros
         </span>
         <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
           <path d="M4 2L8 6L4 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
@@ -404,12 +454,9 @@ function AjustarSupuestosConstruccion({
             onAplicar(bandaEfectiva, nivelesEdit, deptosEdit, localesEdit, amenidadesEfectiva)
             setAbierto(false); setBandaEdit(''); setNivelesEdit(''); setDeptosEdit(''); setLocalesEdit(''); setAmenidadesEdit('')
           }}
-          disabled={!cambio}
-          className={`text-[12px] font-semibold px-4 py-2 rounded-xl transition-colors ${
-            cambio ? 'bg-[#1D9E75] text-white hover:bg-[#0F6E56] cursor-pointer' : 'bg-[#E2E8E4] text-[#9aab9f] cursor-not-allowed'
-          }`}
+          className="text-[12px] font-semibold px-4 py-2 rounded-xl transition-colors bg-[#1D9E75] text-white hover:bg-[#0F6E56] cursor-pointer"
         >
-          Aplicar y re-correr Construcción
+          Generar nueva opción
         </button>
         <button onClick={() => setAbierto(false)} className="text-[11px] text-[#9aab9f] hover:text-[#111d17] cursor-pointer">
           Cancelar
@@ -431,9 +478,6 @@ function AjustarSupuestosMercado({
 
   const precioEfectivo = precioEdit !== '' ? precioEdit : (precioVentaActual ?? '')
   const absorcionEfectiva = absorcionEdit !== '' ? absorcionEdit : (absorcionActual ?? '')
-  const cambio =
-    (precioEdit !== '' && precioEdit !== (precioVentaActual ?? '')) ||
-    (absorcionEdit !== '' && absorcionEdit !== (absorcionActual ?? ''))
 
   if (!abierto) {
     return (
@@ -448,7 +492,7 @@ function AjustarSupuestosMercado({
             <circle cx="9" cy="8" r="1.5" fill="currentColor"/>
             <circle cx="12" cy="12" r="1.5" fill="currentColor"/>
           </svg>
-          Ajustar precio de venta o absorción
+          Ajustar parámetros
         </span>
         <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
           <path d="M4 2L8 6L4 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
@@ -488,12 +532,9 @@ function AjustarSupuestosMercado({
       <div className="flex items-center gap-3">
         <button
           onClick={() => { onAplicar(precioEfectivo, absorcionEfectiva); setAbierto(false); setPrecioEdit(''); setAbsorcionEdit('') }}
-          disabled={!cambio}
-          className={`text-[12px] font-semibold px-4 py-2 rounded-xl transition-colors ${
-            cambio ? 'bg-[#1D9E75] text-white hover:bg-[#0F6E56] cursor-pointer' : 'bg-[#E2E8E4] text-[#9aab9f] cursor-not-allowed'
-          }`}
+          className="text-[12px] font-semibold px-4 py-2 rounded-xl transition-colors bg-[#1D9E75] text-white hover:bg-[#0F6E56] cursor-pointer"
         >
-          Aplicar y re-correr Mercado
+          Generar nueva opción
         </button>
         <button onClick={() => setAbierto(false)} className="text-[11px] text-[#9aab9f] hover:text-[#111d17] cursor-pointer">
           Cancelar
@@ -945,14 +986,21 @@ function PipelineContent() {
   const [formData, setFormData] = useState<any>(null)
   const [pipe, setPipe] = useState<PipelineState>({
     comparables: { status: 'waiting', data: [] },
-    terreno:     { status: 'waiting', data: null, overrideM2: '' },
-    construccion:{ status: 'waiting', data: null, overrideM2: '' },
+    terreno:     { status: 'waiting', corridas: [], seleccionada: null, overrideM2: '' },
+    construccion:{ status: 'waiting', corridas: [], seleccionada: null, overrideM2: '' },
     legal:       { status: 'waiting', data: null },
-    mercado:     { status: 'waiting', data: null, overridePrecioVenta: '', overrideAbsorcion: '' },
+    mercado:     { status: 'waiting', corridas: [], seleccionada: null, overridePrecioVenta: '', overrideAbsorcion: '' },
     financiero:  { status: 'waiting', data: null },
     ubicacion:   { status: 'waiting', data: null },
     catastro:    { status: 'waiting', data: null },
   })
+
+  // Candidato actualmente elegido por el analista en cada paso con "Ajustar parámetros"
+  // (o `null` si aún no hay ninguna corrida) — todo el resto del pipeline lee de aquí,
+  // nunca de `corridas` directamente.
+  const terrenoActual = pipe.terreno.seleccionada !== null ? pipe.terreno.corridas[pipe.terreno.seleccionada] : null
+  const construccionActual = pipe.construccion.seleccionada !== null ? pipe.construccion.corridas[pipe.construccion.seleccionada] : null
+  const mercadoActual = pipe.mercado.seleccionada !== null ? pipe.mercado.corridas[pipe.mercado.seleccionada] : null
 
   const [modoConstruccion, setModoConstruccion] = useState<'agente_propone' | 'usuario_define'>('agente_propone')
 
@@ -1093,9 +1141,9 @@ function PipelineContent() {
     const input = fd || formData
     const ub = ubicacion !== undefined ? ubicacion : pipe.ubicacion.data
     const comps = comparablesPrecargados ?? pipe.comparables.data
-    // overrideM2 pertenece a la corrida anterior — si se vuelve a correr Terreno
-    // (banda/vialidad ajustadas o "Re-correr" simple), el número manual queda obsoleto.
-    setPipe(p => ({ ...p, terreno: { ...p.terreno, status: 'running', data: null, overrideM2: '' } }))
+    // overrideM2 pertenece a la corrida anterior — si se genera una nueva opción de Terreno
+    // (banda/vialidad ajustadas o "Ajustar parámetros" sin cambios), el número manual queda obsoleto.
+    setPipe(p => ({ ...p, terreno: { ...p.terreno, status: 'running', overrideM2: '' } }))
     try {
       const res = await fetch('/api/agentes/terreno', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -1103,7 +1151,7 @@ function PipelineContent() {
       })
       const json = await res.json()
       if (json.error) throw new Error(json.error)
-      setPipe(p => ({ ...p, terreno: { ...p.terreno, status: 'done', data: json } }))
+      setPipe(p => ({ ...p, terreno: { ...p.terreno, status: 'done', corridas: [...p.terreno.corridas, json], seleccionada: p.terreno.corridas.length } }))
     } catch {
       setPipe(p => ({ ...p, terreno: { ...p.terreno, status: 'error' } }))
     }
@@ -1114,13 +1162,13 @@ function PipelineContent() {
     bandaConstruccion?: string; nivelesOverride?: string; totalDeptosOverride?: string
     totalLocalesOverride?: string; amenidadesNivelOverride?: string
   }) => {
-    const t = pipe.terreno.data!
+    const t = terrenoActual!
     const m2 = pipe.terreno.overrideM2 !== '' ? Number(pipe.terreno.overrideM2) : t.costoTerrenoM2
     const payload = {
       ...formData, ...overrides, costoTerrenoM2: m2, costoTerreno: m2 * Number(formData.superficie),
-      mercado: pipe.mercado.data?.mercado,
+      mercado: mercadoActual?.mercado,
     }
-    setPipe(p => ({ ...p, construccion: { ...p.construccion, status: 'running', data: null } }))
+    setPipe(p => ({ ...p, construccion: { ...p.construccion, status: 'running' } }))
     try {
       const res = await fetch('/api/agentes/construccion', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -1128,7 +1176,7 @@ function PipelineContent() {
       })
       const json = await res.json()
       if (json.error) throw new Error(json.error)
-      setPipe(p => ({ ...p, construccion: { ...p.construccion, status: 'done', data: json } }))
+      setPipe(p => ({ ...p, construccion: { ...p.construccion, status: 'done', corridas: [...p.construccion.corridas, json], seleccionada: p.construccion.corridas.length } }))
     } catch {
       setPipe(p => ({ ...p, construccion: { ...p.construccion, status: 'error' } }))
     }
@@ -1165,8 +1213,8 @@ function PipelineContent() {
   const runMercado = async (overrides?: { precioVentaObjetivo?: string; absorcionObjetivoManual?: string }) => {
     const precioVentaObjetivo = overrides?.precioVentaObjetivo ?? pipe.mercado.overridePrecioVenta
     const absorcionObjetivoManual = overrides?.absorcionObjetivoManual ?? pipe.mercado.overrideAbsorcion
-    const mixUnidadesResumen = resumenMixUnidades(pipe.construccion.data?.bitacoraConstruccion?.tipologiaPropuesta)
-    setPipe(p => ({ ...p, mercado: { ...p.mercado, status: 'running', data: null, overridePrecioVenta: precioVentaObjetivo, overrideAbsorcion: absorcionObjetivoManual } }))
+    const mixUnidadesResumen = resumenMixUnidades(construccionActual?.bitacoraConstruccion?.tipologiaPropuesta)
+    setPipe(p => ({ ...p, mercado: { ...p.mercado, status: 'running', overridePrecioVenta: precioVentaObjetivo, overrideAbsorcion: absorcionObjetivoManual } }))
     try {
       const res = await fetch('/api/agentes/mercado', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -1179,16 +1227,16 @@ function PipelineContent() {
       })
       const json = await res.json()
       if (json.error) throw new Error(json.error)
-      setPipe(p => ({ ...p, mercado: { ...p.mercado, status: 'done', data: json } }))
+      setPipe(p => ({ ...p, mercado: { ...p.mercado, status: 'done', corridas: [...p.mercado.corridas, json], seleccionada: p.mercado.corridas.length } }))
     } catch {
-      setPipe(p => ({ ...p, mercado: { ...p.mercado, status: 'error', data: null } }))
+      setPipe(p => ({ ...p, mercado: { ...p.mercado, status: 'error' } }))
     }
   }
 
   // ── Step 4: Financiero ──
   const runFinanciero = async () => {
-    const t = pipe.terreno.data!
-    const c = pipe.construccion.data!
+    const t = terrenoActual!
+    const c = construccionActual!
     const m2t = pipe.terreno.overrideM2 !== '' ? Number(pipe.terreno.overrideM2) : t.costoTerrenoM2
     const m2c = pipe.construccion.overrideM2 !== '' ? Number(pipe.construccion.overrideM2) : c.construccionM2
     const costoTerreno = m2t * Number(formData.superficie)
@@ -1206,7 +1254,7 @@ function PipelineContent() {
       superficieConstruida: c.superficieConstruida,
       superficieVendible: superficieVendibleReal,
       fichaLegal: pipe.legal.data?.fichaLegal,
-      mercado: pipe.mercado.data?.mercado,
+      mercado: mercadoActual?.mercado,
     }
     setPipe(p => ({ ...p, financiero: { status: 'running', data: null } }))
     try {
@@ -1225,10 +1273,10 @@ function PipelineContent() {
         bitacoraTerreno: t.bitacoraTerreno,
         bitacoraConstruccion: c.bitacoraConstruccion,
         fichaLegal: pipe.legal.data?.fichaLegal,
-        mercado: pipe.mercado.data?.mercado,
+        mercado: mercadoActual?.mercado,
         fuentes: {
           legal: pipe.legal.data?.fuentes?.legal || [],
-          mercado: pipe.mercado.data?.fuentes?.mercado || [],
+          mercado: mercadoActual?.fuentes?.mercado || [],
         },
       }
       localStorage.setItem('smt_analisis_data', JSON.stringify(fullResult))
@@ -1241,12 +1289,12 @@ function PipelineContent() {
   }
 
   const efectivoTerrenoM2 = () => {
-    const t = pipe.terreno.data
+    const t = terrenoActual
     if (!t) return 0
     return pipe.terreno.overrideM2 !== '' ? Number(pipe.terreno.overrideM2) : t.costoTerrenoM2
   }
   const efectivoConstruccionM2 = () => {
-    const c = pipe.construccion.data
+    const c = construccionActual
     if (!c) return 0
     return pipe.construccion.overrideM2 !== '' ? Number(pipe.construccion.overrideM2) : c.construccionM2
   }
@@ -1360,13 +1408,24 @@ function PipelineContent() {
                 <ErrorCard label="Agente Terreno" onRetry={() => runTerreno()} />
               )}
 
-              {pipe.terreno.status === 'done' && pipe.terreno.data && (() => {
-                const t = pipe.terreno.data
+              {pipe.terreno.status === 'done' && terrenoActual && (() => {
+                const t = terrenoActual
                 const ic = t.bitacoraTerreno?.indiceConfiabilidad
                 const vp = t.bitacoraTerreno?.validacionPrecioSolicitado
                 const m2efectivo = pipe.terreno.overrideM2 !== '' ? Number(pipe.terreno.overrideM2) : t.costoTerrenoM2
                 return (
                   <DoneCard>
+                    <SelectorCorridas
+                      corridas={pipe.terreno.corridas}
+                      seleccionada={pipe.terreno.seleccionada}
+                      onSeleccionar={i => setPipe(p => ({ ...p, terreno: { ...p.terreno, seleccionada: i, overrideM2: '' } }))}
+                      resumen={(item) => (
+                        <div className="space-y-0.5">
+                          <p className="text-[11px] font-semibold text-[#111d17]">Banda {item.bitacoraTerreno?.bandaTerreno} · {item.bitacoraTerreno?.nombreBanda}</p>
+                          <p className="text-[10px] text-[#5a7065]">${item.costoTerrenoM2?.toLocaleString('es-MX')}/m² · {fmt(item.costoTerreno)}</p>
+                        </div>
+                      )}
+                    />
                     <div className="px-5 py-4 border-b border-[#F0F4F2] flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <CheckIcon />
@@ -1375,10 +1434,6 @@ function PipelineContent() {
                       </div>
                       <div className="flex items-center gap-2">
                         <SemaforoChip sem={ic?.semaforo} />
-                        <button onClick={() => runTerreno()}
-                          className="text-[11px] text-[#9aab9f] hover:text-[#1D9E75] transition-colors cursor-pointer">
-                          Re-correr
-                        </button>
                       </div>
                     </div>
 
@@ -1558,7 +1613,7 @@ function PipelineContent() {
                       </div>
                     )}
 
-                    <AgentChat agentKey="terreno" agentData={pipe.terreno.data} />
+                    <AgentChat agentKey="terreno" agentData={terrenoActual} />
 
                     {/* Accesibilidad ORS — contexto usado por el agente */}
                     {pipe.ubicacion.status !== 'waiting' && (
@@ -1748,14 +1803,24 @@ function PipelineContent() {
                 {pipe.mercado.status === 'error' && (
                   <ErrorCard label="Agente Mercado" onRetry={runMercado} />
                 )}
-                {pipe.mercado.status === 'done' && pipe.mercado.data && (() => {
-                  const m = pipe.mercado.data.mercado
+                {pipe.mercado.status === 'done' && mercadoActual && (() => {
+                  const m = mercadoActual.mercado
                   return (
                     <DoneCard>
+                      <SelectorCorridas
+                        corridas={pipe.mercado.corridas}
+                        seleccionada={pipe.mercado.seleccionada}
+                        onSeleccionar={i => setPipe(p => ({ ...p, mercado: { ...p.mercado, seleccionada: i } }))}
+                        resumen={(item) => (
+                          <div className="space-y-0.5">
+                            <p className="text-[11px] font-semibold text-[#111d17]">{item.mercado?.precioPromedioZona || '—'}/m²</p>
+                            <p className="text-[10px] text-[#5a7065]">{item.mercado?.absorcion || '—'} · {item.mercado?.demanda || '—'}</p>
+                          </div>
+                        )}
+                      />
                       <div className="px-4 py-3 border-b border-[#F0F4F2] flex items-center gap-2">
                         <CheckIcon />
                         <span className="text-[12px] font-bold text-[#0F6E56]">Agente Mercado</span>
-                        <button onClick={() => runMercado()} className="ml-auto text-[10px] text-[#9aab9f] hover:text-[#1D9E75] cursor-pointer">Re-correr</button>
                       </div>
                       <div className="px-4 py-3 space-y-2.5">
                         <div className="flex items-center justify-between">
@@ -1788,7 +1853,7 @@ function PipelineContent() {
                         />
                       </div>
 
-                      <AgentChat agentKey="mercado" agentData={pipe.mercado.data} />
+                      <AgentChat agentKey="mercado" agentData={mercadoActual} />
                     </DoneCard>
                   )
                 })()}
@@ -1796,7 +1861,10 @@ function PipelineContent() {
             )}
 
             {/* ══ STEP 4 — CONSTRUCCIÓN (después de Mercado, para no proponer más unidades de las que el mercado absorbe) ══ */}
-            {pipe.legal.status === 'done' && pipe.mercado.status === 'done' && (
+            {/* Exige selección (no solo "done") en Terreno y Mercado — con "Ajustar parámetros"
+                puede haber varias corridas y Construcción necesita saber cuál usar. */}
+            {pipe.legal.status === 'done' && pipe.mercado.status === 'done'
+              && pipe.terreno.seleccionada !== null && pipe.mercado.seleccionada !== null && (
               <section>
                 <SectionHeader n={4} label="Agente de Construcción" />
 
@@ -1840,15 +1908,18 @@ function PipelineContent() {
                         cosStr={pipe.legal.data?.fichaLegal?.cos}
                         cusStr={pipe.legal.data?.fichaLegal?.cus}
                         onContinuar={(construccionResult) => {
-                          setPipe(p => ({ ...p, construccion: { status: 'done', data: construccionResult, overrideM2: '' } }))
+                          // Fuera del alcance de "Ajustar parámetros" — el programa definido a mano
+                          // se edita in situ (sliders instantáneos, sin llamada a IA), no acumula
+                          // corridas: cada "Editar programa" reemplaza la anterior, como antes.
+                          setPipe(p => ({ ...p, construccion: { status: 'done', corridas: [construccionResult], seleccionada: 0, overrideM2: '' } }))
                         }}
                       />
                     )}
                   </div>
                 )}
 
-                {pipe.construccion.status === 'done' && pipe.construccion.data?.bitacoraConstruccion?.modo === 'usuario_define' && (() => {
-                  const c = pipe.construccion.data
+                {pipe.construccion.status === 'done' && construccionActual?.bitacoraConstruccion?.modo === 'usuario_define' && (() => {
+                  const c = construccionActual
                   const m2efectivo = pipe.construccion.overrideM2 !== '' ? Number(pipe.construccion.overrideM2) : c.construccionM2
                   const totalEfectivo = pipe.construccion.overrideM2 !== ''
                     ? m2efectivo * (c.superficieConstruida || 0)
@@ -1861,7 +1932,7 @@ function PipelineContent() {
                           <span className="text-[13px] font-bold text-[#0F6E56]">Programa definido por ti</span>
                         </div>
                         <button
-                          onClick={() => setPipe(p => ({ ...p, construccion: { status: 'waiting', data: null, overrideM2: '' } }))}
+                          onClick={() => setPipe(p => ({ ...p, construccion: { status: 'waiting', corridas: [], seleccionada: null, overrideM2: '' } }))}
                           className="text-[11px] text-[#9aab9f] hover:text-[#1D9E75] transition-colors cursor-pointer"
                         >
                           Editar programa
@@ -1895,14 +1966,25 @@ function PipelineContent() {
                   <ErrorCard label="Agente Construcción" onRetry={runConstruccion} />
                 )}
 
-                {pipe.construccion.status === 'done' && pipe.construccion.data && pipe.construccion.data.bitacoraConstruccion?.modo !== 'usuario_define' && (() => {
-                  const c = pipe.construccion.data
+                {pipe.construccion.status === 'done' && construccionActual && construccionActual.bitacoraConstruccion?.modo !== 'usuario_define' && (() => {
+                  const c = construccionActual
                   const ic = c.bitacoraConstruccion?.indiceConfiabilidad
                   const desglose = c.bitacoraConstruccion?.desgloseConstruccion
                   const m2efectivo = pipe.construccion.overrideM2 !== '' ? Number(pipe.construccion.overrideM2) : c.construccionM2
                   const totalCons = c.costoTotalConstruccion || m2efectivo * (c.superficieConstruida || 0)
                   return (
                     <DoneCard>
+                      <SelectorCorridas
+                        corridas={pipe.construccion.corridas}
+                        seleccionada={pipe.construccion.seleccionada}
+                        onSeleccionar={i => setPipe(p => ({ ...p, construccion: { ...p.construccion, seleccionada: i, overrideM2: '' } }))}
+                        resumen={(item) => (
+                          <div className="space-y-0.5">
+                            <p className="text-[11px] font-semibold text-[#111d17]">Banda {item.bitacoraConstruccion?.bandaElegida} · {item.superficieConstruida?.toLocaleString()} m²</p>
+                            <p className="text-[10px] text-[#5a7065]">{fmt(item.costoTotalConstruccion)}</p>
+                          </div>
+                        )}
+                      />
                       {/* Header */}
                       <div className="px-5 py-4 border-b border-[#F0F4F2] flex items-center justify-between">
                         <div className="flex items-center gap-2">
@@ -1912,10 +1994,6 @@ function PipelineContent() {
                         </div>
                         <div className="flex items-center gap-2">
                           <SemaforoChip sem={ic?.semaforo} />
-                          <button onClick={() => runConstruccion()}
-                            className="text-[11px] text-[#9aab9f] hover:text-[#1D9E75] transition-colors cursor-pointer">
-                            Re-correr
-                          </button>
                         </div>
                       </div>
 
@@ -2069,12 +2147,12 @@ function PipelineContent() {
                         )
                       })()}
 
-                      <AgentChat agentKey="construccion" agentData={pipe.construccion.data} />
+                      <AgentChat agentKey="construccion" agentData={construccionActual} />
                     </DoneCard>
                   )
                 })()}
 
-                {pipe.construccion.status === 'done' && pipe.financiero.status === 'waiting' && (
+                {pipe.construccion.status === 'done' && pipe.construccion.seleccionada !== null && pipe.financiero.status === 'waiting' && (
                   <div className="px-5 pb-5">
                     <button
                       onClick={runFinanciero}
@@ -2118,8 +2196,10 @@ function PipelineContent() {
                       </div>
                       <div className="px-5 py-4 grid grid-cols-3 gap-3">
                         <div className="text-center">
-                          <p className="text-[10px] text-[#9aab9f] uppercase tracking-wide">TIR</p>
-                          <p className="text-[22px] font-black text-[#1D9E75]">{f?.tir}%</p>
+                          <p className="text-[10px] text-[#9aab9f] uppercase tracking-wide">TIR Socio</p>
+                          <p className={`text-[22px] font-black ${f?.tir == null ? 'text-[#9aab9f]' : f.tir >= 0 ? 'text-[#1D9E75]' : 'text-[#DC2626]'}`}>
+                            {f?.tir == null ? 'N/D' : `${f.tir.toFixed(1)}%`}
+                          </p>
                         </div>
                         <div className="text-center">
                           <p className="text-[10px] text-[#9aab9f] uppercase tracking-wide">Margen</p>
