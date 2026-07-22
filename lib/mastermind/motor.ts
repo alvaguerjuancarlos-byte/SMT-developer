@@ -129,7 +129,8 @@ function construirFlujoIngresos(inputs: MastermindInputs, ingresos: BloqueIngres
 }
 
 // Flujo del socio (apalancado): la porción financiada de construcción NO sale del
-// bolsillo del socio; solo paga el interés (financieros) como costo real.
+// bolsillo del socio; solo paga el interés (financieros) como costo real — pero el
+// PRINCIPAL de esa deuda sí hay que devolverlo (ver deudaPrincipal más abajo).
 export function construirFlujoSocio(inputs: MastermindInputs, ingresos: BloqueIngresos, costos: BloqueCostos): number[] {
   const { terreno, tiempo, financiamiento } = inputs
   const N = tiempo.plazoVentaMeses
@@ -151,6 +152,22 @@ export function construirFlujoSocio(inputs: MastermindInputs, ingresos: BloqueIn
 
   const flujoIngresos = construirFlujoIngresos(inputs, ingresos, costos)
   for (let m = 0; m <= N; m++) flujo[m] += flujoIngresos[m]
+
+  // El principal del crédito puente (porcentajeFinanciado de terreno+construcción+indirectos)
+  // se liquida con el producto de las ventas — práctica estándar de "liberación de garantías"
+  // hipotecarias por unidad escriturada: el banco cobra su parte de cada venta antes de que el
+  // remanente llegue al socio. Antes esto no se restaba en ningún lado, así que la porción
+  // financiada se veía como dinero regalado — inflaba la TIR Socio incluso en proyectos que,
+  // sin apalancar, pierden dinero. Se reparte durante el período de ventas (misma ventana que
+  // construirFlujoIngresos usa para repartir ingresoNeto), no en un solo pago al final de obra.
+  const deudaPrincipal = (financiamiento.porcentajeFinanciado / 100) * (terreno.costoTerreno + costos.costoDirectoConstruccion + costos.indirectos)
+  const mesesVenta = tiempo.plazoVentaMeses - tiempo.inicioVentasMes + 1
+  if (deudaPrincipal > 0 && mesesVenta > 0) {
+    const repagoMensual = deudaPrincipal / mesesVenta
+    for (let m = Math.max(0, tiempo.inicioVentasMes); m <= Math.min(N, tiempo.plazoVentaMeses); m++) {
+      flujo[m] -= repagoMensual
+    }
+  }
 
   return flujo
 }

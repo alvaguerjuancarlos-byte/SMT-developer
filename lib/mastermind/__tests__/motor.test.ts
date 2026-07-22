@@ -146,6 +146,38 @@ describe('Base financiable: la deuda cubre terreno + construcción + indirectos,
   })
 })
 
+describe('Principal de la deuda: debe repagarse, no regalarse', () => {
+  // Bug real encontrado en producción: la porción financiada nunca se restaba del flujo del
+  // socio (solo se cobraba el interés), así que un proyecto que pierde dinero sin apalancar
+  // podía mostrar una TIR Socio positiva — el banco "regalaba" el principal. La invariante que
+  // debe cumplirse siempre (cualquier % financiado) es que la suma del flujo del socio sea
+  // igual a la utilidad antes de impuestos del proyecto completo — el apalancamiento cambia
+  // CUÁNDO y CONTRA QUÉ BASE se gana o se pierde, no CUÁNTO se gana o se pierde en total.
+  it('la suma del flujo del socio = utilidad antes de impuestos, sin importar el % financiado', () => {
+    for (const porcentajeFinanciado of [0, 30, 55, 100]) {
+      const r = calcularMastermind({
+        ...inputs,
+        financiamiento: { porcentajeFinanciado, tasaAnualCredito: 14 },
+      })
+      const sumaFlujoSocio = r.flujoSocio.reduce((a, b) => a + b, 0)
+      expect(sumaFlujoSocio).toBeCloseTo(r.utilidad.utilidadAntesImpuestos, 2)
+    }
+  })
+
+  it('un proyecto que pierde dinero sin apalancar, pierde más (no gana) apalancado — nunca positivo por el solo hecho de financiarse', () => {
+    const perdedor: MastermindInputs = {
+      ...inputs,
+      mercado: { ...inputs.mercado, precioVentaDepasM2: 30_000 }, // fuerza margen negativo
+    }
+    const sinApalancar = calcularMastermind({ ...perdedor, financiamiento: { porcentajeFinanciado: 0, tasaAnualCredito: 14 } })
+    const apalancado = calcularMastermind({ ...perdedor, financiamiento: { porcentajeFinanciado: 55, tasaAnualCredito: 14 } })
+    expect(sinApalancar.utilidad.utilidadAntesImpuestos).toBeLessThan(0)
+    expect(apalancado.retorno.tirSocioAnual as number).toBeLessThan(0)
+    // Apalancar un proyecto perdedor amplifica la pérdida relativa al equity, nunca la convierte en ganancia.
+    expect(apalancado.retorno.tirSocioAnual as number).toBeLessThan(apalancado.retorno.tirProyectoAnual as number)
+  })
+})
+
 describe('Modalidad renta: no debe duplicar el valor capitalizado de locales', () => {
   it('ingresos totales del flujo = habitacional neto - comercialización + remanente comercial (una sola vez)', () => {
     const rentaInputs: MastermindInputs = {
