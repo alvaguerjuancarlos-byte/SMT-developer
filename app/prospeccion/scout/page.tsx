@@ -280,11 +280,25 @@ export default function ScoutPage() {
                     )}
 
                     <div className="p-4">
-                      {/* Precio */}
+                      {/* Precio total + Precio/m² — lado a lado y etiquetados, para poder
+                          verificar a simple vista que uno sale del otro (total ÷ superficie) */}
                       <div className="flex items-start justify-between gap-2 mb-2">
-                        <p className="text-[18px] font-bold text-[#111d17] leading-tight">
-                          {fmtPrecio(item.precio, item.moneda)}
-                        </p>
+                        <div className="flex items-end gap-3">
+                          <div>
+                            <p className="text-[9px] font-semibold text-[#9aab9f] uppercase tracking-wide mb-0.5">Precio total</p>
+                            <p className="text-[18px] font-bold text-[#111d17] leading-tight">
+                              {item.precio > 0 ? fmtPrecio(item.precio, item.moneda) : 'No disponible'}
+                            </p>
+                          </div>
+                          {item.superficie && item.precio > 0 && (
+                            <div>
+                              <p className="text-[9px] font-semibold text-[#9aab9f] uppercase tracking-wide mb-0.5">Precio / m²</p>
+                              <p className="text-[14px] font-bold text-[#0F6E56] leading-tight">
+                                {fmtPrecio(Math.round(item.precio / item.superficie), item.moneda)}
+                              </p>
+                            </div>
+                          )}
+                        </div>
                         {selected?.id === item.id && (
                           <span className="flex-shrink-0 w-5 h-5 rounded-full bg-[#1D9E75] flex items-center justify-center">
                             <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><polyline points="2,5 4,7 8,3" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
@@ -308,11 +322,6 @@ export default function ScoutPage() {
                         {item.frente && (
                           <span className="text-[11px] px-2 py-1 rounded-full bg-[#E1F5EE] text-[#0F6E56] border border-[#5DCAA5]/40">
                             {item.frente} m frente
-                          </span>
-                        )}
-                        {item.superficie && item.precio > 0 && (
-                          <span className="text-[11px] px-2 py-1 rounded-full bg-[#F0F4F2] text-[#5a7065]">
-                            {fmtPrecio(Math.round(item.precio / item.superficie), item.moneda)}/m²
                           </span>
                         )}
                       </div>

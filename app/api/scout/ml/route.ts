@@ -73,16 +73,23 @@ ${snippets.join('\n---\n')}
 Extrae hasta 10 listados únicos de terrenos en venta. Para cada uno retorna un objeto JSON con estos campos:
 - id: string único (usa el dominio + número aleatorio)
 - titulo: título del listado
-- precio: número (precio en MXN, 0 si no está claro)
+- precio: número — SIEMPRE el precio TOTAL del terreno en MXN, nunca el precio por m². Muchos anuncios
+  de terreno en México solo publican precio por m² (ej. "$18,000/m²") sin precio total explícito — en
+  ese caso, SOLO si también extrajiste la superficie, calcula precio = precioPorM2 × superficie y repórtalo
+  ya multiplicado. Si el snippet no trae ni precio total ni precio/m² con superficie para calcularlo, usa 0
+  (no inventes un número).
 - moneda: "MXN" siempre
 - urlAnuncio: URL del listado
 - foto: null siempre
 - ubicacion: { direccion: "", colonia: "${colonia || ''}", municipio: "${municipio || ''}", estado: "${estado}", cp: "${cp || ''}", lat: null, lng: null }
-- superficie: número en m² o null si no aparece
+- superficie: número en m² o null si no aparece explícitamente en el snippet (no lo estimes)
 - frente: número en metros o null
 - descripcion: snippet relevante del listado
 - portal: nombre del portal (Lamudi, Inmuebles24, etc.)
 
+No inventes ni aproximes precio o superficie cuando el snippet no los menciona con claridad — es preferible
+0/null a un número inventado, porque el frontend calcula precio/m² dividiendo precio entre superficie y un
+dato inventado de cualquiera de los dos produce una tasa por m² falsa.
 Ignora resultados que no sean listados de terrenos en venta (artículos, guías, etc.).
 Retorna ÚNICAMENTE un array JSON válido, sin markdown ni texto extra.`
 
