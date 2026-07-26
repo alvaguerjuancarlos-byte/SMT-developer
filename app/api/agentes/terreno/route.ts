@@ -280,7 +280,21 @@ REGLAS:
 
     const match = finalText.match(/\{[\s\S]*\}/)
     if (!match) throw new Error('No JSON in response')
-    return NextResponse.json(JSON.parse(match[0]))
+    const parsed = JSON.parse(match[0])
+
+    // Mismo problema de consistencia raíz↔bitácora visto y corregido en el Agente Construcción:
+    // el modelo a veces no logra mantener costoTerreno/costoTerrenoM2 (raíz, lo que lee el resto
+    // del pipeline) iguales a bitacoraTerreno.costoTotalTerreno/precioM2Final (donde sí razona
+    // bien el cálculo — verificado contra bitacoraTerreno.formula y validacionPrecioSolicitado).
+    // El prompt exige que coincidan (ver REGLAS), pero nada lo garantizaba — se sobrescribe la
+    // raíz con la bitácora en vez de confiar en que el modelo cumplió su propia regla.
+    if (parsed.bitacoraTerreno) {
+      const bt = parsed.bitacoraTerreno
+      if (typeof bt.costoTotalTerreno === 'number') parsed.costoTerreno = bt.costoTotalTerreno
+      if (typeof bt.precioM2Final === 'number') parsed.costoTerrenoM2 = bt.precioM2Final
+    }
+
+    return NextResponse.json(parsed)
   } catch (error) {
     console.error('Agente Terreno error:', error)
     return NextResponse.json({ error: 'Error en Agente Terreno' }, { status: 500 })

@@ -13,6 +13,18 @@ export const BENCHMARKS_CONSTRUCCION_MXN_M2: Record<BenchmarkConstruccion, numbe
   oficinas: 15_000,
 }
 
+// ── Rangos de referencia por banda socioeconómica (MXN/m²) ──────────────────
+// Terreno y construcción comparten la misma escala 1-4 que ya usan los Agentes
+// Terreno/Construcción/Financiero (ver bandaLabels en app/api/agentes/*/route.ts).
+// Solo se usan para diagnóstico de anomalías — el motor de cálculo sigue usando
+// BENCHMARKS_CONSTRUCCION_MXN_M2 / el costo de terreno real tal cual, sin snapping.
+export const RANGOS_BANDA_MXN_M2: Record<number, { min: number; max: number; nombre: string }> = {
+  1: { min: 7_000, max: 10_500, nombre: 'Popular / Económica' },
+  2: { min: 10_500, max: 16_000, nombre: 'Media Estándar' },
+  3: { min: 16_000, max: 24_000, nombre: 'Media Alta / Residencial' },
+  4: { min: 24_000, max: 45_000, nombre: 'Premium / Lujo' },
+}
+
 // ── Factores fijos del motor ─────────────────────────────────────────────────
 export const FACTOR_EFICIENCIA_CONSTRUCCION = 0.85 // m² construidos → m² vendibles equivalentes
 export const DESCUENTOS_CANCELACIONES = 0.05        // -5% sobre ingreso bruto

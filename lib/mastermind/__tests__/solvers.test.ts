@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { resolverBenchmarkMaximo, resolverPrecioVentaMinimo, resolverUnidadesMinimas } from '../solvers'
+import { resolverBenchmarkMaximo, resolverCostoTerrenoMaximo, resolverPrecioVentaMinimo, resolverUnidadesMinimas } from '../solvers'
 import { calcularCostos, calcularIngresos, construirFlujoSocio } from '../motor'
 import { calcularTIR } from '../irr'
 import type { MastermindInputs } from '../tipos'
@@ -62,6 +62,24 @@ describe('resolverBenchmarkMaximo', () => {
   it('un benchmark mayor al resuelto da una TIR menor al objetivo (monotonicidad inversa)', () => {
     const r = resolverBenchmarkMaximo(inputs)
     const tirMayor = tirSocioCon({}, (r.valor as number) * 1.2)
+    expect(tirMayor as number).toBeLessThan(inputs.tirObjetivo)
+  })
+})
+
+describe('resolverCostoTerrenoMaximo', () => {
+  it('el costo de terreno resuelto, aplicado de vuelta al motor, reproduce la TIR objetivo', () => {
+    const r = resolverCostoTerrenoMaximo(inputs)
+    expect(r.converged).toBe(true)
+    expect(r.valor).not.toBeNull()
+
+    const tirReal = tirSocioCon({ terreno: { ...inputs.terreno, costoTerreno: r.valor as number } })
+    expect(tirReal).not.toBeNull()
+    expect(tirReal as number).toBeCloseTo(inputs.tirObjetivo, 1)
+  })
+
+  it('un costo de terreno mayor al resuelto da una TIR menor al objetivo (monotonicidad inversa)', () => {
+    const r = resolverCostoTerrenoMaximo(inputs)
+    const tirMayor = tirSocioCon({ terreno: { ...inputs.terreno, costoTerreno: (r.valor as number) * 1.3 } })
     expect(tirMayor as number).toBeLessThan(inputs.tirObjetivo)
   })
 })

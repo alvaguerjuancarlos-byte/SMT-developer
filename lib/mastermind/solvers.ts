@@ -102,6 +102,14 @@ export function resolverBenchmarkMaximo(inputs: MastermindInputs): SolverResult 
   return bisectSolve(evalTIR, 3_000, 40_000, inputs.tirObjetivo, 'decreasing')
 }
 
+export function resolverCostoTerrenoMaximo(inputs: MastermindInputs): SolverResult {
+  const costoActual = inputs.terreno.costoTerreno || 5_000_000
+  const lo = Math.max(1_000, costoActual * 0.05)
+  const hi = Math.max(costoActual * 3, 100_000_000)
+  const evalTIR = (x: number) => evaluarTIRSocio({ ...inputs, terreno: { ...inputs.terreno, costoTerreno: x } })
+  return bisectSolve(evalTIR, lo, hi, inputs.tirObjetivo, 'decreasing')
+}
+
 export function resolverUnidadesMinimas(inputs: MastermindInputs): SolverResult {
   const evalTIR = (x: number) => evaluarTIRSocio({ ...inputs, proyecto: { ...inputs.proyecto, unidadesHabitacionales: x } })
   return bisectSolve(evalTIR, 1, 500, inputs.tirObjetivo, 'increasing')

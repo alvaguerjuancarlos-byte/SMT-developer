@@ -79,11 +79,58 @@ Reglas:
 
     const text = (response.content[0] as any).text ?? ''
     const match = text.match(/\[[\s\S]*\]/)
-    const comparables: Comparable[] = match ? JSON.parse(match[0]) : []
+    const comparablesRaw: Comparable[] = match ? JSON.parse(match[0]) : []
+
+    const comparables = comparablesRaw
+      .map(validarComparable)
+      .filter((c): c is Comparable => c !== null)
 
     return NextResponse.json({ comparables, lugar })
   } catch (e: any) {
     console.error('Comparables error:', e)
     return NextResponse.json({ comparables: [], error: e.message })
   }
+}
+
+// El extractor (Haiku) lee snippets de Google truncados/ambiguos — a veces confunde
+// precio total con precio/m² (ej. "$1,200,000" sin aclarar unidad). Antes de dejar
+// que el Agente Terreno use estos comparables para calibrar su valuación, verificamos
+// que los números cuadren entre sí y caigan en un rango plausible para terreno urbano.
+const PRECIO_M2_MIN = 300
+const PRECIO_M2_MAX = 60000
+const TOLERANCIA = 0.20
+
+function validarComparable(c: Comparable): Comparable | null {
+  let precioM2 = c.precioM2
+  let precioTotal = c.precioTotal
+  const superficieM2 = c.superficieM2
+
+  if (precioM2 && precioTotal && superficieM2 && superficieM2 > 0) {
+    const impliedM2 = precioTotal / superficieM2
+    const diff = Math.abs(impliedM2 - precioM2) / precioM2
+    if (diff > TOLERANCIA) {
+      // No cuadran — probar si el modelo invirtió los campos (precioM2 era el total y viceversa).
+      const impliedM2Swapped = precioM2 / superficieM2
+      const diffSwapped = Math.abs(impliedM2Swapped - precioTotal) / precioTotal
+      if (diffSwapped < TOLERANCIA) {
+        ;[precioM2, precioTotal] = [precioTotal, precioM2]
+      } else {
+        return null // inconsistente y no reconciliable — no confiable como comparable
+      }
+    }
+  } else if (precioM2 && !precioTotal && superficieM2 && superficieM2 > 0) {
+    precioTotal = Math.round(precioM2 * superficieM2)
+  } else if (precioTotal && !precioM2 && superficieM2 && superficieM2 > 0) {
+    precioM2 = Math.round(precioTotal / superficieM2)
+  }
+
+  if (precioM2 && (precioM2 < PRECIO_M2_MIN || precioM2 > PRECIO_M2_MAX)) {
+    return null // fuera de rango plausible — probable campo mal clasificado
+  }
+
+  if (!precioM2 && !precioTotal) {
+    return null // sin ningún precio no sirve como comparable de valuación
+  }
+
+  return { ...c, precioM2, precioTotal }
 }

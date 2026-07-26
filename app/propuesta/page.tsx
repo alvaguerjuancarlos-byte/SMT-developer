@@ -513,8 +513,8 @@ function PropuestaContent() {
                   <TableRow label="Costo del terreno" value={fmt(f.costoTerreno)} sub={`${fmt(f.costoTerrenoM2)} / m²`} />
                   <TableRow label="Construcción por m²" value={`${fmt(f.construccionM2)} / m²`} />
                   <TableRow label="Costo total de construcción" value={fmt(f.costoTotalConstruccion)} />
-                  <TableRow label="Indirectos y administración" value={fmt(f.indirectos)} sub="8% sobre costo de obra" />
-                  <TableRow label="Honorarios y diseño" value={fmt(f.honorarios)} sub="4.5% sobre costo de obra" />
+                  <TableRow label="Indirectos y administración" value={fmt(f.indirectos)} sub={`${f.costoTotalConstruccion > 0 ? ((f.indirectos / f.costoTotalConstruccion) * 100).toFixed(1) : '0'}% sobre costo de obra`} />
+                  <TableRow label="Honorarios y diseño" value={fmt(f.honorarios)} sub={`${f.costoTotalConstruccion > 0 ? ((f.honorarios / f.costoTotalConstruccion) * 100).toFixed(1) : '0'}% sobre costo de obra`} />
                   <TableRow label="Imprevistos (5%)" value={fmt(f.imprevistos)} sub="Reserva de contingencia" />
                   <TableRow label="Inversión Total" value={fmt(f.inversionTotal)} highlight />
                   <TableRow label="Precio de venta estimado / m²" value={`${fmt(f.precioVentaM2)} / m²`} sub={`Mercado ${d.mercado.zona}`} />

@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useMastermind } from '../../state'
+import VeredictoPanel from '../VeredictoPanel'
 import ReverseEngineeringPanel from '../ReverseEngineeringPanel'
 import SensitivityMatrix from '../SensitivityMatrix'
 import CostosGauge from './CostosGauge'
@@ -61,6 +62,8 @@ export default function MastermindCockpit({ origenAnalisis, tirAnalisisOriginal 
       </div>
 
       {leverActive && <DetailDrawer leverId={leverActive} origenAnalisis={origenAnalisis} />}
+
+      <VeredictoPanel />
 
       {errores.length > 0 && (
         <div className="bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3">

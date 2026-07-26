@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react'
 import { useMastermind } from '../state'
-import { resolverBenchmarkMaximo, resolverPrecioVentaMinimo, resolverUnidadesMinimas } from '@/lib/mastermind/solvers'
+import { resolverBenchmarkMaximo, resolverCostoTerrenoMaximo, resolverPrecioVentaMinimo, resolverUnidadesMinimas } from '@/lib/mastermind/solvers'
 import type { SolverResult } from '@/lib/mastermind/tipos'
 
 function fmtMXN(n: number) { return `$${Math.round(n).toLocaleString('es-MX')}` }
@@ -86,9 +86,10 @@ function TarjetaSolver({
 }
 
 export default function ReverseEngineeringPanel() {
-  const { inputs, outputs, setMercado, setProyecto } = useMastermind()
+  const { inputs, outputs, setMercado, setProyecto, setTerreno } = useMastermind()
 
   const precio = useMemo(() => resolverPrecioVentaMinimo(inputs), [inputs])
+  const terreno = useMemo(() => resolverCostoTerrenoMaximo(inputs), [inputs])
   const benchmark = useMemo(() => resolverBenchmarkMaximo(inputs), [inputs])
   const unidades = useMemo(() => resolverUnidadesMinimas(inputs), [inputs])
 
@@ -103,7 +104,7 @@ export default function ReverseEngineeringPanel() {
       </div>
       <p className="text-[11px] text-white/40 mb-4">Qué necesita el proyecto para alcanzar {inputs.tirObjetivo}% de TIR Socio</p>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
         <TarjetaSolver
           titulo="Precio mínimo venta/m²"
           resultado={precio}
@@ -115,6 +116,22 @@ export default function ReverseEngineeringPanel() {
           max={100_000}
           step={500}
           onChange={v => setMercado({ precioVentaDepasM2: v })}
+        />
+        <TarjetaSolver
+          titulo="Costo máximo terreno"
+          resultado={terreno}
+          valorActual={inputs.terreno.costoTerreno}
+          fmt={fmtMXN}
+          unidad=""
+          mejorEsMayor={false}
+          min={0}
+          max={Math.max(inputs.terreno.costoTerreno * 2, 50_000_000)}
+          step={100_000}
+          onChange={v => setTerreno({
+            ...inputs.terreno,
+            costoTerreno: v,
+            costoTerrenoM2: inputs.terreno.superficieM2 > 0 ? v / inputs.terreno.superficieM2 : inputs.terreno.costoTerrenoM2,
+          })}
         />
         <TarjetaSolver
           titulo="Costo máximo construcción"

@@ -51,9 +51,13 @@ OUTPUT — JSON EXACTO (sin texto adicional):
     "usoSueloPermitido": "Uso permitido según PDU vigente",
     "compatible": true,
     "densidadAutorizada": "Densidad máxima permitida (ej: 150 hab/ha · 48 unidades máx)",
+    "densidadMaxUnidades": 48,
     "cos": "60%",
+    "cosNum": 0.60,
     "cus": "2.4",
+    "cusNum": 2.4,
     "altura": "12 niveles",
+    "nivelesMax": 12,
     "cajones": "1.2 por unidad",
     "retiros": "Frente 3 m · Laterales 2 m · Fondo 3 m",
     "municipio": "Municipio exacto",
@@ -86,6 +90,10 @@ OUTPUT — JSON EXACTO (sin texto adicional):
 }
 
 REGLAS:
+- cosNum/cusNum/nivelesMax/densidadMaxUnidades son números sin formato, para que el resto del
+  pipeline calcule el envolvente (COS × terreno, CUS × terreno × niveles) sin tener que parsear
+  texto — deben coincidir exactamente con lo que dicen cos/cus/altura/densidadAutorizada
+  (ej. si cos="60%", cosNum=0.60; si altura="12 niveles", nivelesMax=12)
 - fichaLegal.compatible: true si uso actual es compatible con permitido, false si requiere cambio
 - factibilidades.status: exactamente "Disponible", "Con condicionante" o "No disponible"
 - nivelRiesgo: "Bajo", "Medio" o "Alto"

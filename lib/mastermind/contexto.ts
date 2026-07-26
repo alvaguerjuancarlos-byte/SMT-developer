@@ -75,7 +75,11 @@ export function extractProyectoContext(d: AnalisisData | null | undefined): Part
     ?? (superficieConstruida && superficieConstruida > 0 && d?.financiero?.costoTotalConstruccion
       ? d.financiero.costoTotalConstruccion / superficieConstruida
       : undefined)
-  if (costoPorM2) out.benchmarkConstruccion = benchmarkMasCercano(costoPorM2)
+  if (costoPorM2) {
+    out.benchmarkConstruccion = benchmarkMasCercano(costoPorM2)
+    out.costoConstruccionRealM2 = Math.round(costoPorM2)
+  }
+  if (bc?.bandaElegida) out.bandaConstruccion = bc.bandaElegida
 
   // Lo que sigue SÍ requiere tipologiaPropuesta — solo el modo "agente_propone" desglosa
   // niveles/unidades/mix de tipologías. Sin eso (análisis viejo o modo "usuario_define"),

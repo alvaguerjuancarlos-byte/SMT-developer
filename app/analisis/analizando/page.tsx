@@ -63,8 +63,8 @@ interface PipelineState {
   // terreno/construccion/mercado permiten "Ajustar parámetros" las veces que hagan falta:
   // cada corrida se agrega a `corridas` (nunca se reemplaza) y `seleccionada` indexa cuál
   // usan los pasos siguientes — el analista elige a su criterio, sin sugerencia automática.
-  terreno:     { status: AgentStatus; corridas: TerrenoResult[];      seleccionada: number | null; overrideM2: string }
-  construccion:{ status: AgentStatus; corridas: ConstruccionResult[]; seleccionada: number | null; overrideM2: string }
+  terreno:     { status: AgentStatus; corridas: TerrenoResult[];      seleccionada: number | null; overrideM2: string; usarPrecioSolicitado: boolean }
+  construccion:{ status: AgentStatus; corridas: ConstruccionResult[]; seleccionada: number | null; overrideM2: string; usarParametricoZona: boolean }
   legal:       { status: AgentStatus; data: LegalResult | null }
   mercado:     { status: AgentStatus; corridas: MercadoResult[];      seleccionada: number | null; overridePrecioVenta: string; overrideAbsorcion: string }
   financiero:  { status: AgentStatus; data: FinancieroResult | null }
@@ -165,6 +165,18 @@ function EditableM2({
 // cortas y así este ajuste queda aislado sin acoplar analizando a flujo-a.
 const BANDA_LABELS: Record<string, string> = {
   '1': 'Popular', '2': 'Media Popular', '3': 'Media Residencial', '4': 'Premium',
+}
+
+// Costo/m² paramétrico de referencia por banda de construcción — punto medio del mismo
+// rango de mercado que ya usan los Agentes Construcción/Financiero para clasificar
+// acabados (ver bandaLabels en app/api/agentes/construccion|financiero/route.ts). Sirve
+// para comparar el costo bottom-up calculado por la IA contra un promedio de zona, y
+// darle al usuario la opción de usar ese promedio en vez del cálculo detallado.
+const BANDA_CONSTRUCCION_PARAMETRICO_MXN_M2: Record<string, number> = {
+  '1': 8750,   // Banda 1 — Económica ($7,000–$10,500/m²)
+  '2': 13250,  // Banda 2 — Media Estándar ($10,500–$16,000/m²)
+  '3': 20000,  // Banda 3 — Media Alta ($16,000–$24,000/m²)
+  '4': 34500,  // Banda 4 — Premium ($24,000–$45,000+/m²)
 }
 const VIALIDAD_LABELS: Record<string, string> = {
   arterial: 'Arterial / Primaria', colectora: 'Colectora', secundaria: 'Secundaria',
@@ -986,8 +998,8 @@ function PipelineContent() {
   const [formData, setFormData] = useState<any>(null)
   const [pipe, setPipe] = useState<PipelineState>({
     comparables: { status: 'waiting', data: [] },
-    terreno:     { status: 'waiting', corridas: [], seleccionada: null, overrideM2: '' },
-    construccion:{ status: 'waiting', corridas: [], seleccionada: null, overrideM2: '' },
+    terreno:     { status: 'waiting', corridas: [], seleccionada: null, overrideM2: '', usarPrecioSolicitado: false },
+    construccion:{ status: 'waiting', corridas: [], seleccionada: null, overrideM2: '', usarParametricoZona: false },
     legal:       { status: 'waiting', data: null },
     mercado:     { status: 'waiting', corridas: [], seleccionada: null, overridePrecioVenta: '', overrideAbsorcion: '' },
     financiero:  { status: 'waiting', data: null },
@@ -1143,7 +1155,7 @@ function PipelineContent() {
     const comps = comparablesPrecargados ?? pipe.comparables.data
     // overrideM2 pertenece a la corrida anterior — si se genera una nueva opción de Terreno
     // (banda/vialidad ajustadas o "Ajustar parámetros" sin cambios), el número manual queda obsoleto.
-    setPipe(p => ({ ...p, terreno: { ...p.terreno, status: 'running', overrideM2: '' } }))
+    setPipe(p => ({ ...p, terreno: { ...p.terreno, status: 'running', overrideM2: '', usarPrecioSolicitado: false } }))
     try {
       const res = await fetch('/api/agentes/terreno', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -1163,10 +1175,13 @@ function PipelineContent() {
     totalLocalesOverride?: string; amenidadesNivelOverride?: string
   }) => {
     const t = terrenoActual!
-    const m2 = pipe.terreno.overrideM2 !== '' ? Number(pipe.terreno.overrideM2) : t.costoTerrenoM2
+    const m2 = pipe.terreno.usarPrecioSolicitado
+      ? Number(formData.precioSolicitado) / Number(formData.superficie)
+      : (pipe.terreno.overrideM2 !== '' ? Number(pipe.terreno.overrideM2) : t.costoTerrenoM2)
     const payload = {
       ...formData, ...overrides, costoTerrenoM2: m2, costoTerreno: m2 * Number(formData.superficie),
       mercado: mercadoActual?.mercado,
+      fichaLegal: pipe.legal.data?.fichaLegal,
     }
     setPipe(p => ({ ...p, construccion: { ...p.construccion, status: 'running' } }))
     try {
@@ -1237,11 +1252,18 @@ function PipelineContent() {
   const runFinanciero = async () => {
     const t = terrenoActual!
     const c = construccionActual!
-    const m2t = pipe.terreno.overrideM2 !== '' ? Number(pipe.terreno.overrideM2) : t.costoTerrenoM2
-    const m2c = pipe.construccion.overrideM2 !== '' ? Number(pipe.construccion.overrideM2) : c.construccionM2
+    const m2t = pipe.terreno.usarPrecioSolicitado
+      ? Number(formData.precioSolicitado) / Number(formData.superficie)
+      : (pipe.terreno.overrideM2 !== '' ? Number(pipe.terreno.overrideM2) : t.costoTerrenoM2)
+    const parametricoM2Fin = BANDA_CONSTRUCCION_PARAMETRICO_MXN_M2[String(c.bitacoraConstruccion?.bandaElegida)]
+    const usaOverrideConstruccion = pipe.construccion.overrideM2 !== '' || (pipe.construccion.usarParametricoZona && !!parametricoM2Fin)
+    const m2c = pipe.construccion.usarParametricoZona && parametricoM2Fin
+      ? parametricoM2Fin
+      : (pipe.construccion.overrideM2 !== '' ? Number(pipe.construccion.overrideM2) : c.construccionM2)
     const costoTerreno = m2t * Number(formData.superficie)
-    // Use actual total from agent (sum of zones). Recompute only if user overrode cost/m².
-    const costoTotalConstruccion = pipe.construccion.overrideM2 !== ''
+    // Use actual total from agent (sum of zones). Recompute only if user overrode cost/m²
+    // (a mano o con el paramétrico de zona).
+    const costoTotalConstruccion = usaOverrideConstruccion
       ? m2c * (c.superficieConstruida || Number(formData.superficie) * 1.2)
       : (c.costoTotalConstruccion || m2c * (c.superficieConstruida || Number(formData.superficie) * 1.2))
     // Preferimos el área vendible derivada del mix real de Construcción sobre el campo
@@ -1412,13 +1434,17 @@ function PipelineContent() {
                 const t = terrenoActual
                 const ic = t.bitacoraTerreno?.indiceConfiabilidad
                 const vp = t.bitacoraTerreno?.validacionPrecioSolicitado
-                const m2efectivo = pipe.terreno.overrideM2 !== '' ? Number(pipe.terreno.overrideM2) : t.costoTerrenoM2
+                const tienePrecioSolicitado = Number(formData?.precioSolicitado || 0) > 0 && Number(formData?.superficie || 0) > 0
+                const m2PrecioSolicitado = tienePrecioSolicitado ? Number(formData.precioSolicitado) / Number(formData.superficie) : 0
+                const m2efectivo = pipe.terreno.usarPrecioSolicitado
+                  ? m2PrecioSolicitado
+                  : (pipe.terreno.overrideM2 !== '' ? Number(pipe.terreno.overrideM2) : t.costoTerrenoM2)
                 return (
                   <DoneCard>
                     <SelectorCorridas
                       corridas={pipe.terreno.corridas}
                       seleccionada={pipe.terreno.seleccionada}
-                      onSeleccionar={i => setPipe(p => ({ ...p, terreno: { ...p.terreno, seleccionada: i, overrideM2: '' } }))}
+                      onSeleccionar={i => setPipe(p => ({ ...p, terreno: { ...p.terreno, seleccionada: i, overrideM2: '', usarPrecioSolicitado: false } }))}
                       resumen={(item) => (
                         <div className="space-y-0.5">
                           <p className="text-[11px] font-semibold text-[#111d17]">Banda {item.bitacoraTerreno?.bandaTerreno} · {item.bitacoraTerreno?.nombreBanda}</p>
@@ -1441,8 +1467,8 @@ function PipelineContent() {
                       <EditableM2
                         label="Precio / m² terreno"
                         value={t.costoTerrenoM2}
-                        override={pipe.terreno.overrideM2}
-                        onOverride={v => setPipe(p => ({ ...p, terreno: { ...p.terreno, overrideM2: v } }))}
+                        override={pipe.terreno.usarPrecioSolicitado ? String(Math.round(m2PrecioSolicitado)) : pipe.terreno.overrideM2}
+                        onOverride={v => setPipe(p => ({ ...p, terreno: { ...p.terreno, overrideM2: v, usarPrecioSolicitado: false } }))}
                         unit=" MXN/m²"
                       />
                       <div className="bg-[#F7F8F6] rounded-xl px-4 py-3">
@@ -1453,6 +1479,22 @@ function PipelineContent() {
                         <p className="text-[10px] text-[#9aab9f]">{Number(formData?.superficie || 0).toLocaleString()} m²</p>
                       </div>
                     </div>
+
+                    {tienePrecioSolicitado && (
+                      <div className="px-5 pb-4 -mt-1">
+                        <label className="flex items-start gap-2 bg-[#F0FBF6] border border-[#9FE1CB]/50 rounded-xl px-3 py-2.5 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={pipe.terreno.usarPrecioSolicitado}
+                            onChange={e => setPipe(p => ({ ...p, terreno: { ...p.terreno, usarPrecioSolicitado: e.target.checked, overrideM2: '' } }))}
+                            className="mt-0.5 accent-[#1D9E75]"
+                          />
+                          <span className="text-[11px] text-[#0F6E56] leading-snug">
+                            Usar el precio solicitado por el vendedor (<strong>{fmt(Number(formData.precioSolicitado))}</strong>) en vez del valor calculado por la IA (<strong>{fmt(t.costoTerreno)}</strong>).
+                          </span>
+                        </label>
+                      </div>
+                    )}
 
                     {/* ── Bitácora del cálculo ── */}
                     {t.bitacoraTerreno && (
@@ -1500,6 +1542,22 @@ function PipelineContent() {
                               <p className="text-[11px] font-bold text-[#0F6E56]">Precio final ajustado</p>
                               <p className="text-[15px] font-black text-[#0F6E56]">
                                 ${t.bitacoraTerreno.precioM2Final?.toLocaleString('es-MX')} MXN/m²
+                              </p>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Cálculo final — precio/m² × superficie = costo total del terreno */}
+                        {t.bitacoraTerreno.costoTotalTerreno != null && (
+                          <div className="bg-[#F7F8F6] rounded-xl px-4 py-3">
+                            <p className="text-[10px] font-bold text-[#9aab9f] uppercase tracking-wide mb-1.5">Cálculo final</p>
+                            {t.bitacoraTerreno.formula && (
+                              <p className="text-[11px] text-[#5a7065] mb-2">{t.bitacoraTerreno.formula}</p>
+                            )}
+                            <div className="flex items-center justify-between">
+                              <span className="text-[11px] text-[#9aab9f]">Costo total terreno</span>
+                              <p className="text-[16px] font-black text-[#0F6E56]">
+                                ${t.bitacoraTerreno.costoTotalTerreno.toLocaleString('es-MX')} MXN
                               </p>
                             </div>
                           </div>
@@ -1911,7 +1969,7 @@ function PipelineContent() {
                           // Fuera del alcance de "Ajustar parámetros" — el programa definido a mano
                           // se edita in situ (sliders instantáneos, sin llamada a IA), no acumula
                           // corridas: cada "Editar programa" reemplaza la anterior, como antes.
-                          setPipe(p => ({ ...p, construccion: { status: 'done', corridas: [construccionResult], seleccionada: 0, overrideM2: '' } }))
+                          setPipe(p => ({ ...p, construccion: { status: 'done', corridas: [construccionResult], seleccionada: 0, overrideM2: '', usarParametricoZona: false } }))
                         }}
                       />
                     )}
@@ -1932,7 +1990,7 @@ function PipelineContent() {
                           <span className="text-[13px] font-bold text-[#0F6E56]">Programa definido por ti</span>
                         </div>
                         <button
-                          onClick={() => setPipe(p => ({ ...p, construccion: { status: 'waiting', corridas: [], seleccionada: null, overrideM2: '' } }))}
+                          onClick={() => setPipe(p => ({ ...p, construccion: { status: 'waiting', corridas: [], seleccionada: null, overrideM2: '', usarParametricoZona: false } }))}
                           className="text-[11px] text-[#9aab9f] hover:text-[#1D9E75] transition-colors cursor-pointer"
                         >
                           Editar programa
@@ -1970,14 +2028,18 @@ function PipelineContent() {
                   const c = construccionActual
                   const ic = c.bitacoraConstruccion?.indiceConfiabilidad
                   const desglose = c.bitacoraConstruccion?.desgloseConstruccion
-                  const m2efectivo = pipe.construccion.overrideM2 !== '' ? Number(pipe.construccion.overrideM2) : c.construccionM2
-                  const totalCons = c.costoTotalConstruccion || m2efectivo * (c.superficieConstruida || 0)
+                  const parametricoM2 = BANDA_CONSTRUCCION_PARAMETRICO_MXN_M2[String(c.bitacoraConstruccion?.bandaElegida)]
+                  const usaOverrideConstruccion = pipe.construccion.overrideM2 !== '' || (pipe.construccion.usarParametricoZona && !!parametricoM2)
+                  const m2efectivo = pipe.construccion.usarParametricoZona && parametricoM2
+                    ? parametricoM2
+                    : (pipe.construccion.overrideM2 !== '' ? Number(pipe.construccion.overrideM2) : c.construccionM2)
+                  const totalCons = usaOverrideConstruccion ? m2efectivo * (c.superficieConstruida || 0) : c.costoTotalConstruccion
                   return (
                     <DoneCard>
                       <SelectorCorridas
                         corridas={pipe.construccion.corridas}
                         seleccionada={pipe.construccion.seleccionada}
-                        onSeleccionar={i => setPipe(p => ({ ...p, construccion: { ...p.construccion, seleccionada: i, overrideM2: '' } }))}
+                        onSeleccionar={i => setPipe(p => ({ ...p, construccion: { ...p.construccion, seleccionada: i, overrideM2: '', usarParametricoZona: false } }))}
                         resumen={(item) => (
                           <div className="space-y-0.5">
                             <p className="text-[11px] font-semibold text-[#111d17]">Banda {item.bitacoraConstruccion?.bandaElegida} · {item.superficieConstruida?.toLocaleString()} m²</p>
@@ -2060,8 +2122,8 @@ function PipelineContent() {
                         <EditableM2
                           label="Costo ponderado / m²"
                           value={c.construccionM2}
-                          override={pipe.construccion.overrideM2}
-                          onOverride={v => setPipe(p => ({ ...p, construccion: { ...p.construccion, overrideM2: v } }))}
+                          override={pipe.construccion.usarParametricoZona && parametricoM2 ? String(parametricoM2) : pipe.construccion.overrideM2}
+                          onOverride={v => setPipe(p => ({ ...p, construccion: { ...p.construccion, overrideM2: v, usarParametricoZona: false } }))}
                         />
                         <div className="bg-[#F7F8F6] rounded-xl px-4 py-3">
                           <p className="text-[10px] text-[#9aab9f] uppercase tracking-wide font-semibold">Costo total directo</p>
@@ -2069,6 +2131,22 @@ function PipelineContent() {
                           <p className="text-[10px] text-[#9aab9f]">Suma ponderada por zona</p>
                         </div>
                       </div>
+
+                      {parametricoM2 && (
+                        <div className="px-5 pb-4 -mt-1">
+                          <label className="flex items-start gap-2 bg-[#F0FBF6] border border-[#9FE1CB]/50 rounded-xl px-3 py-2.5 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={pipe.construccion.usarParametricoZona}
+                              onChange={e => setPipe(p => ({ ...p, construccion: { ...p.construccion, usarParametricoZona: e.target.checked, overrideM2: '' } }))}
+                              className="mt-0.5 accent-[#1D9E75]"
+                            />
+                            <span className="text-[11px] text-[#0F6E56] leading-snug">
+                              Usar el costo paramétrico promedio de Banda {c.bitacoraConstruccion?.bandaElegida} (<strong>${parametricoM2.toLocaleString('es-MX')}/m²</strong>) en vez del calculado por la IA (<strong>${c.construccionM2.toLocaleString('es-MX')}/m²</strong>).
+                            </span>
+                          </label>
+                        </div>
+                      )}
 
                       {ic && (
                         <div className="px-5 pb-3">
@@ -2166,6 +2244,11 @@ function PipelineContent() {
                     {pipe.construccion.overrideM2 !== '' && (
                       <p className="text-[10px] text-[#9aab9f] text-center mt-2">
                         Se usará tu valor corregido: ${Number(pipe.construccion.overrideM2).toLocaleString()}/m²
+                      </p>
+                    )}
+                    {pipe.construccion.usarParametricoZona && (
+                      <p className="text-[10px] text-[#9aab9f] text-center mt-2">
+                        Se usará el costo paramétrico de zona en vez del calculado por la IA
                       </p>
                     )}
                   </div>

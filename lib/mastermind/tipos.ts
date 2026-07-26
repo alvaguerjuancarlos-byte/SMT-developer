@@ -37,6 +37,13 @@ export interface InputsProyecto {
   // honorarios + imprevistos, todos % de costoTotalConstruccion en ese modelo) cuando está
   // disponible — ver lib/mastermind/contexto.ts.
   porcentajeIndirectos: number
+  // Banda de construcción (1-4) elegida en el análisis original — junto con
+  // costoConstruccionRealM2, permite comparar el costo bottom-up real contra el rango de
+  // mercado esperado de esa banda (ver RANGOS_BANDA_MXN_M2 y lib/mastermind/diagnostico.ts).
+  // benchmarkConstruccion ya "snapea" el costo real al catálogo fijo más cercano — estos dos
+  // campos preservan el dato original para no perder la señal de que algo no cuadra.
+  bandaConstruccion?: number
+  costoConstruccionRealM2?: number
 }
 
 export interface InputsMercado {

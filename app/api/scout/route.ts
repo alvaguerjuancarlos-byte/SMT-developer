@@ -222,8 +222,8 @@ Genera 3 candidatos de terreno reales y distintos${data.zona ? ` DENTRO de la zo
     "financiero": {
       "costoTerreno": "$X,XXX,XXX MXN", "notaTerreno": "$X,XXX/m² · X,XXX m²",
       "costoConstruccion": "$XX,XXX,XXX MXN", "notaConstruccion": "Acabados según tipología · clase objetivo",
-      "indirectos": "$X,XXX,XXX MXN", "notaIndirectos": "8% sobre costo de obra",
-      "honorarios": "$X,XXX,XXX MXN", "notaHonorarios": "4.5% sobre costo de obra",
+      "indirectos": "$X,XXX,XXX MXN", "notaIndirectos": "15-18% sobre costo de obra (ej. 16% si costoConstruccion es $X)",
+      "honorarios": "$X,XXX,XXX MXN", "notaHonorarios": "8-10% sobre costo de obra (ej. 9% si costoConstruccion es $X)",
       "permisos": "$XXX,XXX MXN", "notaPermisos": "Municipio correspondiente",
       "imprevistos": "$X,XXX,XXX MXN", "notaImprevistos": "5% reserva de contingencia",
       "inversion": "$XX,XXX,XXX MXN",
@@ -333,6 +333,7 @@ ${zonaGeo ? `- CRÍTICO: los 3 candidatos deben estar dentro de un radio MÁXIMO
 - segmentacion: exactamente 2 segmentos de producto que dominan la demanda en esa zona
 - stressTest: 3 escenarios con status "amber", "amber", "red" específicos para el terreno recomendado
 - financiero: cifras realistas para el terreno recomendado considerando el tipo de desarrollo solicitado
+- financiero.indirectos: 15–18% de costoConstruccion · financiero.honorarios: 8–10% de costoConstruccion · financiero.imprevistos: 5% de costoConstruccion — mismos rangos que usa el Agente Financiero del análisis detallado, para que ambos pipelines sean consistentes entre sí
 - estructuraCapital: cifras en pesos MXN sin formato ($), todos numéricos excepto tipoDeuda, tasaDeuda, porcentajeMinimo, tasaDescuento, condicion y descripcion
 - flujoMensual: exactamente 6 meses cubriendo el ciclo preventa → inicio obra → construcción → entrega
 - puntoQuiebre: umbrales reales que hacen inviable el proyecto del candidato recomendado

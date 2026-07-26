@@ -1,10 +1,39 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { NextRequest, NextResponse } from 'next/server'
+import { calcularEnvolvente, validarMix } from '@/lib/analisis/envolventeYAreas'
+import type { EntradaEnvolvente, SalidaEnvolvente } from '@/lib/analisis/envolventeYAreas'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
+// Mapeo pragmático de tiposDesarrollo (intake) a la tipología de eficiencia vendible del
+// módulo determinístico — no hay categoría 1:1 para "industrial"/"no-definido"/"otro", se
+// tratan como 'vertical' (el fallback más conservador de los tres perfiles definidos).
+function tipologiaEnvolvente(tiposDesarrollo: string[] | undefined): EntradaEnvolvente['tipologia'] {
+  const tipos = tiposDesarrollo || []
+  if (tipos.includes('mixto') || tipos.includes('comercial')) return 'mixto'
+  if (tipos.includes('residencial-horizontal') || tipos.includes('unifamiliar')) return 'horizontal'
+  return 'vertical'
+}
+
 export async function POST(req: NextRequest) {
   const data = await req.json()
+
+  // Envolvente determinístico (lib/analisis/envolventeYAreas.ts) — solo se puede calcular si
+  // Legal ya devolvió los campos numéricos (cosNum/cusNum/nivelesMax). Si falta cualquiera
+  // (análisis viejo, Legal no llegó a tiempo, o Legal falló), degradamos al comportamiento
+  // anterior: el LLM estima su propio COS/CUS/eficiencia en el PASO 1 de abajo.
+  const fl = data.fichaLegal
+  const superficieTerreno = Number(data.superficie) || 0
+  const cos = Number(fl?.cosNum) || 0
+  const cus = Number(fl?.cusNum) || 0
+  const nivelesMax = Number(fl?.nivelesMax) || 0
+  const densidadMaxUnidades = Number(fl?.densidadMaxUnidades) || undefined
+  const envolvente: SalidaEnvolvente | null = (superficieTerreno > 0 && cos > 0 && cus > 0 && nivelesMax > 0)
+    ? calcularEnvolvente({
+        superficieTerreno, cos, cus, nivelesMax, densidadMaxUnidades,
+        tipologia: tipologiaEnvolvente(data.tiposDesarrollo),
+      })
+    : null
 
   const bandaLabels: Record<string, string> = {
     '1': 'Banda 1 — Económica / Interés Social (acabados básicos, $7,000–$10,500/m²)',
@@ -49,8 +78,18 @@ ${data.mercado ? `- Demanda: ${data.mercado.demanda || 'No especificada'}
 - Absorción por segmento: ${(data.mercado.segmentacion || []).map((s: any) => `${s.tipo}: ${s.absorcionMensual ?? '?'} unidades/mes (${s.participacion ?? '?'} de participación)`).join('; ') || 'No especificada'}` : '- No disponible — procede con el envolvente legal como única referencia de tamaño'}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-PASO 1 — DETERMINAR COS, CUS Y ÁREAS
+PASO 1 — ENVOLVENTE Y ÁREAS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${envolvente ? `VALORES APROBADOS — YA CALCULADOS EN CÓDIGO A PARTIR DEL COS/CUS DE LA FICHA LEGAL. NO RECALCULES COS/CUS NI INVENTES UN % DE EFICIENCIA VENDIBLE DISTINTO — úsalos exactamente:
+- areaMaxConstruible (techo normativo COS/CUS, el límite duro): ${envolvente.areaMaxConstruible} m²
+- areaConstruida — rango piso/base/techo según aprovechamiento real del lote: ${envolvente.areaConstruida.piso} / ${envolvente.areaConstruida.base} / ${envolvente.areaConstruida.techo} m²
+- areaVendible — rango piso/base/techo (ya neto de estacionamiento, circulaciones, amenidades y cuartos de servicio): ${envolvente.areaVendible.piso} / ${envolvente.areaVendible.base} / ${envolvente.areaVendible.techo} m²
+- eficienciaVendiblePct: ${envolvente.eficienciaVendiblePct.base}% (rango ${envolvente.eficienciaVendiblePct.piso}–${envolvente.eficienciaVendiblePct.techo}%) — este es el % que debe dar Zona 1 / superficieConstruida, no un valor distinto
+
+Usa superficieConstruida = ${envolvente.areaConstruida.base} m² (el valor "base") por default.
+${data.mercado ? `Si la absorción de mercado de abajo sugiere un proyecto más chico, puedes bajar hasta superficieConstruida = ${envolvente.areaConstruida.piso} m² (el "piso") — pero NUNCA subas por encima de ${envolvente.areaConstruida.techo} m² (el "techo") ni de ${envolvente.areaMaxConstruible} m² (areaMaxConstruible).` : `NUNCA subas por encima de ${envolvente.areaConstruida.techo} m² (el "techo") ni de ${envolvente.areaMaxConstruible} m² (areaMaxConstruible).`}
+superficieVendible debe ser exactamente ${envolvente.eficienciaVendiblePct.base}% (±2 puntos) de la superficieConstruida que elijas — no una eficiencia distinta a la ya calculada.` : `No llegó ficha legal con valores numéricos de COS/CUS para este predio — estima tú mismo:
+
 Estima COS y CUS típicos para el uso de suelo, tipología y municipio indicados.
 
 COS (Coeficiente de Ocupación del Suelo): porcentaje del terreno que puede cubrirse con construcción (huella).
@@ -60,7 +99,7 @@ COS (Coeficiente de Ocupación del Suelo): porcentaje del terreno que puede cubr
 
 CUS (Coeficiente de Utilización del Suelo): múltiplo del lote que puede construirse en total de niveles.
   superficie_construida_bruta_MAXIMA = superficie_lote × CUS
-  (este es el TECHO NORMATIVO — lo máximo que la ley permite, NO necesariamente el tamaño del proyecto)
+  (este es el TECHO NORMATIVO — lo máximo que la ley permite, NO necesariamente el tamaño del proyecto)`}
 
 TAMAÑO REAL DEL PROYECTO — no siempre uses el máximo legal:
   El tamaño real a construir es el MENOR entre el techo normativo (arriba) y lo que el mercado puede
@@ -82,30 +121,31 @@ La superficie construida bruta NO es toda vendible. Divídela en las siguientes 
 
 ZONA 1 — ÁREA VENDIBLE (casa habitación / departamentos / locales según tipología)
   IMPORTANTE: Para desarrollo UNIFAMILIAR, esta zona es la vivienda completa (1 sola unidad). No estimes múltiples unidades.
-  Participación típica: 60–72% de superficie bruta (residencial vertical); para unifamiliar puede llegar a 80–85% sin circulaciones de edificio.
+  Participación: ${envolvente ? `FIJADA en ${envolvente.eficienciaVendiblePct.base}% de la superficie construida (ver VALORES APROBADOS del PASO 1) — no uses un % distinto.` : '60–72% de superficie bruta (residencial vertical); para unifamiliar puede llegar a 80–85% sin circulaciones de edificio.'}
   Costo/m²: 100% del costo de banda (el más alto — acabados completos)
   Qué incluye: muros, losa, cancelería, instalaciones completas, acabados de banda
 
+${envolvente ? `Las zonas 2–5 (estacionamiento, circulaciones, áreas comunes, cuartos de servicio) juntas deben sumar EXACTAMENTE el área no vendible (superficieConstruida − superficieVendible). Repártela entre ellas usando estas proporciones relativas entre sí:` : ''}
 ZONA 2 — ESTACIONAMIENTO
-  Participación típica: 15–25% de superficie bruta (cajones cubiertos o semienterrados)
+  Participación: ${envolvente ? '~55% del área NO vendible (ver arriba)' : '15–25% de superficie bruta (cajones cubiertos o semienterrados)'}
   Cajones requeridos: estima 1.0–1.5 cajones/unidad; área 25–30 m²/cajón incluyendo circulación vehicular
   Costo/m²: 40–55% del costo de banda (solo estructura + losa + señalización, sin acabados residenciales)
   Qué incluye: losa de concreto, estructura, drenaje pluvial, señalización, iluminación básica
   NOTA: si el estacionamiento es en sótano, agrega 20–35% al costo de esa zona por excavación y muros milán
 
 ZONA 3 — CIRCULACIONES Y NÚCLEOS VERTICALES
-  Participación típica: 8–12% de superficie bruta
+  Participación: ${envolvente ? '~25% del área NO vendible (ver arriba)' : '8–12% de superficie bruta'}
   Costo/m²: 65–75% del costo de banda
   Qué incluye: pasillos, lobbies de piso, escaleras de emergencia, shaft de elevadores, vestíbulos
 
 ZONA 4 — ÁREAS COMUNES Y AMENIDADES
-  Participación típica: 4–8% de superficie bruta (varía mucho por banda)
+  Participación: ${envolvente ? '~15% del área NO vendible (ver arriba; varía por banda)' : '4–8% de superficie bruta (varía mucho por banda)'}
   Costo/m²: 80–115% del costo de banda (acabados diferenciados, piezas especiales)
   Qué incluye: lobby principal, gimnasio, roof garden, salón de eventos, alberca (banda 3–4), coworking
-  NOTA: para Banda 1 reduce a 2–3% y usa 70% del costo; para Banda 4 puede llegar a 10–12%
+  NOTA: para Banda 1 reduce y usa 70% del costo; para Banda 4 puede llegar a 20–25% del área no vendible
 
 ZONA 5 — CUARTOS DE SERVICIO E INSTALACIONES ESPECIALES
-  Participación típica: 2–4% de superficie bruta
+  Participación: ${envolvente ? '~5% del área NO vendible (ver arriba)' : '2–4% de superficie bruta'}
   Costo/m²: 50–65% del costo de banda
   Qué incluye: cisterna, cuarto de bombas, cuarto eléctrico/subestación, cuarto de basura, cuarto de gas, bodegas de mantenimiento
 
@@ -325,6 +365,10 @@ OUTPUT — JSON EXACTO (sin texto adicional)
 }
 
 REGLAS:
+${envolvente ? `- superficieConstruida DEBE estar entre ${envolvente.areaConstruida.piso} y ${envolvente.areaConstruida.techo} m² (rango piso–techo del VALORES APROBADOS del PASO 1) — nunca fuera de ese rango
+- superficieVendible DEBE ser ${envolvente.eficienciaVendiblePct.base}% (±2 pts) de la superficieConstruida elegida — no la calcules con un % distinto al ya fijado
+${densidadMaxUnidades ? `- El total de unidades habitacionales propuestas NO debe ser menor al ${Math.round(0.70 * 100)}% de ${densidadMaxUnidades} (densidad máxima autorizada) salvo que la absorción de mercado justifique explícitamente un proyecto más chico — documenta esa decisión en el razonamiento si aplica
+- El total de unidades habitacionales propuestas NUNCA debe superar ${densidadMaxUnidades} (densidad máxima autorizada) — es un techo legal duro, no una meta; si el área vendible calculada permitiría más unidades a tu m² promedio típico, usa un m² promedio más grande en vez de agregar más unidades` : ''}` : ''}
 - tipologiaPropuesta.habitacional solo aplica si hay tipología habitacional; tipologiaPropuesta.comercial solo si el desarrollo incluye locales (si no aplica, usa null)
 - tipologiaPropuesta.habitacional.mix: unidades × m2Promedio sumado debe aproximar el área vendible de Zona 1 (±10%)
 - tipologiaPropuesta.fijadoManualmente: array con los nombres de los campos que el usuario fijó manualmente (ej. ["niveles", "totalDepartamentos"]), vacío si ninguno
@@ -352,7 +396,55 @@ REGLAS:
     const text = message.content[0].type === 'text' ? message.content[0].text : ''
     const match = text.match(/\{[\s\S]*\}/)
     if (!match) throw new Error('No JSON in response')
-    return NextResponse.json(JSON.parse(match[0]))
+    const parsed = JSON.parse(match[0])
+
+    // El modelo a veces no logra mantener consistencia entre los campos raíz (resumen que lee
+    // el resto del pipeline) y su propia bitácora (donde hace el cálculo zona por zona) — visto
+    // en producción: costoTotalConstruccion en la raíz salió "100" mientras
+    // bitacoraConstruccion.costoTotalConstruccion (el que sí usó para calcular indirectos/
+    // honorarios, verificado contra esos montos) tenía el valor real (~$95.4M). El prompt exige
+    // que coincidan (ver REGLAS), pero nada lo garantizaba — se sobrescribe la raíz con la
+    // bitácora en vez de confiar en que el modelo cumplió su propia regla de consistencia.
+    if (parsed.bitacoraConstruccion) {
+      const bc = parsed.bitacoraConstruccion
+      if (typeof bc.costoTotalConstruccion === 'number') parsed.costoTotalConstruccion = bc.costoTotalConstruccion
+      if (typeof bc.costoPorM2Final === 'number') parsed.construccionM2 = bc.costoPorM2Final
+      if (typeof bc.superficieConstruccionM2 === 'number') parsed.superficieConstruida = bc.superficieConstruccionM2
+      const zonaVendible = bc.desgloseConstruccion?.zonas?.find((z: { zona?: string }) => /vendible/i.test(z.zona || ''))
+      if (zonaVendible && typeof zonaVendible.m2 === 'number') parsed.superficieVendible = zonaVendible.m2
+    }
+
+    // Validación de mix contra el envolvente determinístico (lib/analisis/envolventeYAreas.ts)
+    // — se anota en la bitácora para que el usuario vea si el modelo se desvió del área
+    // vendible/densidad ya aprobados, sin bloquear la respuesta.
+    if (envolvente && parsed.bitacoraConstruccion) {
+      const mix = parsed.bitacoraConstruccion?.tipologiaPropuesta?.habitacional?.mix
+      if (Array.isArray(mix) && mix.length > 0) {
+        parsed.bitacoraConstruccion.validacionEnvolvente = validarMix(mix, envolvente.areaVendible.base, densidadMaxUnidades)
+      }
+    }
+
+    // Litmus de viabilidad — spread entre precio de venta/m² vendible (Agente Mercado) y
+    // costo de construcción/m² vendible (este agente). Un spread < 1.6 es señal temprana de
+    // proyecto probablemente inviable, antes de correr todo el pipeline financiero. Usa los
+    // números REALES que devolvió el modelo (no el envolvente teórico), para detectar si el
+    // propio cálculo del modelo ya viene comprometido.
+    const precioVentaM2Litmus = data.mercado?.pricingFases?.[2]?.precioM2
+      || Number((data.mercado?.precioPromedioZona ?? '').toString().replace(/[^0-9]/g, '')) || 0
+    const superficieVendibleReal = Number(parsed.superficieVendible) || 0
+    const costoTotalConstruccionReal = Number(parsed.costoTotalConstruccion) || 0
+    if (precioVentaM2Litmus > 0 && superficieVendibleReal > 0 && costoTotalConstruccionReal > 0 && parsed.bitacoraConstruccion) {
+      const costoConstruccionPorM2Vendible = costoTotalConstruccionReal / superficieVendibleReal
+      const spreadVentaConstruccion = costoConstruccionPorM2Vendible > 0 ? precioVentaM2Litmus / costoConstruccionPorM2Vendible : null
+      parsed.bitacoraConstruccion.litmusViabilidad = {
+        precioVentaM2: precioVentaM2Litmus,
+        costoConstruccionPorM2Vendible: Math.round(costoConstruccionPorM2Vendible),
+        spreadVentaConstruccion: spreadVentaConstruccion !== null ? Math.round(spreadVentaConstruccion * 100) / 100 : null,
+        alerta: spreadVentaConstruccion !== null && spreadVentaConstruccion < 1.6,
+      }
+    }
+
+    return NextResponse.json(parsed)
   } catch (error) {
     console.error('Agente Construcción error:', error)
     return NextResponse.json({ error: 'Error en Agente Construcción' }, { status: 500 })
