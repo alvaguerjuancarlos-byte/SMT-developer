@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { calcularEnvolvente, plazoVentaMeses, validarMix } from '../envolventeYAreas'
+import { calcularEnvolvente, plazoVentaMeses, validarMix, validarSuperficieConstruida } from '../envolventeYAreas'
 import type { EntradaEnvolvente } from '../envolventeYAreas'
 
 // Torre Las Huertas 3 — mismo fixture que scripts/verificar-envolvente.ts
@@ -101,6 +101,48 @@ describe('validarMix', () => {
     ], 2400)
     expect(r.nUnidades).toBe(36)
     expect(r.areaMix).toBe(18 * 55 + 12 * 75 + 6 * 100)
+  })
+})
+
+describe('validarSuperficieConstruida', () => {
+  // areaMaxConstruible=5520, areaConstruida={piso:4692, base:4968, techo:5244} (fixture ENTRADA)
+  const envolvente = calcularEnvolvente(ENTRADA)
+
+  it('superficie = base: sin desviación, ninguna bandera activa', () => {
+    const r = validarSuperficieConstruida(4968, envolvente)
+    expect(r.desviacionPct).toBe(0)
+    expect(r.fueraDeRangoPiso).toBe(false)
+    expect(r.fueraDeRangoTecho).toBe(false)
+    expect(r.excedeAreaMaxConstruible).toBe(false)
+  })
+
+  it('superficie por debajo del piso: fueraDeRangoPiso = true', () => {
+    const r = validarSuperficieConstruida(4000, envolvente)
+    expect(r.fueraDeRangoPiso).toBe(true)
+    expect(r.fueraDeRangoTecho).toBe(false)
+    expect(r.excedeAreaMaxConstruible).toBe(false)
+  })
+
+  it('superficie por encima del techo pero bajo areaMaxConstruible: solo fueraDeRangoTecho', () => {
+    const r = validarSuperficieConstruida(5300, envolvente) // techo=5244, areaMaxConstruible=5520
+    expect(r.fueraDeRangoTecho).toBe(true)
+    expect(r.excedeAreaMaxConstruible).toBe(false)
+  })
+
+  it('superficie por encima de areaMaxConstruible: también excedeAreaMaxConstruible', () => {
+    const r = validarSuperficieConstruida(5600, envolvente) // > 5520
+    expect(r.fueraDeRangoTecho).toBe(true)
+    expect(r.excedeAreaMaxConstruible).toBe(true)
+  })
+
+  it('borde exacto en piso: no marca fuera de rango (comparación estricta <)', () => {
+    const r = validarSuperficieConstruida(envolvente.areaConstruida.piso, envolvente)
+    expect(r.fueraDeRangoPiso).toBe(false)
+  })
+
+  it('borde exacto en techo: no marca fuera de rango (comparación estricta >)', () => {
+    const r = validarSuperficieConstruida(envolvente.areaConstruida.techo, envolvente)
+    expect(r.fueraDeRangoTecho).toBe(false)
   })
 })
 

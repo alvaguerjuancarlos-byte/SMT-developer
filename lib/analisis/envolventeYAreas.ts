@@ -109,6 +109,34 @@ export function validarMix(
   }
 }
 
+export interface ResultadoValidacionSuperficie {
+  superficiePropuesta: number
+  piso: number
+  techo: number
+  desviacionPct: number
+  fueraDeRangoPiso: boolean
+  fueraDeRangoTecho: boolean
+  excedeAreaMaxConstruible: boolean
+}
+
+export function validarSuperficieConstruida(
+  superficiePropuesta: number,
+  envolvente: SalidaEnvolvente,
+): ResultadoValidacionSuperficie {
+  const { piso, base, techo } = envolvente.areaConstruida
+  const desviacionPct = base !== 0 ? ((superficiePropuesta - base) / base) * 100 : 0
+
+  return {
+    superficiePropuesta,
+    piso,
+    techo,
+    desviacionPct: redondear1(desviacionPct),
+    fueraDeRangoPiso: superficiePropuesta < piso,
+    fueraDeRangoTecho: superficiePropuesta > techo,
+    excedeAreaMaxConstruible: superficiePropuesta > envolvente.areaMaxConstruible,
+  }
+}
+
 export function plazoVentaMeses(nUnidades: number, absorcionUdsMes: number): number {
   return absorcionUdsMes > 0 ? nUnidades / absorcionUdsMes : Infinity
 }

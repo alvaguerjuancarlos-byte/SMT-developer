@@ -2,6 +2,8 @@
 // Hoisted desde app/analisis/page.tsx para que módulos de lib/ (p.ej. lib/mastermind)
 // puedan importar el shape sin que lib/ dependa de app/.
 
+import type { ResultadoValidacionMix, ResultadoValidacionSuperficie } from './envolventeYAreas'
+
 export interface StressItem {
   titulo: string
   escenario: string
@@ -119,6 +121,19 @@ export interface BitacoraConstruccion {
   modo?: 'agente_propone' | 'usuario_define'
   envolvente?: { construibleMax: number; huellaMax?: number; unidadesMax?: number }
   indicadores?: { costoPorM2Bruto?: { base: number; piso?: number; techo?: number } }
+  // Presentes SOLO en modo "agente_propone" cuando Legal devolvió COS/CUS numéricos (ver
+  // app/api/agentes/construccion/route.ts) — rango determinístico completo de
+  // lib/analisis/envolventeYAreas.ts (calcularEnvolvente), distinto en forma del campo
+  // `envolvente` de arriba (exclusivo de modo "usuario_define"). Ausentes si no había ficha
+  // legal numérica para calcular el envolvente.
+  envolventeCalculada?: {
+    areaMaxConstruible: number
+    areaConstruida: { piso: number; base: number; techo: number }
+    areaVendible: { piso: number; base: number; techo: number }
+    eficienciaVendiblePct: { piso: number; base: number; techo: number }
+  }
+  validacionEnvolvente?: ResultadoValidacionMix
+  validacionSuperficieConstruida?: ResultadoValidacionSuperficie
 }
 
 export interface AnalisisData {

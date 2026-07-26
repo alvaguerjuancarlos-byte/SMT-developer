@@ -129,6 +129,74 @@ function SemaforoChip({ sem }: { sem?: string }) {
   )
 }
 
+// Transparenta de dónde sale el m² a construir que eligió el modelo: el rango piso/base/techo
+// viene del envolvente determinístico (lib/analisis/envolventeYAreas.ts, calculado en código a
+// partir de COS/CUS/niveles de la Ficha Legal), no del propio LLM — ver
+// bitacoraConstruccion.envolventeCalculada / validacionSuperficieConstruida en
+// app/api/agentes/construccion/route.ts. Ausente cuando no hubo ficha legal numérica.
+function RangoConstruccionCard({
+  envolventeCalculada, superficieConstruida, validacion,
+}: {
+  envolventeCalculada?: { areaMaxConstruible: number; areaConstruida: { piso: number; base: number; techo: number } }
+  superficieConstruida: number
+  validacion?: { fueraDeRangoPiso: boolean; fueraDeRangoTecho: boolean; excedeAreaMaxConstruible: boolean }
+}) {
+  if (!envolventeCalculada) {
+    return (
+      <div className="px-5 pt-4 pb-2">
+        <div className="bg-[#F7F8F6] rounded-xl px-4 py-3">
+          <p className="text-[11px] text-[#9aab9f] leading-snug">
+            No se pudo calcular un rango normativo determinístico porque el Agente Legal no devolvió COS/CUS numéricos para este predio — la superficie construida fue estimada directamente por el modelo.
+          </p>
+        </div>
+      </div>
+    )
+  }
+
+  const { areaMaxConstruible, areaConstruida } = envolventeCalculada
+  const { piso, techo } = areaConstruida
+  const pct = techo > piso ? Math.min(100, Math.max(0, ((superficieConstruida - piso) / (techo - piso)) * 100)) : 50
+  const fueraDeRango = !!(validacion?.fueraDeRangoPiso || validacion?.fueraDeRangoTecho)
+  const excede = !!validacion?.excedeAreaMaxConstruible
+
+  return (
+    <div className="px-5 pt-4 pb-2">
+      <p className="text-[10px] font-bold text-[#9aab9f] uppercase tracking-widest mb-2">Cómo se calculó el m² a construir</p>
+      <div className="grid grid-cols-3 gap-2">
+        <div className="bg-[#F7F8F6] rounded-xl px-3 py-2.5 text-center">
+          <p className="text-[10px] text-[#9aab9f] uppercase tracking-wide font-semibold">Piso</p>
+          <p className="text-[14px] font-bold text-[#111d17] mt-0.5">{Math.round(piso).toLocaleString('es-MX')} m²</p>
+        </div>
+        <div className={`rounded-xl px-3 py-2.5 text-center border-2 ${excede ? 'bg-[#FEE2E2] border-[#DC2626]' : fueraDeRango ? 'bg-[#FEF3C7] border-[#F59E0B]' : 'bg-[#E1F5EE] border-[#1D9E75]'}`}>
+          <p className={`text-[10px] uppercase tracking-wide font-semibold ${excede ? 'text-[#991B1B]' : fueraDeRango ? 'text-[#92400E]' : 'text-[#0F6E56]'}`}>Elegido por el modelo</p>
+          <p className="text-[14px] font-bold text-[#111d17] mt-0.5">{Math.round(superficieConstruida).toLocaleString('es-MX')} m²</p>
+        </div>
+        <div className="bg-[#F7F8F6] rounded-xl px-3 py-2.5 text-center">
+          <p className="text-[10px] text-[#9aab9f] uppercase tracking-wide font-semibold">Techo</p>
+          <p className="text-[14px] font-bold text-[#111d17] mt-0.5">{Math.round(techo).toLocaleString('es-MX')} m²</p>
+        </div>
+      </div>
+      <div className="mt-2.5 h-1.5 rounded-full bg-[#E2E8E4] relative">
+        <div
+          className={`absolute -top-1 w-3 h-3 rounded-full border-2 border-white ${excede ? 'bg-[#DC2626]' : fueraDeRango ? 'bg-[#F59E0B]' : 'bg-[#1D9E75]'}`}
+          style={{ left: `calc(${pct}% - 6px)` }}
+        />
+      </div>
+      <p className="text-[9px] text-[#c0cdc7] mt-2">Límite legal COS/CUS (techo normativo duro): {Math.round(areaMaxConstruible).toLocaleString('es-MX')} m²</p>
+      {excede ? (
+        <p className="text-[11px] text-[#991B1B] mt-1.5 font-medium">→ El modelo excede el máximo legal permitido por COS/CUS ({Math.round(areaMaxConstruible).toLocaleString('es-MX')} m²).</p>
+      ) : fueraDeRango ? (
+        <p className="text-[11px] text-[#D97706] mt-1.5 font-medium">→ El modelo propuso {Math.round(superficieConstruida).toLocaleString('es-MX')} m², fuera del rango calculado ({Math.round(piso).toLocaleString('es-MX')}–{Math.round(techo).toLocaleString('es-MX')} m²).</p>
+      ) : (
+        <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#E1F5EE] text-[#0F6E56] mt-1.5">
+          <span className="w-1.5 h-1.5 rounded-full bg-[#1D9E75]" />
+          Dentro del rango calculado
+        </span>
+      )}
+    </div>
+  )
+}
+
 function EditableM2({
   label, value, override, onOverride, unit = '/m²',
 }: {
@@ -2076,6 +2144,12 @@ function PipelineContent() {
                           ))}
                         </div>
                       )}
+
+                      <RangoConstruccionCard
+                        envolventeCalculada={c.bitacoraConstruccion?.envolventeCalculada}
+                        superficieConstruida={c.superficieConstruida}
+                        validacion={c.bitacoraConstruccion?.validacionSuperficieConstruida}
+                      />
 
                       {/* Zona breakdown table */}
                       {desglose?.zonas && desglose.zonas.length > 0 && (

@@ -1,6 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { NextRequest, NextResponse } from 'next/server'
-import { calcularEnvolvente, validarMix } from '@/lib/analisis/envolventeYAreas'
+import { calcularEnvolvente, validarMix, validarSuperficieConstruida } from '@/lib/analisis/envolventeYAreas'
 import type { EntradaEnvolvente, SalidaEnvolvente } from '@/lib/analisis/envolventeYAreas'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
@@ -421,6 +421,19 @@ ${densidadMaxUnidades ? `- El total de unidades habitacionales propuestas NO deb
       const mix = parsed.bitacoraConstruccion?.tipologiaPropuesta?.habitacional?.mix
       if (Array.isArray(mix) && mix.length > 0) {
         parsed.bitacoraConstruccion.validacionEnvolvente = validarMix(mix, envolvente.areaVendible.base, densidadMaxUnidades)
+      }
+      const superficiePropuesta = Number(parsed.superficieConstruida) || 0
+      if (superficiePropuesta > 0) {
+        parsed.bitacoraConstruccion.validacionSuperficieConstruida = validarSuperficieConstruida(superficiePropuesta, envolvente)
+      }
+      // Se expone el rango completo del envolvente (piso/base/techo) para que el frontend
+      // transparente de dónde sale el m² a construir, en vez de mostrar solo el número final
+      // que eligió el modelo — antes se calculaba aquí y se descartaba tras armar el prompt.
+      parsed.bitacoraConstruccion.envolventeCalculada = {
+        areaMaxConstruible: envolvente.areaMaxConstruible,
+        areaConstruida: envolvente.areaConstruida,
+        areaVendible: envolvente.areaVendible,
+        eficienciaVendiblePct: envolvente.eficienciaVendiblePct,
       }
     }
 
