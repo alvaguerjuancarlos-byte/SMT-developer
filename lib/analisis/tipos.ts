@@ -3,6 +3,7 @@
 // puedan importar el shape sin que lib/ dependa de app/.
 
 import type { ResultadoValidacionMix, ResultadoValidacionSuperficie } from './envolventeYAreas'
+import type { ResultadoValidacionIndirectos, ResultadoEscaladoMix } from './validacionFinanciera'
 
 export interface StressItem {
   titulo: string
@@ -191,6 +192,15 @@ export interface AnalisisData {
     descuentos?: number
     comercializacion?: number
     ingresosNetos?: number
+    // Señala si indirectos/honorarios/imprevistos (montos que el modelo elige libremente)
+    // se salieron del % esperado sobre costoTotalConstruccion — ver
+    // lib/analisis/validacionFinanciera.ts. No bloqueante, solo anota.
+    validacionIndirectos?: ResultadoValidacionIndirectos
+    // costoTotalConstruccion (arriba) ya viene escalado hacia abajo si el mix de unidades
+    // aprovecha menos área vendible de la que Construcción costeó — este campo documenta el
+    // ajuste (factor, eficiencia, costo original) para que el reporte no se vea como un error
+    // de aritmética. Ver lib/analisis/validacionFinanciera.ts (escalarCostoPorMix).
+    escaladoPorMix?: ResultadoEscaladoMix
   }
   mercado: {
     demanda: string; zona: string; absorcion: string; proyectosActivos: string

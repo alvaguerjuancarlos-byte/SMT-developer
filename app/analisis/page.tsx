@@ -913,6 +913,11 @@ function AnalisisContent() {
                 <p className="text-[11px] text-white/40">/ 100</p>
               </div>
             </div>
+            {d.estructuraCapital && (
+              <p className="text-[10px] text-white/30 mt-2">
+                Financiamiento externo + equity cubren terreno, construcción e indirectos — la comercialización se paga de las ventas, por eso no está incluida ahí y "Inversión Total" puede ser mayor.
+              </p>
+            )}
           </div>
 
           {/* Recomendación */}
@@ -1091,9 +1096,9 @@ function AnalisisContent() {
                   {[
                     { label: 'Costo del terreno', value: fmt(f.costoTerreno), sub: `${fmt(f.costoTerrenoM2)}/m²`, highlight: false, bitacora: true },
                     { label: 'Construcción por m²', value: `${fmt(f.construccionM2)}/m²`, sub: 'Costo directo por m² construido', highlight: false, bitacora: false, bitacoraCons: true },
-                    { label: 'Costo total construcción', value: fmt(f.costoTotalConstruccion), sub: '', highlight: false, bitacora: false, bitacoraCons: false },
-                    { label: 'Indirectos y permisos', value: fmt(f.indirectos), sub: `${f.costoTotalConstruccion > 0 ? ((f.indirectos / f.costoTotalConstruccion) * 100).toFixed(1) : '0'}% sobre costo de obra`, highlight: false, bitacora: false, bitacoraCons: false, bitacoraFin: true },
-                    { label: 'Honorarios y diseño', value: fmt(f.honorarios), sub: `${f.costoTotalConstruccion > 0 ? ((f.honorarios / f.costoTotalConstruccion) * 100).toFixed(1) : '0'}% sobre costo de obra`, highlight: false, bitacora: false, bitacoraCons: false },
+                    { label: 'Costo total construcción', value: fmt(f.costoTotalConstruccion), sub: f.escaladoPorMix && f.escaladoPorMix.factorEscalaMix < 1 ? `Ajustado a ${(f.escaladoPorMix.factorEscalaMix * 100).toFixed(0)}% — el mix de unidades aprovecha ${f.escaladoPorMix.eficienciaMixPct}% del área vendible calculada (${fmt(f.escaladoPorMix.costoTotalConstruccionOriginal)} sin ajustar)` : '', highlight: false, bitacora: false, bitacoraCons: false, alerta: !!(f.escaladoPorMix && f.escaladoPorMix.factorEscalaMix < 1) },
+                    { label: 'Indirectos y permisos', value: fmt(f.indirectos), sub: `${f.costoTotalConstruccion > 0 ? ((f.indirectos / f.costoTotalConstruccion) * 100).toFixed(1) : '0'}% sobre costo de obra${f.validacionIndirectos?.indirectosFueraDeRango ? ' — fuera del rango esperado (15–18%)' : ''}`, highlight: false, bitacora: false, bitacoraCons: false, bitacoraFin: true, alerta: !!f.validacionIndirectos?.indirectosFueraDeRango },
+                    { label: 'Honorarios y diseño', value: fmt(f.honorarios), sub: `${f.costoTotalConstruccion > 0 ? ((f.honorarios / f.costoTotalConstruccion) * 100).toFixed(1) : '0'}% sobre costo de obra${f.validacionIndirectos?.honorariosFueraDeRango ? ' — fuera del rango esperado (8–10%)' : ''}`, highlight: false, bitacora: false, bitacoraCons: false, alerta: !!f.validacionIndirectos?.honorariosFueraDeRango },
                     { label: 'Imprevistos (5%)', value: fmt(f.imprevistos), sub: 'Reserva de contingencia', highlight: false, bitacora: false, bitacoraCons: false },
                     ...(f.comercializacion !== undefined ? [{ label: 'Comercialización (3%)', value: fmt(f.comercializacion), sub: 'Comisión de venta sobre ingreso neto', highlight: false, bitacora: false, bitacoraCons: false }] : []),
                     { label: 'Inversión Total', value: fmt(f.inversionTotal), sub: '', highlight: true, bitacora: false, bitacoraCons: false },
@@ -1109,7 +1114,7 @@ function AnalisisContent() {
                         <div className="flex items-center gap-2">
                           <div>
                             <p className={`text-[13px] ${row.highlight ? 'font-bold text-[#0F6E56]' : 'text-[#5a7065]'}`}>{row.label}</p>
-                            {row.sub && <p className="text-[11px] text-[#9aab9f]">{row.sub}</p>}
+                            {row.sub && <p className={`text-[11px] ${row.alerta ? 'text-[#D97706] font-medium' : 'text-[#9aab9f]'}`}>{row.sub}</p>}
                           </div>
                           {row.bitacora && d.bitacoraTerreno && (
                             <button onClick={() => setShowBitacora(true)} title="Ver bitácora de cálculo"

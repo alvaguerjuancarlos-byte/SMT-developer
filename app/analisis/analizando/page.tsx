@@ -1343,6 +1343,10 @@ function PipelineContent() {
       construccionM2: m2c, costoTotalConstruccion,
       superficieConstruida: c.superficieConstruida,
       superficieVendible: superficieVendibleReal,
+      // Zona 1 real que Construcción costeó (antes de sustituirla arriba por la del mix) —
+      // Financiero la necesita para saber qué % de esa área realmente aprovecha el mix de
+      // unidades y escalar el costo hacia abajo si aprovecha menos (ver escalarCostoPorMix).
+      superficieVendibleConstruccion: c.superficieVendible,
       fichaLegal: pipe.legal.data?.fichaLegal,
       mercado: mercadoActual?.mercado,
     }

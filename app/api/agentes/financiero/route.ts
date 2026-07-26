@@ -2,6 +2,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { NextRequest, NextResponse } from 'next/server'
 import { DESCUENTOS_CANCELACIONES, PORCENTAJE_COMERCIALIZACION } from '@/lib/mastermind/catalogo'
 import { calcularFlujoFinanciero } from '@/lib/analisis/flujoFinanciero'
+import { validarIndirectos, escalarCostoPorMix } from '@/lib/analisis/validacionFinanciera'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -23,12 +24,24 @@ export async function POST(req: NextRequest) {
   const costoTerrenoM2 = data.costoTerrenoM2
   const costoTerreno = data.costoTerreno
   const construccionM2 = data.construccionM2
-  const costoTotalConstruccion = data.costoTotalConstruccion
   const superficieConstruida = data.superficieConstruida
   // Fallback a superficieConstruida por si un caller viejo no manda superficieVendible —
   // no debería pasar (el pipeline actual siempre la manda, ver analizando/page.tsx), pero
   // es mejor que interpolar "undefined" literal en el prompt.
   const superficieVendible = data.superficieVendible ?? superficieConstruida
+
+  // costoTotalConstruccion que llega del Agente Construcción está costeado sobre TODA el área
+  // vendible del envolvente legal (Zona 1) — pero superficieVendible (arriba) es la que
+  // realmente resulta de sumar el mix de unidades propuesto, que puede ser mucho menor si el
+  // mix no llena el envolvente (ej. por un tope de densidad de unidades). Financiero debe
+  // costear lo que realmente se va a construir y vender, no el máximo legal — se escala el
+  // costo hacia abajo proporcionalmente cuando el mix aprovecha menos área vendible de la que
+  // se costeó (nunca hacia arriba, ver escalarCostoPorMix). Fallback a superficieVendible (sin
+  // dato nuevo → factor 1, sin cambio de comportamiento) para no romper callers viejos.
+  const costoTotalConstruccionSinEscalar = data.costoTotalConstruccion
+  const superficieVendibleConstruccion = Number(data.superficieVendibleConstruccion) || superficieVendible
+  const escaladoMix = escalarCostoPorMix(costoTotalConstruccionSinEscalar, superficieVendible, superficieVendibleConstruccion)
+  const costoTotalConstruccion = escaladoMix.costoTotalConstruccionEscalado
 
   const prompt = `Eres el Agente Financiero y Mastermind de SMT Developer.
 Tu tarea es construir el modelo financiero completo del proyecto inmobiliario, usando los valores ya validados de terreno, construcción, normativa y mercado.
@@ -265,10 +278,30 @@ REGLAS:
     // confiar en la aritmética del modelo — no requiere que el modelo "razone" nada, solo que
     // haya elegido bien el precio y los porcentajes, que sí es su trabajo.
     if (parsed.financiero) {
+      // costoTerreno/costoTerrenoM2/construccionM2/costoTotalConstruccion son "valores
+      // aprobados" que el prompt le pide usar exactamente (ver REGLAS más abajo), pero nada
+      // garantizaba que el modelo los copiara bien — mismo bug ya encontrado y corregido una
+      // vez en app/api/agentes/construccion/route.ts (raíz vs bitácora: la raíz decía "100"
+      // mientras el cálculo real daba ~$95.4M). Se ancla aquí en vez de confiar en el copy-paste
+      // del modelo, para que lo que se MUESTRA coincida siempre con lo que se SUMA abajo.
+      parsed.financiero.costoTerreno = costoTerreno
+      parsed.financiero.costoTerrenoM2 = costoTerrenoM2
+      parsed.financiero.construccionM2 = construccionM2
+      parsed.financiero.costoTotalConstruccion = costoTotalConstruccion
+      parsed.financiero.escaladoPorMix = escaladoMix
+
       const precioVentaM2Real = Number(parsed.financiero.precioVentaM2) || 0
       const indirectosReal = Number(parsed.financiero.indirectos) || 0
       const honorariosReal = Number(parsed.financiero.honorarios) || 0
       const imprevistosReal = Number(parsed.financiero.imprevistos) || 0
+
+      // Indirectos/honorarios/imprevistos son montos que el modelo elige libremente (se le
+      // pide 15-18%/8-10%/5% de costoTotalConstruccion, ver prompt) — a diferencia de
+      // ingresosProyectados/inversionTotal, aquí no se recalculan (cambiar el dinero que
+      // "decidió" el modelo es más riesgoso que solo señalarlo), pero sí se anota si se salieron
+      // del rango esperado respecto al ancla real, para detectar si el modelo los calculó sobre
+      // una obra distinta a la aprobada.
+      parsed.financiero.validacionIndirectos = validarIndirectos(indirectosReal, honorariosReal, imprevistosReal, costoTotalConstruccion)
 
       // ingresosProyectados se queda como el ingreso BRUTO (mismo significado de siempre).
       // descuentos/comercializacion son costos reales que Mastermind ya cobraba desde el

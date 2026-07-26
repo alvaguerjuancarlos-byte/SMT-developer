@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { Suspense, useEffect, useState } from 'react'
 import { downloadPDF, autoSavePDF } from '@/lib/downloadPDF'
 import { saveProyecto } from '@/lib/saveProyecto'
+import type { ResultadoValidacionIndirectos, ResultadoEscaladoMix } from '@/lib/analisis/validacionFinanciera'
 
 interface StressItem { titulo: string; escenario: string; impacto: string; status: 'green' | 'amber' | 'red' }
 interface Factibilidad { status: 'Disponible' | 'Con condicionante' | 'No disponible'; nota: string }
@@ -29,6 +30,8 @@ interface AnalisisData {
     costoTotalConstruccion: number; indirectos: number; honorarios: number
     imprevistos: number; inversionTotal: number; precioVentaM2: number
     ingresosProyectados: number; utilidadBruta: number; margenBruto: number; tir: number | null
+    validacionIndirectos?: ResultadoValidacionIndirectos
+    escaladoPorMix?: ResultadoEscaladoMix
   }
   mercado: {
     demanda: string; zona: string; absorcion: string; proyectosActivos: string
@@ -77,12 +80,12 @@ function Card({ children, className = '' }: { children: React.ReactNode; classNa
   return <div className={`bg-white rounded-2xl border border-[rgba(0,0,0,0.08)] shadow-sm ${className}`}>{children}</div>
 }
 
-function TableRow({ label, value, highlight = false, sub }: { label: string; value: string; highlight?: boolean; sub?: string }) {
+function TableRow({ label, value, highlight = false, sub, alerta = false }: { label: string; value: string; highlight?: boolean; sub?: string; alerta?: boolean }) {
   return (
     <tr className={`${highlight ? 'bg-[#E1F5EE]' : ''} border-b border-[rgba(0,0,0,0.06)] last:border-0`}>
       <td className="px-6 py-3">
         <p className={`text-[13px] ${highlight ? 'font-bold text-[#04342C]' : 'text-[#5C7186]'}`}>{label}</p>
-        {sub && <p className="text-[11px] text-[#9aab9f]">{sub}</p>}
+        {sub && <p className={`text-[11px] ${alerta ? 'text-[#D97706] font-medium' : 'text-[#9aab9f]'}`}>{sub}</p>}
       </td>
       <td className="px-6 py-3 text-right tabular-nums">
         <p className={`text-[13px] tabular-nums ${highlight ? 'font-bold text-[#04342C]' : 'font-semibold text-[#111d17]'}`}>{value}</p>
@@ -512,9 +515,9 @@ function PropuestaContent() {
                 <tbody>
                   <TableRow label="Costo del terreno" value={fmt(f.costoTerreno)} sub={`${fmt(f.costoTerrenoM2)} / m²`} />
                   <TableRow label="Construcción por m²" value={`${fmt(f.construccionM2)} / m²`} />
-                  <TableRow label="Costo total de construcción" value={fmt(f.costoTotalConstruccion)} />
-                  <TableRow label="Indirectos y administración" value={fmt(f.indirectos)} sub={`${f.costoTotalConstruccion > 0 ? ((f.indirectos / f.costoTotalConstruccion) * 100).toFixed(1) : '0'}% sobre costo de obra`} />
-                  <TableRow label="Honorarios y diseño" value={fmt(f.honorarios)} sub={`${f.costoTotalConstruccion > 0 ? ((f.honorarios / f.costoTotalConstruccion) * 100).toFixed(1) : '0'}% sobre costo de obra`} />
+                  <TableRow label="Costo total de construcción" value={fmt(f.costoTotalConstruccion)} sub={f.escaladoPorMix && f.escaladoPorMix.factorEscalaMix < 1 ? `Ajustado al ${f.escaladoPorMix.eficienciaMixPct}% que aprovecha el mix de unidades` : undefined} alerta={!!(f.escaladoPorMix && f.escaladoPorMix.factorEscalaMix < 1)} />
+                  <TableRow label="Indirectos y administración" value={fmt(f.indirectos)} sub={`${f.costoTotalConstruccion > 0 ? ((f.indirectos / f.costoTotalConstruccion) * 100).toFixed(1) : '0'}% sobre costo de obra`} alerta={!!f.validacionIndirectos?.indirectosFueraDeRango} />
+                  <TableRow label="Honorarios y diseño" value={fmt(f.honorarios)} sub={`${f.costoTotalConstruccion > 0 ? ((f.honorarios / f.costoTotalConstruccion) * 100).toFixed(1) : '0'}% sobre costo de obra`} alerta={!!f.validacionIndirectos?.honorariosFueraDeRango} />
                   <TableRow label="Imprevistos (5%)" value={fmt(f.imprevistos)} sub="Reserva de contingencia" />
                   <TableRow label="Inversión Total" value={fmt(f.inversionTotal)} highlight />
                   <TableRow label="Precio de venta estimado / m²" value={`${fmt(f.precioVentaM2)} / m²`} sub={`Mercado ${d.mercado.zona}`} />
