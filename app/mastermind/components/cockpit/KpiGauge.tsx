@@ -18,30 +18,14 @@ function semaforoMargen(margenNeto: number): { color: string; label: string } {
 }
 
 export default function KpiGauge({ tirAnalisisOriginal }: { tirAnalisisOriginal?: number }) {
-  const { inputs, outputs, modoInverso, setModoInverso } = useMastermind()
+  const { inputs, outputs } = useMastermind()
   const r = outputs.retorno
   const u = outputs.utilidad
   const viable = r.tirSocioConverge && (r.tirSocioAnual as number) >= inputs.tirObjetivo
   const sMargen = semaforoMargen(u.margenNeto)
 
   return (
-    <Panel
-      titulo="KPIs financieros"
-      accent="#1D9E75"
-      action={
-        <button
-          onClick={() => setModoInverso(!modoInverso)}
-          className={`flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-wider px-2 py-1 rounded-md border transition-colors cursor-pointer ${
-            modoInverso
-              ? 'bg-[#1D9E75]/15 border-[#1D9E75]/50 text-[#1D9E75]'
-              : 'bg-white/[0.03] border-white/15 text-white/40 hover:text-white/60'
-          }`}
-        >
-          <span className={`w-1.5 h-1.5 rounded-full ${modoInverso ? 'bg-[#1D9E75]' : 'bg-white/25'}`} />
-          Autopilot
-        </button>
-      }
-    >
+    <Panel titulo="KPIs financieros" accent="#1D9E75">
       <div className="flex justify-center gap-2 mb-3">
         <InstrumentDial
           value={r.tirSocioAnual}

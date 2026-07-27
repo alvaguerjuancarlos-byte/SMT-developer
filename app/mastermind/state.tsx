@@ -22,7 +22,6 @@ type Action =
   | { type: 'SET_TIEMPO'; payload: Partial<InputsTiempo> }
   | { type: 'SET_FINANCIAMIENTO'; payload: Partial<InputsFinanciamiento> }
   | { type: 'SET_TIR_OBJETIVO'; payload: number }
-  | { type: 'TOGGLE_MODO_INVERSO' }
 
 function mastermindReducer(state: MastermindInputs, action: Action): MastermindInputs {
   switch (action.type) {
@@ -47,8 +46,6 @@ interface MastermindContextValue {
   inputs: MastermindInputs
   outputs: MastermindOutputs
   errores: ValidationError[]
-  modoInverso: boolean
-  setModoInverso: (v: boolean) => void
   setTerreno: (payload: TerrenoContextData) => void
   setProyecto: (payload: Partial<InputsProyecto>) => void
   setMercado: (payload: Partial<InputsMercado>) => void
@@ -66,7 +63,6 @@ const ESTADO_INICIAL: MastermindInputs = {
 
 export function MastermindProvider({ children }: { children: ReactNode }) {
   const [inputs, dispatch] = useReducer(mastermindReducer, ESTADO_INICIAL)
-  const [modoInverso, setModoInversoState] = useReducer((_: boolean, v: boolean) => v, false)
 
   const outputs = useMemo(() => calcularMastermind(inputs), [inputs])
   const errores = useMemo(() => validarInputs(inputs), [inputs])
@@ -75,8 +71,6 @@ export function MastermindProvider({ children }: { children: ReactNode }) {
     inputs,
     outputs,
     errores,
-    modoInverso,
-    setModoInverso: setModoInversoState,
     setTerreno: payload => dispatch({ type: 'SET_TERRENO', payload }),
     setProyecto: payload => dispatch({ type: 'SET_PROYECTO', payload }),
     setMercado: payload => dispatch({ type: 'SET_MERCADO', payload }),

@@ -2,7 +2,6 @@
 // Módulo TypeScript puro — sin LLM, sin efectos secundarios, 100% determinístico.
 
 export type TipoProyecto = 'vertical_mixto' | 'horizontal' | 'comercial' | 'habitacional'
-export type ModalidadLocales = 'venta' | 'renta'
 
 export type BenchmarkConstruccion =
   | 'habitacional_economico'
@@ -48,9 +47,7 @@ export interface InputsProyecto {
 
 export interface InputsMercado {
   precioVentaDepasM2: number
-  modalidadLocales: ModalidadLocales
   precioLocalesM2: number
-  tasaCapRate: number
 }
 
 export interface InputsTiempo {
@@ -126,13 +123,6 @@ export interface IRRResult {
   converged: boolean
   iteraciones: number
   metodo: 'newton' | 'biseccion' | 'fallido'
-}
-
-export interface SolverResult {
-  valor: number | null
-  converged: boolean
-  tirAlcanzada: number | null
-  iteraciones: number
 }
 
 export interface SensitivityCell {

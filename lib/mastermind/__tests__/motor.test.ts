@@ -20,9 +20,7 @@ const inputs: MastermindInputs = {
   },
   mercado: {
     precioVentaDepasM2: 45_000,
-    modalidadLocales: 'venta',
     precioLocalesM2: 0,
-    tasaCapRate: 8,
   },
   tiempo: { plazoObraMeses: 18, plazoVentaMeses: 24, inicioVentasMes: 6 },
   financiamiento: { porcentajeFinanciado: 0, tasaAnualCredito: 14 },
@@ -175,30 +173,6 @@ describe('Principal de la deuda: debe repagarse, no regalarse', () => {
     expect(apalancado.retorno.tirSocioAnual as number).toBeLessThan(0)
     // Apalancar un proyecto perdedor amplifica la pérdida relativa al equity, nunca la convierte en ganancia.
     expect(apalancado.retorno.tirSocioAnual as number).toBeLessThan(apalancado.retorno.tirProyectoAnual as number)
-  })
-})
-
-describe('Modalidad renta: no debe duplicar el valor capitalizado de locales', () => {
-  it('ingresos totales del flujo = habitacional neto - comercialización + remanente comercial (una sola vez)', () => {
-    const rentaInputs: MastermindInputs = {
-      ...inputs,
-      proyecto: { ...inputs.proyecto, m2ComercialesPlantaBaja: 200 },
-      mercado: { ...inputs.mercado, modalidadLocales: 'renta', precioLocalesM2: 150 },
-    }
-    const rRenta = calcularMastermind(rentaInputs)
-
-    // Los egresos de obra (aportación de construcción + indirectos + financieros) y el egreso de
-    // terreno se conocen de antemano; lo que reste del flujo total son los ingresos por ventas +
-    // remanente — así se aísla el lado de ingresos sin depender de cómo se reparten mes a mes.
-    const aportacionSociosPct = 100 - rentaInputs.financiamiento.porcentajeFinanciado
-    const egresoTerreno = rentaInputs.terreno.costoTerreno
-    const egresoObra = (aportacionSociosPct / 100) * rRenta.costos.costoDirectoConstruccion
-      + rRenta.costos.indirectos + rRenta.costos.financieros
-    const totalFlujo = rRenta.flujoSocio.reduce((a, b) => a + b, 0)
-    const totalIngresos = totalFlujo + egresoTerreno + egresoObra
-
-    const esperado = rRenta.ingresos.ingresoBrutoHabitacional * 0.95 - rRenta.costos.comercializacion + rRenta.ingresos.ingresoBrutoComercial
-    expect(totalIngresos).toBeCloseTo(esperado, 6)
   })
 })
 

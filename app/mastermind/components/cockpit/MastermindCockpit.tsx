@@ -3,7 +3,6 @@
 import { useState } from 'react'
 import { useMastermind } from '../../state'
 import VeredictoPanel from '../VeredictoPanel'
-import ReverseEngineeringPanel from '../ReverseEngineeringPanel'
 import SensitivityMatrix from '../SensitivityMatrix'
 import CostosGauge from './CostosGauge'
 import KpiGauge from './KpiGauge'
@@ -26,7 +25,7 @@ export default function MastermindCockpit({ origenAnalisis, tirAnalisisOriginal 
   origenAnalisis?: { proyecto: boolean; mercado: boolean; financiamiento: boolean; costos: boolean; tiempo: boolean }
   tirAnalisisOriginal?: number
 }) {
-  const { inputs, outputs, errores, modoInverso } = useMastermind()
+  const { inputs, outputs, errores } = useMastermind()
   const [leverActive, setLeverActive] = useState<LeverId | null>(null)
   const c = outputs.costos
 
@@ -73,8 +72,6 @@ export default function MastermindCockpit({ origenAnalisis, tirAnalisisOriginal 
           </ul>
         </div>
       )}
-
-      {modoInverso && <ReverseEngineeringPanel />}
 
       <SensitivityMatrix />
     </div>

@@ -13,7 +13,7 @@ const inputs: MastermindInputs = {
     benchmarkConstruccion: 'habitacional_medio',
     porcentajeIndirectos: 15,
   },
-  mercado: { precioVentaDepasM2: 45_000, modalidadLocales: 'venta', precioLocalesM2: 0, tasaCapRate: 8 },
+  mercado: { precioVentaDepasM2: 45_000, precioLocalesM2: 0 },
   tiempo: { plazoObraMeses: 18, plazoVentaMeses: 24, inicioVentasMes: 6 },
   financiamiento: { porcentajeFinanciado: 0, tasaAnualCredito: 14 },
   tirObjetivo: 25,

@@ -9,70 +9,9 @@ import MastermindCockpit from './components/cockpit/MastermindCockpit'
 import ExportButtons from './components/ExportButtons'
 import PrintSummary from './components/PrintSummary'
 
-// DEBUG TEMPORAL — quitar cuando se resuelva el desfase de TIR.
-function PanelDebug({ analisisData, inputs, outputs }: {
-  analisisData: AnalisisData | null
-  inputs: ReturnType<typeof useMastermind>['inputs']
-  outputs: ReturnType<typeof useMastermind>['outputs']
-}) {
-  if (!analisisData) return null
-  const bc = analisisData.bitacoraConstruccion
-  const f = analisisData.financiero
-  const fila = (label: string, value: unknown) => (
-    <div className="flex justify-between gap-4 py-1 border-b border-white/5 last:border-0">
-      <span className="text-white/40">{label}</span>
-      <span className="text-white font-mono">{value === undefined ? 'undefined' : value === null ? 'null' : String(value)}</span>
-    </div>
-  )
-  return (
-    <div className="mb-6 rounded-xl border border-amber-500/40 bg-amber-500/5 p-4 text-[12px]">
-      <p className="text-amber-400 font-bold uppercase tracking-wide mb-2 text-[11px]">🔧 Debug temporal — datos del análisis</p>
-      <p className="text-white/50 font-semibold mt-2 mb-1">bitacoraConstruccion</p>
-      {fila('modo', bc?.modo)}
-      {fila('tipologiaPropuesta presente', !!bc?.tipologiaPropuesta)}
-      {fila('superficieConstruccionM2', bc?.superficieConstruccionM2)}
-      {fila('costoPorM2Final', bc?.costoPorM2Final)}
-      <p className="text-white/50 font-semibold mt-3 mb-1">financiero</p>
-      {fila('indirectos', f?.indirectos)}
-      {fila('honorarios', f?.honorarios)}
-      {fila('imprevistos', f?.imprevistos)}
-      {fila('costoTotalConstruccion', f?.costoTotalConstruccion)}
-      {fila('precioVentaM2', f?.precioVentaM2)}
-      {fila('ingresosProyectados', f?.ingresosProyectados)}
-      {fila('plazoObraMeses', f?.plazoObraMeses)}
-      {fila('plazoVentaMeses', f?.plazoVentaMeses)}
-      {fila('tir', f?.tir)}
-      <p className="text-white/50 font-semibold mt-3 mb-1">Inputs cargados en Mastermind ahora mismo</p>
-      {fila('terreno.superficieM2', inputs.terreno.superficieM2)}
-      {fila('terreno.costoTerreno', inputs.terreno.costoTerreno)}
-      {fila('proyecto.niveles', inputs.proyecto.niveles)}
-      {fila('proyecto.unidadesHabitacionales', inputs.proyecto.unidadesHabitacionales)}
-      {fila('proyecto.m2PromedioDepa', inputs.proyecto.m2PromedioDepa)}
-      {fila('proyecto.m2ComercialesPlantaBaja', inputs.proyecto.m2ComercialesPlantaBaja)}
-      {fila('proyecto.superficieConstruccionM2', inputs.proyecto.superficieConstruccionM2)}
-      {fila('proyecto.benchmarkConstruccion', inputs.proyecto.benchmarkConstruccion)}
-      {fila('proyecto.porcentajeIndirectos', inputs.proyecto.porcentajeIndirectos)}
-      {fila('mercado.precioVentaDepasM2', inputs.mercado.precioVentaDepasM2)}
-      {fila('tiempo.plazoObraMeses', inputs.tiempo.plazoObraMeses)}
-      {fila('tiempo.plazoVentaMeses', inputs.tiempo.plazoVentaMeses)}
-      {fila('tiempo.inicioVentasMes', inputs.tiempo.inicioVentasMes)}
-      {fila('financiamiento.porcentajeFinanciado', inputs.financiamiento.porcentajeFinanciado)}
-      {fila('financiamiento.tasaAnualCredito', inputs.financiamiento.tasaAnualCredito)}
-      <p className="text-white/50 font-semibold mt-3 mb-1">Outputs de Mastermind ahora mismo</p>
-      {fila('costos.costoDirectoConstruccion', Math.round(outputs.costos.costoDirectoConstruccion))}
-      {fila('costos.costoTotal', Math.round(outputs.costos.costoTotal))}
-      {fila('costos.financieros', Math.round(outputs.costos.financieros))}
-      {fila('ingresos.m2VendiblesHabitacional', outputs.ingresos.m2VendiblesHabitacional)}
-      {fila('ingresos.ingresoNeto', Math.round(outputs.ingresos.ingresoNeto))}
-      {fila('retorno.tirSocioAnual', outputs.retorno.tirSocioAnual?.toFixed(1))}
-      {fila('retorno.inversionSocios', Math.round(outputs.retorno.inversionSocios))}
-    </div>
-  )
-}
-
 function MastermindContent() {
   const router = useRouter()
-  const { inputs, outputs, setTerreno, setProyecto, setMercado, setTiempo, setFinanciamiento } = useMastermind()
+  const { setTerreno, setProyecto, setMercado, setTiempo, setFinanciamiento } = useMastermind()
   const [nombreProyecto, setNombreProyecto] = useState('proyecto')
   const [analisisData, setAnalisisData] = useState<AnalisisData | null>(null)
   const [origenAnalisis, setOrigenAnalisis] = useState({ proyecto: false, mercado: false, financiamiento: false, costos: false, tiempo: false })
@@ -119,7 +58,6 @@ function MastermindContent() {
       </div>
 
       <div className="max-w-7xl mx-auto px-6 py-8">
-        <PanelDebug analisisData={analisisData} inputs={inputs} outputs={outputs} />
         <div className="mb-8 flex items-start justify-between gap-4">
           <div>
             <h1 className="text-[24px] font-bold text-white mb-1">Mastermind</h1>

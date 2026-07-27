@@ -1,7 +1,7 @@
 'use client'
 
 import { useMastermind } from '../../state'
-import type { BenchmarkConstruccion, ModalidadLocales, TipoProyecto } from '@/lib/mastermind/tipos'
+import type { BenchmarkConstruccion, TipoProyecto } from '@/lib/mastermind/tipos'
 import Slider from '../Slider'
 import Select from '../Select'
 import type { LeverId } from './types'
@@ -152,14 +152,7 @@ export default function DetailDrawer({ leverId, origenAnalisis }: {
         {leverId === 'precio' && (
           <>
             <Slider label="Precio venta depas" value={inputs.mercado.precioVentaDepasM2} min={5_000} max={100_000} step={500} unit=" MXN/m²" onChange={v => setMercado({ precioVentaDepasM2: v })} />
-            <Select
-              label="Modalidad locales"
-              value={inputs.mercado.modalidadLocales}
-              onChange={v => setMercado({ modalidadLocales: v as ModalidadLocales })}
-              options={[['venta', 'Venta'], ['renta', 'Renta']]}
-            />
             <Slider label="Precio locales" value={inputs.mercado.precioLocalesM2} min={0} max={50_000} step={100} unit=" MXN/m²" onChange={v => setMercado({ precioLocalesM2: v })} />
-            <Slider label="Cap rate" value={inputs.mercado.tasaCapRate} min={4} max={15} step={0.5} unit="%" onChange={v => setMercado({ tasaCapRate: v })} />
           </>
         )}
 

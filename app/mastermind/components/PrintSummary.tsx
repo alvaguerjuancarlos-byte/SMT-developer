@@ -1,8 +1,6 @@
 'use client'
 
-import { useMemo } from 'react'
 import { useMastermind } from '../state'
-import { resolverBenchmarkMaximo, resolverPrecioVentaMinimo, resolverUnidadesMinimas } from '@/lib/mastermind/solvers'
 
 function fmtMXN(n: number) { return `$${Math.round(n).toLocaleString('es-MX')}` }
 
@@ -47,10 +45,6 @@ function FilaTabla({ label, value }: { label: string; value: string }) {
 // (sin sliders/acordeones) porque el PDF necesita un layout de "reporte", no de editor.
 export default function PrintSummary({ nombreProyecto }: { nombreProyecto: string }) {
   const { inputs, outputs } = useMastermind()
-
-  const precio = useMemo(() => resolverPrecioVentaMinimo(inputs), [inputs])
-  const benchmark = useMemo(() => resolverBenchmarkMaximo(inputs), [inputs])
-  const unidades = useMemo(() => resolverUnidadesMinimas(inputs), [inputs])
 
   const viable = outputs.retorno.tirSocioConverge && (outputs.retorno.tirSocioAnual as number) >= inputs.tirObjetivo
 
@@ -140,21 +134,6 @@ export default function PrintSummary({ nombreProyecto }: { nombreProyecto: strin
       <div className="mb-6">
         <FlujoAcumuladoChart flujo={outputs.flujoSocio} />
       </div>
-
-      <h2 className="text-[13px] font-bold uppercase tracking-wide text-[#9aab9f] mb-2">Ingeniería inversa — para {inputs.tirObjetivo}% de TIR Socio</h2>
-      <table className="w-full text-[12px] mb-8">
-        <thead>
-          <tr className="text-left text-[11px] text-[#9aab9f]">
-            <th className="pb-1 font-semibold">Variable</th>
-            <th className="pb-1 font-semibold text-right">Valor resuelto</th>
-          </tr>
-        </thead>
-        <tbody>
-          <FilaTabla label="Precio mínimo venta/m²" value={precio.converged ? fmtMXN(precio.valor as number) : 'No convergió'} />
-          <FilaTabla label="Costo máximo construcción/m²" value={benchmark.converged ? fmtMXN(benchmark.valor as number) : 'No convergió'} />
-          <FilaTabla label="Unidades mínimas a vender" value={unidades.converged ? `${Math.round(unidades.valor as number)} uds` : 'No convergió'} />
-        </tbody>
-      </table>
 
       <p className="text-[10px] text-[#C4CEC8] text-center pt-4 border-t border-[#E2E8E4]">
         Generado por SMT Developer — {new Date().toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' })}

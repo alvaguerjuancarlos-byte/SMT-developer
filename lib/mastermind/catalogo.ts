@@ -48,9 +48,7 @@ export const DEFAULTS: Omit<MastermindInputs, 'terreno'> = {
   },
   mercado: {
     precioVentaDepasM2: 0,
-    modalidadLocales: 'venta',
     precioLocalesM2: 0,
-    tasaCapRate: 8,
   },
   tiempo: {
     plazoObraMeses: 18,

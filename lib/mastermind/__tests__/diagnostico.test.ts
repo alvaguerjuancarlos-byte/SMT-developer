@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { detectarAnomalias, diagnosticarViabilidad } from '../diagnostico'
-import { calcularMastermind } from '../motor'
+import { detectarAnomalias } from '../diagnostico'
 import type { MastermindInputs } from '../tipos'
 
 const inputsViable: MastermindInputs = {
@@ -14,53 +13,11 @@ const inputsViable: MastermindInputs = {
     benchmarkConstruccion: 'habitacional_medio',
     porcentajeIndirectos: 15,
   },
-  mercado: { precioVentaDepasM2: 45_000, modalidadLocales: 'venta', precioLocalesM2: 0, tasaCapRate: 8 },
+  mercado: { precioVentaDepasM2: 45_000, precioLocalesM2: 0 },
   tiempo: { plazoObraMeses: 18, plazoVentaMeses: 24, inicioVentasMes: 6 },
   financiamiento: { porcentajeFinanciado: 0, tasaAnualCredito: 14 },
   tirObjetivo: 25,
 }
-
-describe('diagnosticarViabilidad', () => {
-  it('proyecto viable: viable=true y sin causa principal', () => {
-    const outputs = calcularMastermind(inputsViable)
-    const d = diagnosticarViabilidad(inputsViable, outputs)
-    expect(d.viable).toBe(true)
-    expect(d.causaPrincipal).toBeNull()
-    expect(d.causas.every(c => c.cumple)).toBe(true)
-  })
-
-  it('terreno carísimo: la causa principal es costoTerreno y su brecha es la mayor', () => {
-    const inputsCaros: MastermindInputs = {
-      ...inputsViable,
-      terreno: { ...inputsViable.terreno, costoTerreno: 15_000_000, costoTerrenoM2: 30_000 },
-    }
-    const outputs = calcularMastermind(inputsCaros)
-    const d = diagnosticarViabilidad(inputsCaros, outputs)
-    expect(d.viable).toBe(false)
-    expect(d.causaPrincipal?.palanca).toBe('costoTerreno')
-    // la brecha del terreno debe ser la más grande de todas
-    expect(d.causas[0].palanca).toBe('costoTerreno')
-  })
-
-  it('precio de venta muy bajo: la causa principal es precioVenta', () => {
-    const inputsBaratos: MastermindInputs = {
-      ...inputsViable,
-      mercado: { ...inputsViable.mercado, precioVentaDepasM2: 15_000 },
-    }
-    const outputs = calcularMastermind(inputsBaratos)
-    const d = diagnosticarViabilidad(inputsBaratos, outputs)
-    expect(d.viable).toBe(false)
-    expect(d.causaPrincipal?.palanca).toBe('precioVenta')
-  })
-
-  it('las causas que sí cumplen quedan marcadas cumple=true con brecha 0', () => {
-    const outputs = calcularMastermind(inputsViable)
-    const d = diagnosticarViabilidad(inputsViable, outputs)
-    for (const c of d.causas) {
-      if (c.cumple) expect(c.brechaPct).toBe(0)
-    }
-  })
-})
 
 describe('detectarAnomalias', () => {
   it('sin banda ni costo real de referencia, no genera alertas', () => {
