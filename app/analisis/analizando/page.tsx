@@ -64,7 +64,7 @@ interface ComparableItem {
 interface ComparableVentaItem {
   nombre: string; direccion: string; precioM2: number | null; precioTotal: number | null
   superficieM2: number | null; tipologia: string | null; avanceObra: string | null
-  fechaReferencia: string; url: string
+  fechaReferencia: string; url: string; sospechosoPorBanda?: boolean
 }
 
 interface PipelineState {
@@ -1239,6 +1239,7 @@ function PipelineContent() {
         body: JSON.stringify({
           colonia: formData.colonia, ciudad: formData.ciudad, estado: formData.estado,
           codigoPostal: formData.codigoPostal, tiposDesarrollo: formData.tiposDesarrollo,
+          bandaConstruccion: formData.bandaConstruccion,
         }),
       })
       const json = await res.json()
@@ -1980,14 +1981,17 @@ function PipelineContent() {
                     </div>
                     <div className="flex flex-col gap-1.5">
                       {pipe.comparablesVenta.data.map((c, i) => (
-                        <div key={i} className="flex items-center justify-between bg-[#F0FAF5] border border-[#5DCAA5]/30 rounded-xl px-3 py-2">
+                        <div key={i} className={`flex items-center justify-between rounded-xl px-3 py-2 ${c.sospechosoPorBanda ? 'bg-[#FEF3C7] border border-[#F59E0B]/40' : 'bg-[#F0FAF5] border border-[#5DCAA5]/30'}`}>
                           <div className="min-w-0">
                             <p className="text-[11px] font-semibold text-[#111d17] truncate">{c.nombre}</p>
                             <p className="text-[10px] text-[#9aab9f]">{c.tipologia || '—'} · {c.avanceObra || '—'}</p>
+                            {c.sospechosoPorBanda && (
+                              <p className="text-[9px] text-[#92400E] font-medium mt-0.5">Posible desface con tu banda de construcción — revisa si es representativo</p>
+                            )}
                           </div>
                           <div className="text-right shrink-0 ml-3">
-                            {c.precioM2 && <p className="text-[12px] font-bold text-[#111d17]">${c.precioM2.toLocaleString()}/m²</p>}
-                            {c.precioTotal && !c.precioM2 && <p className="text-[12px] font-bold text-[#111d17]">${c.precioTotal.toLocaleString()}</p>}
+                            {c.precioM2 && <p className={`text-[12px] font-bold ${c.sospechosoPorBanda ? 'text-[#92400E]' : 'text-[#111d17]'}`}>${c.precioM2.toLocaleString()}/m²</p>}
+                            {c.precioTotal && !c.precioM2 && <p className={`text-[12px] font-bold ${c.sospechosoPorBanda ? 'text-[#92400E]' : 'text-[#111d17]'}`}>${c.precioTotal.toLocaleString()}</p>}
                           </div>
                         </div>
                       ))}

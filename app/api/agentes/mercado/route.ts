@@ -31,9 +31,12 @@ export async function POST(req: NextRequest) {
   let serperContext = ''
   if (comparablesPrecargados.length > 0) {
     const lines = comparablesPrecargados.map((c: any) =>
-      `- ${c.nombre} | ${c.direccion} | $${c.precioM2 ?? '?'}/m² | ${c.tipologia ?? '?'} | ${c.avanceObra ?? '?'} | ${c.fechaReferencia} | ${c.url}`
+      `- ${c.nombre} | ${c.direccion} | $${c.precioM2 ?? '?'}/m² | ${c.tipologia ?? '?'} | ${c.avanceObra ?? '?'} | ${c.fechaReferencia} | ${c.url}` +
+      (c.sospechosoPorBanda ? ' — ⚠ precio muy por encima de la banda de construcción declarada, evalúa si es representativo' : '')
     ).join('\n')
-    serperContext = `\n\nCOMPARABLES REALES VERIFICADOS (obtenidos de Google en tiempo real antes de este análisis):\n${lines}\n\nUSA estos comparables directamente en "comparables" (marca origen="web_search" para todos), y ajusta precioPromedioZona/segmentacion/pricingFases para que sean consistentes con estos precios reales — no inventes proyectos "reales" nuevos si ya tienes estos disponibles.`
+    const hayMarcados = comparablesPrecargados.some((c: any) => c.sospechosoPorBanda)
+    serperContext = `\n\nCOMPARABLES REALES VERIFICADOS (obtenidos de Google en tiempo real antes de este análisis):\n${lines}\n\nUSA estos comparables directamente en "comparables" (marca origen="web_search" para todos), y ajusta precioPromedioZona/segmentacion/pricingFases para que sean consistentes con estos precios reales — no inventes proyectos "reales" nuevos si ya tienes estos disponibles.` +
+      (hayMarcados ? ` Los comparables marcados con ⚠ están muy por encima de la banda de construcción de este proyecto — no los descartes automáticamente (podría ser plusvalía real de ubicación), pero no ancles precioPromedioZona solo en ellos si el resto de comparables sin marcar sugiere algo más modesto.` : '')
   }
 
   const prompt = `Eres el Agente de Análisis de Mercado de SMT Developer.

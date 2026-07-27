@@ -15,6 +15,9 @@ export interface ComparableVenta {
   fechaReferencia: string
   url: string
   origen: 'web_search'
+  // Ver evaluarPlausibilidadBanda — no bloqueante, solo señala que el precio puede ser de un
+  // desarrollo/zona no representativo de la banda de construcción del proyecto.
+  sospechosoPorBanda?: boolean
 }
 
 const PRECIO_M2_MIN = 5_000
@@ -54,4 +57,42 @@ export function validarComparableVenta(c: ComparableVenta): ComparableVenta | nu
   }
 
   return { ...c, precioM2, precioTotal }
+}
+
+// El buscador de comparables puede agarrar desarrollos vecinos con nombre parecido pero de un
+// segmento distinto (visto en producción: "Rincón de las Huertas" en Santa Catarina, NL —
+// $68,674-$132,140/m² encontrados para un proyecto con banda de construcción 2/Media Estándar,
+// $12,847/m² — un desface de 6-10x que el usuario confirmó no representativo de su predio real).
+// No se rechaza el comparable (podría ser plusvalía real de ubicación, no de banda de acabados —
+// ver caso "Cruz de Huanacaxtle": banda 3, precio real ~6x por ubicación frente a playa,
+// legítimo) — solo se anota para que el desarrollador, que conoce la zona real, decida.
+export interface EvaluacionPlausibilidadBanda {
+  techoBandaConstruccion: number
+  precioVentaMaxPlausible: number
+  sospechosoPorBanda: boolean
+}
+
+// Mismos rangos ya usados como texto en los prompts de construccion/financiero/mercado
+// route.ts (bandaLabels) — aquí como números para poder compararlos.
+const TECHO_BANDA_CONSTRUCCION: Record<string, number> = {
+  '1': 10_500, '2': 16_000, '3': 24_000, '4': 45_000,
+}
+
+// Multiplicador generoso — solo atrapa desfaces claros (6-10x, como el caso real de arriba),
+// no penaliza el spread normal de ubicación/plusvalía sobre banda de acabados.
+const MULTIPLICADOR_MAX_VENTA_SOBRE_BANDA = 3
+
+export function evaluarPlausibilidadBanda(
+  precioM2: number | null,
+  bandaConstruccion: string | undefined,
+): EvaluacionPlausibilidadBanda | null {
+  if (!precioM2 || !bandaConstruccion) return null
+  const techo = TECHO_BANDA_CONSTRUCCION[bandaConstruccion]
+  if (!techo) return null
+  const precioVentaMaxPlausible = techo * MULTIPLICADOR_MAX_VENTA_SOBRE_BANDA
+  return {
+    techoBandaConstruccion: techo,
+    precioVentaMaxPlausible,
+    sospechosoPorBanda: precioM2 > precioVentaMaxPlausible,
+  }
 }

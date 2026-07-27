@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { validarComparableVenta } from '../validarComparableVenta'
+import { validarComparableVenta, evaluarPlausibilidadBanda } from '../validarComparableVenta'
 import type { ComparableVenta } from '../validarComparableVenta'
 
 const BASE: ComparableVenta = {
@@ -62,5 +62,44 @@ describe('validarComparableVenta', () => {
   it('sin ningún precio: se descarta', () => {
     const r = validarComparableVenta({ ...BASE, precioM2: null, precioTotal: null, superficieM2: 75 })
     expect(r).toBeNull()
+  })
+})
+
+describe('evaluarPlausibilidadBanda', () => {
+  it('banda 2, precio razonable ($14,000): no sospechoso', () => {
+    const r = evaluarPlausibilidadBanda(14_000, '2')
+    expect(r).not.toBeNull()
+    expect(r!.techoBandaConstruccion).toBe(16_000)
+    expect(r!.precioVentaMaxPlausible).toBe(48_000)
+    expect(r!.sospechosoPorBanda).toBe(false)
+  })
+
+  it('banda 2, caso real "Las Huertas" ($68,674-$132,140): sospechoso', () => {
+    const bajo = evaluarPlausibilidadBanda(68_674, '2')
+    const alto = evaluarPlausibilidadBanda(132_140, '2')
+    expect(bajo!.sospechosoPorBanda).toBe(true)
+    expect(alto!.sospechosoPorBanda).toBe(true)
+  })
+
+  it('banda 3, precio alto por ubicación ("Cruz de Huanacaxtle", $143,500): se marca igual — la bandera no distingue plusvalía, solo avisa', () => {
+    const r = evaluarPlausibilidadBanda(143_500, '3')
+    expect(r!.techoBandaConstruccion).toBe(24_000)
+    expect(r!.sospechosoPorBanda).toBe(true)
+  })
+
+  it('banda desconocida: retorna null', () => {
+    expect(evaluarPlausibilidadBanda(50_000, '9')).toBeNull()
+    expect(evaluarPlausibilidadBanda(50_000, undefined)).toBeNull()
+  })
+
+  it('precioM2 null: retorna null', () => {
+    expect(evaluarPlausibilidadBanda(null, '2')).toBeNull()
+  })
+
+  it('en el límite exacto (3x el techo): no sospechoso; justo arriba: sí', () => {
+    const enLimite = evaluarPlausibilidadBanda(48_000, '2') // 16,000 × 3
+    const arriba = evaluarPlausibilidadBanda(48_001, '2')
+    expect(enLimite!.sospechosoPorBanda).toBe(false)
+    expect(arriba!.sospechosoPorBanda).toBe(true)
   })
 })

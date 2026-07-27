@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
-import { validarComparableVenta } from '@/lib/mercado/validarComparableVenta'
+import { validarComparableVenta, evaluarPlausibilidadBanda } from '@/lib/mercado/validarComparableVenta'
 import type { ComparableVenta } from '@/lib/mercado/validarComparableVenta'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
@@ -17,7 +17,7 @@ function palabraClaveVenta(tiposDesarrollo: string[] | undefined): string {
 }
 
 export async function POST(req: NextRequest) {
-  const { colonia, ciudad, estado, codigoPostal, tiposDesarrollo } = await req.json()
+  const { colonia, ciudad, estado, codigoPostal, tiposDesarrollo, bandaConstruccion } = await req.json()
 
   const serperKey = process.env.SERPER_API_KEY?.trim()
   if (!serperKey) {
@@ -85,6 +85,13 @@ Reglas:
     const comparables = comparablesRaw
       .map(validarComparableVenta)
       .filter((c): c is ComparableVenta => c !== null)
+      // No se descarta ninguno por esto — solo se anota si el precio parece de un
+      // desarrollo/zona no representativo de la banda de construcción declarada (ver
+      // evaluarPlausibilidadBanda: puede ser plusvalía real de ubicación, no un error).
+      .map(c => ({
+        ...c,
+        sospechosoPorBanda: evaluarPlausibilidadBanda(c.precioM2, bandaConstruccion)?.sospechosoPorBanda ?? false,
+      }))
 
     return NextResponse.json({ comparables, lugar })
   } catch (e: any) {
