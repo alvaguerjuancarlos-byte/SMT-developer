@@ -22,6 +22,20 @@ export async function POST(req: NextRequest) {
     .map((t: string) => t === 'otro' ? (data.tipoOtroTexto || 'Otro') : (desarrolloLabels[t] || t))
     .join(', ')
 
+  // Comparables reales de venta (Serper, ver app/api/agentes/comparables-venta/route.ts) —
+  // antes este agente no tenía ningún grounding y "comparables reales" eran invención del
+  // modelo. Mismo patrón ya usado en app/api/agentes/terreno/route.ts con sus comparables de
+  // suelo: se anota como texto de contexto fuerte, no se fuerza en código (el mercado es un
+  // rango/guía, no un valor único determinable).
+  const comparablesPrecargados: any[] = data.comparablesPrecargados ?? []
+  let serperContext = ''
+  if (comparablesPrecargados.length > 0) {
+    const lines = comparablesPrecargados.map((c: any) =>
+      `- ${c.nombre} | ${c.direccion} | $${c.precioM2 ?? '?'}/m² | ${c.tipologia ?? '?'} | ${c.avanceObra ?? '?'} | ${c.fechaReferencia} | ${c.url}`
+    ).join('\n')
+    serperContext = `\n\nCOMPARABLES REALES VERIFICADOS (obtenidos de Google en tiempo real antes de este análisis):\n${lines}\n\nUSA estos comparables directamente en "comparables" (marca origen="web_search" para todos), y ajusta precioPromedioZona/segmentacion/pricingFases para que sean consistentes con estos precios reales — no inventes proyectos "reales" nuevos si ya tienes estos disponibles.`
+  }
+
   const prompt = `Eres el Agente de Análisis de Mercado de SMT Developer.
 Tu única tarea es analizar el mercado inmobiliario de la zona del predio: comparables de venta, absorción, precios, segmentación y oferta activa.
 No calculas valor del terreno, costos de construcción ni análisis legal — solo mercado.
@@ -151,7 +165,7 @@ REGLAS:
     const message = await client.messages.create({
       model: 'claude-sonnet-4-6',
       max_tokens: 4000,
-      messages: [{ role: 'user', content: prompt }],
+      messages: [{ role: 'user', content: prompt + serperContext }],
     })
     const text = message.content[0].type === 'text' ? message.content[0].text : ''
     const match = text.match(/\{[\s\S]*\}/)

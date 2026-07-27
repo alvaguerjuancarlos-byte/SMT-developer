@@ -58,8 +58,18 @@ interface ComparableItem {
   distanciaRef: string; fechaPublicacion: string; url: string; titulo: string
 }
 
+// Comparables de VENTA (departamentos/casas terminadas o en preventa) — distinto de
+// ComparableItem, que es de terreno/suelo (ver app/api/agentes/comparables/route.ts vs.
+// app/api/agentes/comparables-venta/route.ts). Alimenta al Agente Mercado, no a Terreno.
+interface ComparableVentaItem {
+  nombre: string; direccion: string; precioM2: number | null; precioTotal: number | null
+  superficieM2: number | null; tipologia: string | null; avanceObra: string | null
+  fechaReferencia: string; url: string
+}
+
 interface PipelineState {
   comparables: { status: AgentStatus; data: ComparableItem[] }
+  comparablesVenta: { status: AgentStatus; data: ComparableVentaItem[] }
   // terreno/construccion/mercado permiten "Ajustar parámetros" las veces que hagan falta:
   // cada corrida se agrega a `corridas` (nunca se reemplaza) y `seleccionada` indexa cuál
   // usan los pasos siguientes — el analista elige a su criterio, sin sugerencia automática.
@@ -1066,6 +1076,7 @@ function PipelineContent() {
   const [formData, setFormData] = useState<any>(null)
   const [pipe, setPipe] = useState<PipelineState>({
     comparables: { status: 'waiting', data: [] },
+    comparablesVenta: { status: 'waiting', data: [] },
     terreno:     { status: 'waiting', corridas: [], seleccionada: null, overrideM2: '', usarPrecioSolicitado: false },
     construccion:{ status: 'waiting', corridas: [], seleccionada: null, overrideM2: '', usarParametricoZona: false },
     legal:       { status: 'waiting', data: null },
@@ -1216,6 +1227,30 @@ function PipelineContent() {
     }
   }
 
+  // ── Comparables reales de VENTA (Serper) — para el Agente Mercado, no Terreno ──
+  // Se dispara dentro de runMercado() (no en el bootstrap junto a los de terreno) porque
+  // Mercado corre mucho después en el pipeline (Terreno → Construcción → Legal+Mercado) — más
+  // simple mantenerlo contenido ahí que agregar otra rama al bootstrap temprano.
+  const runComparablesVenta = async (): Promise<ComparableVentaItem[]> => {
+    setPipe(p => ({ ...p, comparablesVenta: { status: 'running', data: [] } }))
+    try {
+      const res = await fetch('/api/agentes/comparables-venta', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          colonia: formData.colonia, ciudad: formData.ciudad, estado: formData.estado,
+          codigoPostal: formData.codigoPostal, tiposDesarrollo: formData.tiposDesarrollo,
+        }),
+      })
+      const json = await res.json()
+      const items: ComparableVentaItem[] = json.comparables ?? []
+      setPipe(p => ({ ...p, comparablesVenta: { status: 'done', data: items } }))
+      return items
+    } catch {
+      setPipe(p => ({ ...p, comparablesVenta: { status: 'done', data: [] } }))
+      return []
+    }
+  }
+
   // ── Step 1: Terreno ──
   const runTerreno = async (fd?: any, ubicacion?: UbicacionData | null, comparablesPrecargados?: ComparableItem[]) => {
     const input = fd || formData
@@ -1298,6 +1333,11 @@ function PipelineContent() {
     const absorcionObjetivoManual = overrides?.absorcionObjetivoManual ?? pipe.mercado.overrideAbsorcion
     const mixUnidadesResumen = resumenMixUnidades(construccionActual?.bitacoraConstruccion?.tipologiaPropuesta)
     setPipe(p => ({ ...p, mercado: { ...p.mercado, status: 'running', overridePrecioVenta: precioVentaObjetivo, overrideAbsorcion: absorcionObjetivoManual } }))
+    // Los comparables reales no cambian entre corridas de "Ajustar parámetros" — se buscan
+    // solo la primera vez y se reutilizan en corridas siguientes del mismo predio.
+    const comparablesVenta = pipe.comparablesVenta.status === 'waiting'
+      ? await runComparablesVenta()
+      : pipe.comparablesVenta.data
     try {
       const res = await fetch('/api/agentes/mercado', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -1306,6 +1346,7 @@ function PipelineContent() {
           precioVentaObjetivo: precioVentaObjetivo || undefined,
           absorcionObjetivoManual: absorcionObjetivoManual || undefined,
           mixUnidadesResumen: mixUnidadesResumen || undefined,
+          comparablesPrecargados: comparablesVenta,
         }),
       })
       const json = await res.json()
@@ -1926,6 +1967,34 @@ function PipelineContent() {
             {pipe.mercado.status !== 'waiting' && (
               <section>
                 <SectionHeader n={3} label="Agente Mercado" />
+
+                {pipe.comparablesVenta.status === 'running' && (
+                  <RunningCard label="Buscando referencias de venta…" hint="Consultando Lamudi, Inmuebles24 y más portales en tiempo real" />
+                )}
+                {pipe.comparablesVenta.status === 'done' && pipe.comparablesVenta.data.length > 0 && (
+                  <div className="bg-white rounded-2xl border border-[#E2E8E4] p-5">
+                    <div className="flex items-center gap-2 mb-3">
+                      <span className="w-2 h-2 rounded-full bg-[#1D9E75]" />
+                      <p className="text-[12px] font-bold text-[#111d17]">Referencias reales de venta ({pipe.comparablesVenta.data.length})</p>
+                      <span className="text-[10px] text-[#9aab9f] ml-auto">Serper · Google Search</span>
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      {pipe.comparablesVenta.data.map((c, i) => (
+                        <div key={i} className="flex items-center justify-between bg-[#F0FAF5] border border-[#5DCAA5]/30 rounded-xl px-3 py-2">
+                          <div className="min-w-0">
+                            <p className="text-[11px] font-semibold text-[#111d17] truncate">{c.nombre}</p>
+                            <p className="text-[10px] text-[#9aab9f]">{c.tipologia || '—'} · {c.avanceObra || '—'}</p>
+                          </div>
+                          <div className="text-right shrink-0 ml-3">
+                            {c.precioM2 && <p className="text-[12px] font-bold text-[#111d17]">${c.precioM2.toLocaleString()}/m²</p>}
+                            {c.precioTotal && !c.precioM2 && <p className="text-[12px] font-bold text-[#111d17]">${c.precioTotal.toLocaleString()}</p>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-[10px] text-[#9aab9f] mt-2 italic">Estas referencias se pasan al Agente Mercado para calibrar precio de venta y absorción.</p>
+                  </div>
+                )}
 
                 {pipe.mercado.status === 'running' && (
                   <RunningCard label="Agente Mercado…" hint="Buscando comparables, analizando absorción y pricing" />
