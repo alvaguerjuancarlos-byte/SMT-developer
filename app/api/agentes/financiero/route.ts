@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { DESCUENTOS_CANCELACIONES, PORCENTAJE_COMERCIALIZACION } from '@/lib/mastermind/catalogo'
 import { calcularFlujoFinanciero } from '@/lib/analisis/flujoFinanciero'
 import { validarIndirectos, escalarCostoPorMix } from '@/lib/analisis/validacionFinanciera'
+import { evaluarPlausibilidadBanda } from '@/lib/mercado/validarComparableVenta'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -290,7 +291,25 @@ REGLAS:
       parsed.financiero.costoTotalConstruccion = costoTotalConstruccion
       parsed.financiero.escaladoPorMix = escaladoMix
 
-      const precioVentaM2Real = Number(parsed.financiero.precioVentaM2) || 0
+      // El precio de venta es una elección libre del modelo — el aviso "sospechosoPorBanda" que
+      // ya le pasamos a Mercado (ver comparablesPrecargados en mercado/route.ts) es un empujón
+      // suave que puede ignorar, y en producción lo ignoró: ancló precioPromedioZona en un
+      // comparable de zona premium ($68,000/m²) para un proyecto banda 2, dando 109.6% de margen.
+      // Igual que con costoTotalConstruccion, un aviso en el prompt no es suficiente — aquí se
+      // limita en código al techo plausible de la banda de construcción (mismo criterio y mismo
+      // multiplicador ×3 que ya usa evaluarPlausibilidadBanda para marcar comparables).
+      const precioVentaM2Modelo = Number(parsed.financiero.precioVentaM2) || 0
+      const evaluacionPrecio = evaluarPlausibilidadBanda(precioVentaM2Modelo, data.bandaConstruccion)
+      const precioVentaM2Real = evaluacionPrecio?.sospechosoPorBanda ? evaluacionPrecio.precioVentaMaxPlausible : precioVentaM2Modelo
+      parsed.financiero.precioVentaM2 = precioVentaM2Real
+      if (evaluacionPrecio?.sospechosoPorBanda) {
+        parsed.financiero.precioVentaAjustadoPorBanda = {
+          precioVentaM2Modelo,
+          precioVentaM2Ajustado: precioVentaM2Real,
+          techoBandaConstruccion: evaluacionPrecio.techoBandaConstruccion,
+        }
+      }
+
       const indirectosReal = Number(parsed.financiero.indirectos) || 0
       const honorariosReal = Number(parsed.financiero.honorarios) || 0
       const imprevistosReal = Number(parsed.financiero.imprevistos) || 0

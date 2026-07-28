@@ -201,6 +201,15 @@ export interface AnalisisData {
     // ajuste (factor, eficiencia, costo original) para que el reporte no se vea como un error
     // de aritmética. Ver lib/analisis/validacionFinanciera.ts (escalarCostoPorMix).
     escaladoPorMix?: ResultadoEscaladoMix
+    // precioVentaM2 (arriba) ya viene limitado al techo plausible de la banda de construcción
+    // si el modelo eligió un precio de zona premium no representativo — este campo documenta
+    // el ajuste (valor original del modelo vs. el usado) para que el reporte sea transparente.
+    // Ver lib/mercado/validarComparableVenta.ts (evaluarPlausibilidadBanda).
+    precioVentaAjustadoPorBanda?: {
+      precioVentaM2Modelo: number
+      precioVentaM2Ajustado: number
+      techoBandaConstruccion: number
+    }
   }
   mercado: {
     demanda: string; zona: string; absorcion: string; proyectosActivos: string

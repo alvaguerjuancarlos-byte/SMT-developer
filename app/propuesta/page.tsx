@@ -32,6 +32,7 @@ interface AnalisisData {
     ingresosProyectados: number; utilidadBruta: number; margenBruto: number; tir: number | null
     validacionIndirectos?: ResultadoValidacionIndirectos
     escaladoPorMix?: ResultadoEscaladoMix
+    precioVentaAjustadoPorBanda?: { precioVentaM2Modelo: number; precioVentaM2Ajustado: number; techoBandaConstruccion: number }
   }
   mercado: {
     demanda: string; zona: string; absorcion: string; proyectosActivos: string
@@ -520,7 +521,7 @@ function PropuestaContent() {
                   <TableRow label="Honorarios y diseño" value={fmt(f.honorarios)} sub={`${f.costoTotalConstruccion > 0 ? ((f.honorarios / f.costoTotalConstruccion) * 100).toFixed(1) : '0'}% sobre costo de obra`} alerta={!!f.validacionIndirectos?.honorariosFueraDeRango} />
                   <TableRow label="Imprevistos (5%)" value={fmt(f.imprevistos)} sub="Reserva de contingencia" />
                   <TableRow label="Inversión Total" value={fmt(f.inversionTotal)} highlight />
-                  <TableRow label="Precio de venta estimado / m²" value={`${fmt(f.precioVentaM2)} / m²`} sub={`Mercado ${d.mercado.zona}`} />
+                  <TableRow label="Precio de venta estimado / m²" value={`${fmt(f.precioVentaM2)} / m²`} sub={f.precioVentaAjustadoPorBanda ? 'Ajustado a un valor representativo de tu banda de construcción' : `Mercado ${d.mercado.zona}`} alerta={!!f.precioVentaAjustadoPorBanda} />
                   <TableRow label="Ingresos proyectados (100%)" value={fmt(f.ingresosProyectados)} />
                   <TableRow label="Utilidad bruta" value={fmt(f.utilidadBruta)} />
                   <TableRow label="Margen bruto sobre inversión" value={`${f.margenBruto}%`} highlight />
