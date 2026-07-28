@@ -9,7 +9,7 @@ import type { ResultadoValidacionIndirectos, ResultadoEscaladoMix } from '@/lib/
 interface StressItem { titulo: string; escenario: string; impacto: string; status: 'green' | 'amber' | 'red' }
 interface Factibilidad { status: 'Disponible' | 'Con condicionante' | 'No disponible'; nota: string }
 interface AlertaLegal { tipo: string; descripcion: string; impacto: string; status: 'green' | 'amber' | 'red' }
-interface Comparable { nombre: string; direccion: string; fechaReferencia: string; precioM2: number; avanceObra: string; unidades: number; tipologia: string }
+interface Comparable { nombre: string; direccion: string; fechaReferencia: string; precioM2: number | null; avanceObra: string; unidades: number; tipologia: string }
 interface SegmentoUnidad { tipo: string; absorcionMensual: string; precioM2: number; participacion: string; perfilComprador: string }
 interface PricingFase { fase: string; precioM2: number; descuento: string; meta: string }
 
@@ -573,7 +573,7 @@ function PropuestaContent() {
                         </div>
                         <p className="text-[11px] text-[#8a9e92] mb-1.5">{c.direccion} · {c.fechaReferencia}</p>
                         <div className="flex gap-5">
-                          <span className="text-[11px] text-[#5C7186]">Precio: <strong className="text-[#111d17]">${c.precioM2.toLocaleString('es-MX')}/m²</strong></span>
+                          {c.precioM2 != null && <span className="text-[11px] text-[#5C7186]">Precio: <strong className="text-[#111d17]">${c.precioM2.toLocaleString('es-MX')}/m²</strong></span>}
                           <span className="text-[11px] text-[#5C7186]">{c.tipologia}</span>
                           <span className="text-[11px] text-[#5C7186]">{c.unidades} unidades</span>
                         </div>

@@ -1303,7 +1303,7 @@ function AnalisisContent() {
                         </div>
                         <p className="text-[11px] text-[#8a9e92] mb-2">{c.direccion} · {c.fechaReferencia}</p>
                         <div className="flex gap-4">
-                          <span className="text-[11px] text-[#5a7065]">💰 <b>${c.precioM2.toLocaleString('es-MX')}/m²</b></span>
+                          {c.precioM2 != null && <span className="text-[11px] text-[#5a7065]">💰 <b>${c.precioM2.toLocaleString('es-MX')}/m²</b></span>}
                           <span className="text-[11px] text-[#5a7065]">🏢 {c.unidades} unidades</span>
                           <span className="text-[11px] text-[#5a7065]">📐 {c.tipologia}</span>
                         </div>

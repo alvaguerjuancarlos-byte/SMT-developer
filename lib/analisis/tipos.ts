@@ -15,7 +15,11 @@ export interface StressItem {
 export interface Fuente { nombre: string; tipo: string }
 export interface Fuentes { legal?: Fuente[]; mercado?: Fuente[] }
 
-export interface Comparable { nombre: string; direccion: string; fechaReferencia: string; precioM2: number; avanceObra: string; unidades: number; tipologia: string }
+// precioM2 puede venir null en la práctica: desde que Mercado recibe comparables reales
+// (ver app/api/agentes/comparables-venta/route.ts), algunos solo traen precioTotal
+// identificable, no precioM2 — y el modelo puede copiar ese comparable tal cual (visto en
+// producción: tumbaba la página de Análisis con "Cannot read properties of null").
+export interface Comparable { nombre: string; direccion: string; fechaReferencia: string; precioM2: number | null; avanceObra: string; unidades: number; tipologia: string }
 export interface OfertaActiva { proyectosEnPreventa: number; proyectosEnObra: number; proyectosEntregados24m: number; unidadesDisponibles: number; rangoPrecios: string; saturacion: string }
 export interface SegmentoUnidad { tipo: string; absorcionMensual: string; precioM2: number; participacion: string; perfilComprador: string }
 export interface PricingFase { fase: string; precioM2: number; descuento: string; meta: string }
