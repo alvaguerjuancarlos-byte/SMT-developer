@@ -5,6 +5,7 @@
 import type { AnalisisData } from '@/lib/analisis/tipos'
 import { BENCHMARKS_CONSTRUCCION_MXN_M2 } from './catalogo'
 import type { BenchmarkConstruccion, InputsFinanciamiento, InputsMercado, InputsProyecto, InputsTiempo, TerrenoContext, TipoProyecto } from './tipos'
+import { evaluarPlausibilidadBanda } from '@/lib/mercado/validarComparableVenta'
 
 export function extractTerrenoContext(d: AnalisisData | null | undefined): TerrenoContext {
   if (!d) {
@@ -147,12 +148,24 @@ export function extractMercadoContext(d: AnalisisData | null | undefined): Parti
 
   const segmentoLocal = d.mercado?.segmentacion?.find(s => /local|comercial/i.test(s.tipo))
   if (segmentoLocal?.precioM2) {
-    out.precioLocalesM2 = segmentoLocal.precioM2
+    // Mismo riesgo que ya se cubrió para precioVentaM2 en app/api/agentes/financiero/route.ts:
+    // el precio de un segmento comercial también puede venir de un comparable/zona no
+    // representativo de la banda de construcción del proyecto — pero esta ruta (extraída
+    // directo de mercado.segmentacion) nunca pasaba por ese tope. Visto en producción: un
+    // segmento "Local comercial" a $58,000/m² sobre una banda 2 ($16,000/m² construcción)
+    // inflaba los ingresos de Mastermind ~$13M por encima de los de Análisis, que sí limita su
+    // precio habitacional pero no separa comercial.
+    const bandaConstruccion = d.bitacoraConstruccion?.bandaElegida !== undefined
+      ? String(d.bitacoraConstruccion.bandaElegida)
+      : undefined
+    const evaluacion = evaluarPlausibilidadBanda(segmentoLocal.precioM2, bandaConstruccion)
+    out.precioLocalesM2 = evaluacion?.sospechosoPorBanda ? evaluacion.precioVentaMaxPlausible : segmentoLocal.precioM2
   } else if (out.precioVentaDepasM2) {
     // Sin un precio de local explícito, usar el mismo precio habitacional como aproximación —
     // igual que ya hace el Agente Financiero (una sola tasa blended sobre toda el área
     // vendible) — es mejor que dejarlo en 0 y que el m² comercial (si se estimó arriba) no
-    // sume ningún ingreso, subestimando el proyecto de nuevo por otra vía.
+    // sume ningún ingreso, subestimando el proyecto de nuevo por otra vía. precioVentaDepasM2
+    // ya pasó por el mismo tope de banda en financiero/route.ts, así que no hace falta repetirlo.
     out.precioLocalesM2 = out.precioVentaDepasM2
   }
 

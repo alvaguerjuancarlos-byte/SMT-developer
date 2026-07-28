@@ -239,4 +239,24 @@ describe('extractMercadoContext — precioLocalesM2 sin segmento comercial expl�
     const out = extractMercadoContext(d)
     expect(out.precioLocalesM2).toBe(25_000)
   })
+
+  it('caso real: segmento comercial a $58,000/m2 sobre banda 2 (techo $16,000×3=$48,000) se limita', () => {
+    const d = {
+      financiero: { precioVentaM2: 48_000 },
+      mercado: { segmentacion: [{ tipo: 'Local comercial PB · 40–80 m²', precioM2: 58_000 }] },
+      bitacoraConstruccion: { bandaElegida: 2 },
+    } as unknown as AnalisisData
+    const out = extractMercadoContext(d)
+    expect(out.precioLocalesM2).toBe(48_000)
+  })
+
+  it('con banda declarada pero precio comercial dentro de rango plausible, no se limita', () => {
+    const d = {
+      financiero: { precioVentaM2: 18_200 },
+      mercado: { segmentacion: [{ tipo: 'Locales comerciales', precioM2: 25_000 }] },
+      bitacoraConstruccion: { bandaElegida: 2 }, // techo 16,000×3=48,000 — 25,000 no es sospechoso
+    } as unknown as AnalisisData
+    const out = extractMercadoContext(d)
+    expect(out.precioLocalesM2).toBe(25_000)
+  })
 })
