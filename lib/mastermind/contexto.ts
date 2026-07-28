@@ -107,10 +107,17 @@ export function extractProyectoContext(d: AnalisisData | null | undefined): Part
     out.m2PromedioDepa = Math.round(m2Ponderado)
   }
 
-  if (tip.comercial) {
-    const areaHab = (out.unidadesHabitacionales ?? 0) * (out.m2PromedioDepa ?? 0)
-    out.m2ComercialesPlantaBaja = Math.max(0, Math.round((superficieConstruida ?? 0) - areaHab))
-  }
+  // tip.comercial solo trae { totalLocales, niveles } — no un área en m² (ver
+  // TipologiaPropuesta en lib/analisis/tipos.ts) — no hay forma de saber cuántos m² vendibles
+  // reales son locales. Antes se estimaba como "lo que sobra" de superficieConstruida menos el
+  // área habitacional, pero superficieConstruida incluye estacionamiento/circulaciones/
+  // amenidades/cuartos de servicio — ese sobrante NO es área comercial vendible, y tratarlo
+  // como tal inventaba ingresos fantasma (visto en producción: 69% del ingreso total salía de
+  // "comercial" en un proyecto que es prácticamente puro habitacional). Se deja
+  // m2ComercialesPlantaBaja en el default del catálogo (0) — si el usuario conoce el área
+  // comercial real, la captura a mano en la palanca "Volumen".
+
+
 
   return out
 }

@@ -162,3 +162,28 @@ describe('extractProyectoContext — unidadesHabitacionales siempre sale de la s
     expect((out.unidadesHabitacionales ?? 0) * (out.m2PromedioDepa ?? 0)).toBe(3_300)
   })
 })
+
+describe('extractProyectoContext — m2ComercialesPlantaBaja no se inventa del "sobrante" de superficieConstruida', () => {
+  // Caso real encontrado en producción: un proyecto casi puro habitacional con tip.comercial
+  // presente (solo trae totalLocales/niveles, sin área) terminó con 69% de sus ingresos en
+  // Mastermind marcados como "comercial" porque el código restaba el área habitacional de
+  // superficieConstruida y trataba TODO el resto (estacionamiento, circulaciones, amenidades,
+  // cuartos de servicio) como si fuera local comercial vendible — ingresos fantasma.
+  it('con tip.comercial presente pero sin dato de área real, NO estima m2ComercialesPlantaBaja', () => {
+    const out = extractProyectoContext(fixture({
+      superficieConstruccionM2: 13_515,
+      tipologiaPropuesta: {
+        niveles: 6,
+        habitacional: {
+          totalDepartamentos: 72,
+          mix: [{ tipo: '2 recámaras', unidades: 72, m2Promedio: 65 }],
+        },
+        comercial: { totalLocales: 3, niveles: 1 },
+      },
+    } as AnalisisData['bitacoraConstruccion']))
+
+    expect(out.m2ComercialesPlantaBaja).toBeUndefined()
+    // El resto de la extracción (habitacional) no se ve afectado.
+    expect(out.unidadesHabitacionales).toBe(72)
+  })
+})
