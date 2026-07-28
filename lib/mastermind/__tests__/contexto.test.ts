@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { extractProyectoContext, extractTiempoContext } from '../contexto'
+import { extractProyectoContext, extractTiempoContext, extractMercadoContext } from '../contexto'
 import type { AnalisisData } from '@/lib/analisis/tipos'
 
 // Fixture mínimo — solo llenamos lo que extractProyectoContext efectivamente lee.
@@ -185,5 +185,58 @@ describe('extractProyectoContext — m2ComercialesPlantaBaja no se inventa del "
     expect(out.m2ComercialesPlantaBaja).toBeUndefined()
     // El resto de la extracción (habitacional) no se ve afectado.
     expect(out.unidadesHabitacionales).toBe(72)
+  })
+
+  it('con superficieVendible persistido (análisis corrido después del fix), SÍ estima el sobrante como comercial', () => {
+    const out = extractProyectoContext(fixture({
+      superficieConstruccionM2: 13_515,
+      superficieVendible: 8_001, // área vendible real total (habitacional + comercial), Zona 1
+      tipologiaPropuesta: {
+        niveles: 6,
+        habitacional: {
+          totalDepartamentos: 72,
+          mix: [{ tipo: '2 recámaras', unidades: 72, m2Promedio: 65 }], // 72×65 = 4,680 m² habitacional
+        },
+        comercial: { totalLocales: 3, niveles: 1 },
+      },
+    } as AnalisisData['bitacoraConstruccion']))
+
+    // 8,001 (vendible real) − 4,680 (habitacional) = 3,321 — no el sobrante de 13,515 (bug viejo)
+    expect(out.m2ComercialesPlantaBaja).toBe(3_321)
+  })
+
+  it('sin tip.comercial, un desfase entre el mix y superficieVendible NO se atribuye a comercial (evita ruido)', () => {
+    const out = extractProyectoContext(fixture({
+      superficieConstruccionM2: 7_000,
+      superficieVendible: 6_000,
+      tipologiaPropuesta: {
+        niveles: 6,
+        habitacional: {
+          totalDepartamentos: 72,
+          mix: [{ tipo: '2 recámaras', unidades: 72, m2Promedio: 65 }], // 4,680 m², distinto a 6,000 por inconsistencia de la IA
+        },
+        comercial: null,
+      },
+    } as unknown as AnalisisData['bitacoraConstruccion']))
+
+    expect(out.m2ComercialesPlantaBaja).toBeUndefined()
+  })
+})
+
+describe('extractMercadoContext — precioLocalesM2 sin segmento comercial explícito', () => {
+  it('sin segmento "local/comercial" en mercado.segmentacion, usa el mismo precio habitacional', () => {
+    const d = { financiero: { precioVentaM2: 18_200 }, mercado: { segmentacion: [] } } as unknown as AnalisisData
+    const out = extractMercadoContext(d)
+    expect(out.precioVentaDepasM2).toBe(18_200)
+    expect(out.precioLocalesM2).toBe(18_200)
+  })
+
+  it('con segmento comercial explícito, usa ese precio en vez del habitacional', () => {
+    const d = {
+      financiero: { precioVentaM2: 18_200 },
+      mercado: { segmentacion: [{ tipo: 'Locales comerciales', precioM2: 25_000 }] },
+    } as unknown as AnalisisData
+    const out = extractMercadoContext(d)
+    expect(out.precioLocalesM2).toBe(25_000)
   })
 })

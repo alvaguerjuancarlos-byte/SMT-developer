@@ -1407,7 +1407,10 @@ function PipelineContent() {
         proyecto,
         ...json,
         bitacoraTerreno: t.bitacoraTerreno,
-        bitacoraConstruccion: c.bitacoraConstruccion,
+        // Se persiste superficieVendibleReal (el área vendible total que Financiero SÍ usó
+        // para ingresos) — antes solo existía en este momento de la corrida en vivo y se
+        // perdía al guardar, dejando a Mastermind sin poder reconstruirla después.
+        bitacoraConstruccion: { ...c.bitacoraConstruccion, superficieVendible: superficieVendibleReal },
         fichaLegal: pipe.legal.data?.fichaLegal,
         mercado: mercadoActual?.mercado,
         fuentes: {

@@ -135,6 +135,13 @@ export interface BitacoraConstruccion {
   }
   validacionEnvolvente?: ResultadoValidacionMix
   validacionSuperficieConstruida?: ResultadoValidacionSuperficie
+  // Área vendible TOTAL real (habitacional + comercial, Zona 1 del Agente Construcción) que
+  // Financiero usó para calcular ingresos — antes solo vivía de forma transitoria dentro del
+  // pipeline en vivo (analizando/page.tsx) y se perdía al guardar el proyecto, dejando a
+  // Mastermind sin forma de reconstruir el área vendible real cuando había componente
+  // comercial (tip.comercial solo trae conteo de locales, no m²). Ausente en análisis
+  // guardados antes de este campo.
+  superficieVendible?: number
 }
 
 export interface AnalisisData {

@@ -109,15 +109,26 @@ export function extractProyectoContext(d: AnalisisData | null | undefined): Part
 
   // tip.comercial solo trae { totalLocales, niveles } — no un área en m² (ver
   // TipologiaPropuesta en lib/analisis/tipos.ts) — no hay forma de saber cuántos m² vendibles
-  // reales son locales. Antes se estimaba como "lo que sobra" de superficieConstruida menos el
-  // área habitacional, pero superficieConstruida incluye estacionamiento/circulaciones/
-  // amenidades/cuartos de servicio — ese sobrante NO es área comercial vendible, y tratarlo
-  // como tal inventaba ingresos fantasma (visto en producción: 69% del ingreso total salía de
-  // "comercial" en un proyecto que es prácticamente puro habitacional). Se deja
-  // m2ComercialesPlantaBaja en el default del catálogo (0) — si el usuario conoce el área
-  // comercial real, la captura a mano en la palanca "Volumen".
-
-
+  // reales son locales solo con eso. Antes se estimaba como "lo que sobra" de
+  // superficieConstruida menos el área habitacional, pero superficieConstruida incluye
+  // estacionamiento/circulaciones/amenidades/cuartos de servicio — ese sobrante NO es área
+  // comercial vendible, y tratarlo como tal inventaba ingresos fantasma (visto en producción:
+  // 69% del ingreso total salía de "comercial" en un proyecto casi puro habitacional).
+  //
+  // bc.superficieVendible (si el análisis se corrió después de que este campo empezara a
+  // persistirse) SÍ es 100% área vendible (Zona 1 del Agente Construcción, habitacional +
+  // comercial) — el sobrante contra el mix habitacional aquí SÍ representa área comercial
+  // vendible real, no estacionamiento. Análisis viejos sin este campo se quedan sin estimar
+  // (0, el default del catálogo) en vez de adivinar con una base que no es confiable.
+  // Gateado a tip.comercial: en un proyecto puro habitacional, un pequeño desfase entre la
+  // suma del mix y bc.superficieVendible es ruido/inconsistencia del modelo, no área comercial
+  // — no hay que inventarle un rubro comercial a un proyecto que no lo tiene.
+  if (tip.comercial && bc?.superficieVendible && bc.superficieVendible > 0) {
+    const areaHab = (out.unidadesHabitacionales ?? 0) * (out.m2PromedioDepa ?? 0)
+    if (bc.superficieVendible > areaHab) {
+      out.m2ComercialesPlantaBaja = Math.round(bc.superficieVendible - areaHab)
+    }
+  }
 
   return out
 }
@@ -135,7 +146,15 @@ export function extractMercadoContext(d: AnalisisData | null | undefined): Parti
   }
 
   const segmentoLocal = d.mercado?.segmentacion?.find(s => /local|comercial/i.test(s.tipo))
-  if (segmentoLocal?.precioM2) out.precioLocalesM2 = segmentoLocal.precioM2
+  if (segmentoLocal?.precioM2) {
+    out.precioLocalesM2 = segmentoLocal.precioM2
+  } else if (out.precioVentaDepasM2) {
+    // Sin un precio de local explícito, usar el mismo precio habitacional como aproximación —
+    // igual que ya hace el Agente Financiero (una sola tasa blended sobre toda el área
+    // vendible) — es mejor que dejarlo en 0 y que el m² comercial (si se estimó arriba) no
+    // sume ningún ingreso, subestimando el proyecto de nuevo por otra vía.
+    out.precioLocalesM2 = out.precioVentaDepasM2
+  }
 
   return out
 }
