@@ -39,6 +39,98 @@ function CheckIcon({ color = '#1D9E75' }: { color?: string }) {
   )
 }
 
+// Boceto tipo elevación arquitectónica (no un plano real): silueta del edificio apilando
+// niveles comerciales/habitacionales de abajo hacia arriba, con textura de ventanas/vitrinas
+// y un filtro de desplazamiento SVG (feTurbulence) para dar look "dibujado a mano".
+function EdificioSketch({ nivelesComercial, nivelesHabitacional, tieneAmenidades }: { nivelesComercial: number; nivelesHabitacional: number; tieneAmenidades: boolean }) {
+  const MARGIN = 24
+  const BUILD_W = 220
+  const LEVEL_H = 26
+  const COMERCIAL_H = 34
+  const AMEN_H = 24
+  const CAP_H = 6
+  const GROUND_H = 16
+  const AMEN_W = BUILD_W * 0.55
+
+  const bodyH = nivelesComercial * COMERCIAL_H + nivelesHabitacional * LEVEL_H
+  const svgW = BUILD_W + MARGIN * 2
+  const svgH = MARGIN + CAP_H + (tieneAmenidades ? AMEN_H : 0) + bodyH + GROUND_H + MARGIN
+  const x0 = MARGIN
+  const groundY = svgH - MARGIN - GROUND_H
+
+  type Floor = { y: number; h: number; tipo: 'comercial' | 'habitacional' }
+  const floors: Floor[] = []
+  let cursorY = groundY
+  for (let i = 0; i < nivelesComercial; i++) { cursorY -= COMERCIAL_H; floors.push({ y: cursorY, h: COMERCIAL_H, tipo: 'comercial' }) }
+  for (let i = 0; i < nivelesHabitacional; i++) { cursorY -= LEVEL_H; floors.push({ y: cursorY, h: LEVEL_H, tipo: 'habitacional' }) }
+  const roofY = cursorY - CAP_H
+  const amenY = roofY - AMEN_H
+
+  return (
+    <svg width={svgW} height={svgH} viewBox={`0 0 ${svgW} ${svgH}`}>
+      <defs>
+        <filter id="sketchy-edificio" x="-20%" y="-20%" width="140%" height="140%">
+          <feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="7" result="noise" />
+          <feDisplacementMap in="SourceGraphic" in2="noise" scale="2.4" />
+        </filter>
+      </defs>
+      <g filter="url(#sketchy-edificio)" strokeLinejoin="round" strokeLinecap="round">
+        {/* terreno */}
+        <line x1={x0 - 10} y1={groundY} x2={x0 + BUILD_W + 10} y2={groundY} stroke="#5a7065" strokeWidth="1.5" />
+        {Array.from({ length: 14 }).map((_, i) => {
+          const gx = x0 - 8 + i * ((BUILD_W + 16) / 13)
+          return <line key={i} x1={gx} y1={groundY} x2={gx - 6} y2={groundY + GROUND_H} stroke="#c8d5cf" strokeWidth="1" />
+        })}
+
+        {/* remate / azotea */}
+        <rect x={x0 - 2} y={roofY} width={BUILD_W + 4} height={CAP_H} fill="#111d17" rx="1" />
+
+        {/* volumen de amenidades, retranqueado */}
+        {tieneAmenidades && (
+          <g>
+            <rect x={x0 + (BUILD_W - AMEN_W) / 2} y={amenY} width={AMEN_W} height={AMEN_H} fill="#F5F3FF" stroke="#6D28D9" strokeWidth="1.4" strokeDasharray="4 3" rx="2" />
+            {Array.from({ length: 4 }).map((_, i) => {
+              const lx = x0 + (BUILD_W - AMEN_W) / 2 + 6 + i * ((AMEN_W - 12) / 3)
+              return <line key={i} x1={lx} y1={amenY + 4} x2={lx} y2={amenY + AMEN_H - 4} stroke="#A78BFA" strokeWidth="1" />
+            })}
+            <circle cx={x0 + BUILD_W - 24} cy={amenY - 6} r="5" fill="none" stroke="#D97706" strokeWidth="1.2" />
+          </g>
+        )}
+
+        {/* niveles */}
+        {floors.map((f, i) => {
+          if (f.tipo === 'comercial') {
+            const doorW = 20, doorH = f.h * 0.7, nDoors = 3
+            return (
+              <g key={i}>
+                <rect x={x0} y={f.y} width={BUILD_W} height={f.h} fill="#FEF3C7" stroke="#B45309" strokeWidth="1.4" />
+                {Array.from({ length: 10 }).map((_, j) => (
+                  <rect key={j} x={x0 + j * (BUILD_W / 10)} y={f.y - 4} width={BUILD_W / 10} height="4" fill={j % 2 === 0 ? '#B45309' : '#FEF3C7'} />
+                ))}
+                {Array.from({ length: nDoors }).map((_, j) => {
+                  const dx = x0 + (BUILD_W / nDoors) * j + (BUILD_W / nDoors - doorW) / 2
+                  return <rect key={j} x={dx} y={f.y + f.h - doorH} width={doorW} height={doorH} fill="#FFFDF5" stroke="#B45309" strokeWidth="1" />
+                })}
+              </g>
+            )
+          }
+          const nWin = 5, winW = 14, winH = f.h * 0.4
+          return (
+            <g key={i}>
+              <rect x={x0} y={f.y} width={BUILD_W} height={f.h} fill="#F0FBF6" stroke="#0F6E56" strokeWidth="1.2" />
+              {Array.from({ length: nWin }).map((_, j) => {
+                const wx = x0 + (BUILD_W / nWin) * j + (BUILD_W / nWin - winW) / 2
+                const wy = f.y + (f.h - winH) / 2
+                return <rect key={j} x={wx} y={wy} width={winW} height={winH} fill="#BAE6C9" stroke="#1D9E75" strokeWidth="0.8" rx="1" />
+              })}
+            </g>
+          )
+        })}
+      </g>
+    </svg>
+  )
+}
+
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return <h2 className="text-[13px] font-bold text-[#9aab9f] tracking-[0.12em] uppercase mb-4">{children}</h2>
 }
@@ -204,6 +296,7 @@ function AnalisisContent() {
   const chatEndRef = useRef<HTMLDivElement>(null)
   const [showBitacora, setShowBitacora] = useState(false)
   const [showBitacoraConstruccion, setShowBitacoraConstruccion] = useState(false)
+  const [showDiagramaApilamiento, setShowDiagramaApilamiento] = useState(false)
   const [showBitacoraFinanciero, setShowBitacoraFinanciero] = useState(false)
 
   useEffect(() => {
@@ -739,6 +832,117 @@ function AnalisisContent() {
     )
   }
 
+  const MIX_COLORS = ['#1D9E75', '#4338CA', '#D97706', '#DB2777', '#0891B2', '#65A30D']
+
+  const DiagramaApilamientoModal = () => {
+    const b = d.bitacoraConstruccion
+    const t = b?.tipologiaPropuesta
+    if (!b || !t) return null
+
+    const nivelesComercial = t.comercial?.niveles ?? 0
+    const totalNiveles = t.niveles ?? (nivelesComercial + (t.habitacional ? 1 : 0))
+    const nivelesHabitacional = Math.max(totalNiveles - nivelesComercial, t.habitacional ? 1 : 0)
+    const mix = t.habitacional?.mix ?? []
+    const totalUnidadesMix = mix.reduce((s, m) => s + m.unidades, 0)
+
+    const niveles: { label: string; tipo: 'comercial' | 'habitacional' }[] = []
+    for (let i = 0; i < nivelesComercial; i++) niveles.push({ label: i === 0 ? 'PB · Comercial' : `Nivel ${i + 1} · Comercial`, tipo: 'comercial' })
+    for (let i = 0; i < nivelesHabitacional; i++) niveles.push({ label: `Nivel ${nivelesComercial + i + 1} · Habitacional`, tipo: 'habitacional' })
+
+    return (
+      <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/40 backdrop-blur-sm" onClick={() => setShowDiagramaApilamiento(false)}>
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-[640px] max-h-[88vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+          <div className="sticky top-0 bg-white border-b border-[#E2E8E4] px-6 py-4 flex items-center justify-between rounded-t-2xl">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-[#F5F3FF] border border-[#DDD6FE] flex items-center justify-center">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                  <rect x="2" y="2" width="12" height="2.5" rx="0.6" fill="#6D28D9"/>
+                  <rect x="2" y="6.75" width="12" height="2.5" rx="0.6" fill="#6D28D9"/>
+                  <rect x="2" y="11.5" width="12" height="2.5" rx="0.6" fill="#6D28D9"/>
+                </svg>
+              </div>
+              <div>
+                <p className="text-[14px] font-bold text-[#111d17]">Diagrama de Apilamiento</p>
+                <p className="text-[11px] text-[#9aab9f]">Boceto esquemático de la propuesta de tipología · pre-plano</p>
+              </div>
+            </div>
+            <button onClick={() => setShowDiagramaApilamiento(false)} className="w-8 h-8 rounded-lg flex items-center justify-center text-[#9aab9f] hover:bg-[#F7F8F6] hover:text-[#111d17] transition-colors">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                <path d="M2 2l10 10M12 2L2 12" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
+              </svg>
+            </button>
+          </div>
+
+          <div className="px-6 py-5 flex flex-col gap-5">
+            {/* Resumen del programa */}
+            <div className="grid grid-cols-4 gap-2">
+              <div className="bg-[#F7F8F6] border border-[#E2E8E4] rounded-xl px-3 py-2.5 text-center">
+                <p className="text-[16px] font-black text-[#111d17]">{totalNiveles}</p>
+                <p className="text-[9px] text-[#9aab9f] uppercase tracking-wide">Niveles</p>
+              </div>
+              <div className="bg-[#F7F8F6] border border-[#E2E8E4] rounded-xl px-3 py-2.5 text-center">
+                <p className="text-[16px] font-black text-[#111d17]">{t.habitacional?.totalDepartamentos ?? 0}</p>
+                <p className="text-[9px] text-[#9aab9f] uppercase tracking-wide">Departamentos</p>
+              </div>
+              <div className="bg-[#F7F8F6] border border-[#E2E8E4] rounded-xl px-3 py-2.5 text-center">
+                <p className="text-[16px] font-black text-[#111d17]">{t.comercial?.totalLocales ?? 0}</p>
+                <p className="text-[9px] text-[#9aab9f] uppercase tracking-wide">Locales</p>
+              </div>
+              <div className="bg-[#F7F8F6] border border-[#E2E8E4] rounded-xl px-3 py-2.5 text-center">
+                <p className="text-[16px] font-black text-[#111d17]">{t.tamanoAmenidades ? t.tamanoAmenidades.toLocaleString('es-MX') : '—'}</p>
+                <p className="text-[9px] text-[#9aab9f] uppercase tracking-wide">m² Amenidades</p>
+              </div>
+            </div>
+
+            {/* Sketch de volumetría */}
+            <div>
+              <p className="text-[11px] font-bold text-[#5a7065] uppercase tracking-wide mb-2">Boceto de volumetría</p>
+              {niveles.length === 0 ? (
+                <p className="text-[12px] text-[#9aab9f] italic px-1">Sin datos de niveles para graficar.</p>
+              ) : (
+                <>
+                  <div className="bg-[#FAFAF7] border border-[#E2E8E4] rounded-xl px-4 py-5 flex justify-center">
+                    <EdificioSketch nivelesComercial={nivelesComercial} nivelesHabitacional={nivelesHabitacional} tieneAmenidades={!!t.tamanoAmenidades} />
+                  </div>
+                  <div className="flex items-center gap-4 mt-2 flex-wrap px-1">
+                    <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-[#FEF3C7] border border-[#B45309]" /><span className="text-[10px] text-[#5a7065]">PB / Comercial</span></div>
+                    <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-[#F0FBF6] border border-[#0F6E56]" /><span className="text-[10px] text-[#5a7065]">Habitacional</span></div>
+                    {!!t.tamanoAmenidades && <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-[#F5F3FF] border border-dashed border-[#6D28D9]" /><span className="text-[10px] text-[#5a7065]">Amenidades (azotea) · {t.tamanoAmenidades.toLocaleString('es-MX')} m² · no ocupa nivel exclusivo</span></div>}
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Mix de unidades habitacionales */}
+            {mix.length > 0 && (
+              <div>
+                <p className="text-[11px] font-bold text-[#5a7065] uppercase tracking-wide mb-3">Mix de unidades habitacionales</p>
+                <div className="flex h-3 rounded-full overflow-hidden mb-3">
+                  {mix.map((m, i) => (
+                    <div key={i} style={{ width: `${totalUnidadesMix > 0 ? (m.unidades / totalUnidadesMix) * 100 : 0}%`, backgroundColor: MIX_COLORS[i % MIX_COLORS.length] }} />
+                  ))}
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  {mix.map((m, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: MIX_COLORS[i % MIX_COLORS.length] }} />
+                      <span className="text-[12px] font-semibold text-[#111d17] flex-1">{m.tipo}</span>
+                      <span className="text-[11px] text-[#5a7065]">{m.unidades} uds</span>
+                      <span className="text-[11px] text-[#9aab9f]">· {m.m2Promedio} m² prom.</span>
+                      <span className="text-[11px] font-bold text-[#1D9E75] w-10 text-right">{totalUnidadesMix > 0 ? Math.round((m.unidades / totalUnidadesMix) * 100) : 0}%</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <p className="text-[10px] text-[#9aab9f] italic">Boceto ilustrativo generado a partir del programa arquitectónico propuesto por el Agente Construcción. No sustituye un plano arquitectónico ni asume distribución real por nivel — es una aproximación de volumetría para evaluar la propuesta antes de diseño.</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   const BitacoraFinancieroModal = () => {
     const secciones = [
       { titulo: 'Indirectos', total: f.indirectos, items: f.indirectosDesglose },
@@ -809,6 +1013,7 @@ function AnalisisContent() {
     <>
     {showBitacora && <BitacoraModal />}
     {showBitacoraConstruccion && <BitacoraConstruccionModal />}
+    {showDiagramaApilamiento && <DiagramaApilamientoModal />}
     {showBitacoraFinanciero && <BitacoraFinancieroModal />}
     <div className="min-h-screen bg-[#0C0F0E] flex flex-col">
       <header className="px-8 py-5 flex items-center gap-3 border-b border-white/10 bg-[#0C0F0E] sticky top-0 z-10">
@@ -1134,6 +1339,17 @@ function AnalisisContent() {
                                 <path d="M3 3.5h4M3 5.5h4M3 7.5h2" stroke="currentColor" strokeWidth="1" strokeLinecap="round"/>
                               </svg>
                               Bitácora
+                            </button>
+                          )}
+                          {row.bitacoraCons && d.bitacoraConstruccion?.tipologiaPropuesta && (
+                            <button onClick={() => setShowDiagramaApilamiento(true)} title="Ver diagrama de apilamiento"
+                              className="flex items-center gap-1 text-[10px] font-bold text-[#1D9E75] border border-[#9FE1CB] bg-[#F0FBF6] px-2 py-0.5 rounded-full hover:bg-[#E1F5EE] transition-colors shrink-0 cursor-pointer">
+                              <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                                <rect x="1" y="1" width="8" height="2" rx="0.5" fill="currentColor"/>
+                                <rect x="1" y="4" width="8" height="2" rx="0.5" fill="currentColor"/>
+                                <rect x="1" y="7" width="8" height="2" rx="0.5" fill="currentColor"/>
+                              </svg>
+                              Apilamiento
                             </button>
                           )}
                           {row.bitacoraFin && f.indirectosDesglose && (
