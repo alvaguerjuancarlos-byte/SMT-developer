@@ -100,6 +100,27 @@ export interface TipologiaPropuesta {
   tamanoAmenidades?: number
 }
 
+// Bitácora del Agente de Arquitectura (diseño: envolvente legal, tipología, mix de
+// unidades) — separado del Agente de Construcción (que ahora solo costea el diseño que
+// Arquitectura ya resolvió). Estos mismos campos viven HOY también dentro de
+// BitacoraConstruccion por compatibilidad con análisis guardados antes de este split; la
+// Fase 7 del refactor los retira de ahí. Usar siempre lib/analisis/bitacoraArquitectura.ts
+// (resolveBitacoraArquitectura) para leerlos en vez de acceder a cualquiera de los dos
+// campos directamente, así el fallback a datos viejos queda en un solo lugar.
+export interface BitacoraArquitectura {
+  tipologiaPropuesta?: TipologiaPropuesta
+  superficieConstruida?: number
+  superficieVendible?: number
+  envolventeCalculada?: {
+    areaMaxConstruible: number
+    areaConstruida: { piso: number; base: number; techo: number }
+    areaVendible: { piso: number; base: number; techo: number }
+    eficienciaVendiblePct: { piso: number; base: number; techo: number }
+  }
+  validacionEnvolvente?: ResultadoValidacionMix
+  validacionSuperficieConstruida?: ResultadoValidacionSuperficie
+}
+
 export interface BitacoraConstruccion {
   bandaElegida: number
   nombreBanda: string
@@ -151,6 +172,7 @@ export interface BitacoraConstruccion {
 export interface AnalisisData {
   proyecto?: string
   bitacoraTerreno?: BitacoraTerreno
+  bitacoraArquitectura?: BitacoraArquitectura
   bitacoraConstruccion?: BitacoraConstruccion
   recomendacion: { tipologia: string; descripcion: string }
   fichaLegal: {
