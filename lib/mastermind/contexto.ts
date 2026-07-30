@@ -3,6 +3,7 @@
 // Mastermind sin que el usuario tenga que reingresar datos ya conocidos.
 
 import type { AnalisisData } from '@/lib/analisis/tipos'
+import { resolveBitacoraArquitectura } from '@/lib/analisis/bitacoraArquitectura'
 import { BENCHMARKS_CONSTRUCCION_MXN_M2 } from './catalogo'
 import type { BenchmarkConstruccion, InputsFinanciamiento, InputsMercado, InputsProyecto, InputsTiempo, TerrenoContext, TipoProyecto } from './tipos'
 import { evaluarPlausibilidadBanda } from '@/lib/mercado/validarComparableVenta'
@@ -54,7 +55,7 @@ function calibrarPorcentajeIndirectos(d: AnalisisData | null | undefined): numbe
 
 export function extractProyectoContext(d: AnalisisData | null | undefined): Partial<InputsProyecto> {
   const bc = d?.bitacoraConstruccion
-  const tip = bc?.tipologiaPropuesta
+  const tip = resolveBitacoraArquitectura(d)?.tipologiaPropuesta
   const out: Partial<InputsProyecto> = {}
 
   const porcentajeIndirectos = calibrarPorcentajeIndirectos(d)

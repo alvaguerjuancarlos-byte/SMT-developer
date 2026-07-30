@@ -15,6 +15,11 @@ interface TerrenoResult {
   costoTerreno: number
   bitacoraTerreno: any
 }
+interface ArquitecturaResult {
+  superficieConstruida: number
+  superficieVendible: number
+  bitacoraArquitectura: any
+}
 interface ConstruccionResult {
   construccionM2: number
   costoTotalConstruccion: number
@@ -74,6 +79,7 @@ interface PipelineState {
   // cada corrida se agrega a `corridas` (nunca se reemplaza) y `seleccionada` indexa cuál
   // usan los pasos siguientes — el analista elige a su criterio, sin sugerencia automática.
   terreno:     { status: AgentStatus; corridas: TerrenoResult[];      seleccionada: number | null; overrideM2: string; usarPrecioSolicitado: boolean }
+  arquitectura:{ status: AgentStatus; corridas: ArquitecturaResult[]; seleccionada: number | null }
   construccion:{ status: AgentStatus; corridas: ConstruccionResult[]; seleccionada: number | null; overrideM2: string; usarParametricoZona: boolean }
   legal:       { status: AgentStatus; data: LegalResult | null }
   mercado:     { status: AgentStatus; corridas: MercadoResult[];      seleccionada: number | null; overridePrecioVenta: string; overrideAbsorcion: string }
@@ -142,8 +148,8 @@ function SemaforoChip({ sem }: { sem?: string }) {
 // Transparenta de dónde sale el m² a construir que eligió el modelo: el rango piso/base/techo
 // viene del envolvente determinístico (lib/analisis/envolventeYAreas.ts, calculado en código a
 // partir de COS/CUS/niveles de la Ficha Legal), no del propio LLM — ver
-// bitacoraConstruccion.envolventeCalculada / validacionSuperficieConstruida en
-// app/api/agentes/construccion/route.ts. Ausente cuando no hubo ficha legal numérica.
+// bitacoraArquitectura.envolventeCalculada / validacionSuperficieConstruida en
+// app/api/agentes/arquitectura/route.ts. Ausente cuando no hubo ficha legal numérica.
 function RangoConstruccionCard({
   envolventeCalculada, superficieConstruida, validacion,
 }: {
@@ -422,11 +428,10 @@ function AjustarSupuestosTerreno({
   )
 }
 
-// Resume la mezcla de unidades que ya definió el Agente Construcción, para que
-// el Agente Mercado reparta el precio objetivo (promedio ponderado) entre
-// tipologías reales en vez de aplicarlo por igual a todo `segmentacion`.
-// Solo existe en modo "agente_propone" — en "usuario_define" (lib/estimador)
-// no hay desglose por tipología, así que regresa cadena vacía.
+// Resume la mezcla de unidades que ya definió el Agente Arquitectura (IA o "usuario_define",
+// ambos producen tipologiaPropuesta.habitacional.mix — ver ArquitecturaInteractiva/
+// estimadorAArquitectura más abajo), para que el Agente Mercado reparta el precio objetivo
+// (promedio ponderado) entre tipologías reales en vez de aplicarlo por igual a todo `segmentacion`.
 // superficieVendible (raíz de la respuesta de Construcción) es un campo "resumen" que la IA
 // reporta por separado de su propio tipologiaPropuesta.habitacional.mix — igual que pasaba con
 // totalDepartamentos, nada garantiza que ambos coincidan (visto en producción: superficieVendible
@@ -458,22 +463,23 @@ const AMENIDADES_NIVEL_LABELS: Record<string, string> = {
   '1': 'Mínimas', '2': 'Intermedias', '3': 'Top',
 }
 
-function AjustarSupuestosConstruccion({
-  bandaActual, nivelesActual, totalDeptosActual, totalLocalesActual, amenidadesNivelActual, mostrarLocales, onAplicar,
+// Ajusta parámetros de DISEÑO (niveles/unidades/amenidades) — vive en la tarjeta de
+// Arquitectura, no en Construcción, desde que se separaron los dos agentes. La banda de
+// acabados es un parámetro de COSTEO y se ajusta aparte en Construcción (ver AjustarBandaConstruccion).
+function AjustarSupuestosArquitectura({
+  nivelesActual, totalDeptosActual, totalLocalesActual, amenidadesNivelActual, mostrarLocales, onAplicar,
 }: {
-  bandaActual: number | string | undefined; nivelesActual: number | undefined
+  nivelesActual: number | undefined
   totalDeptosActual: number | undefined; totalLocalesActual: number | undefined
   amenidadesNivelActual: number | undefined; mostrarLocales: boolean
-  onAplicar: (banda: string, niveles: string, totalDeptos: string, totalLocales: string, amenidadesNivel: string) => void
+  onAplicar: (niveles: string, totalDeptos: string, totalLocales: string, amenidadesNivel: string) => void
 }) {
   const [abierto, setAbierto] = useState(false)
-  const [bandaEdit, setBandaEdit] = useState('')
   const [nivelesEdit, setNivelesEdit] = useState('')
   const [deptosEdit, setDeptosEdit] = useState('')
   const [localesEdit, setLocalesEdit] = useState('')
   const [amenidadesEdit, setAmenidadesEdit] = useState('')
 
-  const bandaEfectiva = bandaEdit || String(bandaActual ?? '')
   const amenidadesEfectiva = amenidadesEdit || String(amenidadesNivelActual ?? '')
 
   if (!abierto) {
@@ -500,14 +506,6 @@ function AjustarSupuestosConstruccion({
 
   return (
     <div className="bg-[#F7F8F6] rounded-xl px-4 py-3 flex flex-col gap-3">
-      <div>
-        <p className="text-[10px] font-bold text-[#9aab9f] uppercase tracking-wide mb-1.5">Banda de acabados</p>
-        <div className="flex flex-wrap gap-1.5">
-          {Object.entries(BANDA_LABELS).map(([id, label]) => (
-            <Chip key={id} selected={bandaEfectiva === id} onClick={() => setBandaEdit(id)}>{id} · {label}</Chip>
-          ))}
-        </div>
-      </div>
       <div className="grid grid-cols-2 gap-2">
         <div>
           <p className="text-[10px] font-bold text-[#9aab9f] uppercase tracking-wide mb-1.5">Niveles (pisos)</p>
@@ -541,9 +539,63 @@ function AjustarSupuestosConstruccion({
       <div className="flex items-center gap-3">
         <button
           onClick={() => {
-            onAplicar(bandaEfectiva, nivelesEdit, deptosEdit, localesEdit, amenidadesEfectiva)
-            setAbierto(false); setBandaEdit(''); setNivelesEdit(''); setDeptosEdit(''); setLocalesEdit(''); setAmenidadesEdit('')
+            onAplicar(nivelesEdit, deptosEdit, localesEdit, amenidadesEfectiva)
+            setAbierto(false); setNivelesEdit(''); setDeptosEdit(''); setLocalesEdit(''); setAmenidadesEdit('')
           }}
+          className="text-[12px] font-semibold px-4 py-2 rounded-xl transition-colors bg-[#1D9E75] text-white hover:bg-[#0F6E56] cursor-pointer"
+        >
+          Generar nueva opción
+        </button>
+        <button onClick={() => setAbierto(false)} className="text-[11px] text-[#9aab9f] hover:text-[#111d17] cursor-pointer">
+          Cancelar
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// Ajusta la banda de acabados (parámetro de COSTEO, no de diseño) — genera una nueva
+// corrida de Construcción sobre el mismo diseño ya fijado por Arquitectura.
+function AjustarBandaConstruccion({ bandaActual, onAplicar }: { bandaActual: number | string | undefined; onAplicar: (banda: string) => void }) {
+  const [abierto, setAbierto] = useState(false)
+  const [bandaEdit, setBandaEdit] = useState('')
+  const bandaEfectiva = bandaEdit || String(bandaActual ?? '')
+
+  if (!abierto) {
+    return (
+      <button
+        onClick={() => setAbierto(true)}
+        className="w-full flex items-center justify-between gap-2 bg-[#111d17] hover:bg-[#1f2e26] text-white rounded-xl px-4 py-3 transition-colors cursor-pointer"
+      >
+        <span className="flex items-center gap-2 text-[12px] font-semibold">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+            <path d="M2 4h8M2 8h5M2 12h8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+            <circle cx="12" cy="4" r="1.5" fill="currentColor"/>
+            <circle cx="9" cy="8" r="1.5" fill="currentColor"/>
+            <circle cx="12" cy="12" r="1.5" fill="currentColor"/>
+          </svg>
+          Ajustar banda de acabados
+        </span>
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+          <path d="M4 2L8 6L4 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+        </svg>
+      </button>
+    )
+  }
+
+  return (
+    <div className="bg-[#F7F8F6] rounded-xl px-4 py-3 flex flex-col gap-3">
+      <div>
+        <p className="text-[10px] font-bold text-[#9aab9f] uppercase tracking-wide mb-1.5">Banda de acabados</p>
+        <div className="flex flex-wrap gap-1.5">
+          {Object.entries(BANDA_LABELS).map(([id, label]) => (
+            <Chip key={id} selected={bandaEfectiva === id} onClick={() => setBandaEdit(id)}>{id} · {label}</Chip>
+          ))}
+        </div>
+      </div>
+      <div className="flex items-center gap-3">
+        <button
+          onClick={() => { onAplicar(bandaEfectiva); setAbierto(false); setBandaEdit('') }}
           className="text-[12px] font-semibold px-4 py-2 rounded-xl transition-colors bg-[#1D9E75] text-white hover:bg-[#0F6E56] cursor-pointer"
         >
           Generar nueva opción
@@ -634,10 +686,12 @@ function AjustarSupuestosMercado({
   )
 }
 
-// ── Construcción interactiva — "usuario_define" ──────────────────────────────
-// Modo alterno al Agente de Construcción (LLM): el usuario arma su propio programa
-// de unidades y lib/estimador (puro, sin IA ni red) lo valida y costea al instante,
-// reactivo en cada cambio — mismo patrón useMemo que ya usa Mastermind.
+// ── Arquitectura interactiva — "usuario_define" ──────────────────────────────
+// Modo alterno al Agente de Arquitectura (LLM): el usuario arma su propio programa
+// de unidades y lib/estimador (puro, sin IA ni red) lo valida y calcula áreas al
+// instante, reactivo en cada cambio — mismo patrón useMemo que ya usa Mastermind.
+// El costeo NO vive aquí — el diseño resultante sigue pasando por el Agente de
+// Construcción (IA) como cualquier otro, igual que un diseño propuesto por IA.
 
 const GENERO_VIVIENDA_LABELS: Record<string, string> = {
   vivienda_interes_social: 'Interés social',
@@ -677,11 +731,72 @@ function MixEditor({ rows, onChange }: { rows: MixRow[]; onChange: (rows: MixRow
   )
 }
 
-function ConstruccionInteractiva({
+// Traduce el resultado de lib/estimador (que agrupa por género: habitacional/comercial/
+// amenidades/estacionamiento) a la taxonomía de 5 zonas que espera el Agente de
+// Construcción (Zona 1 vendible / 2 estacionamiento / 3 circulaciones / 4 áreas comunes /
+// 5 cuartos de servicio, ver app/api/agentes/construccion/route.ts). "Circulaciones" es la
+// brecha real entre m² bruto y m² vendible de habitacional+comercial (lo que ya calcula
+// FACTORES_EFICIENCIA en lib/estimador/catalogo.ts — no es un número inventado). "Cuartos
+// de servicio" SÍ es una estimación (lib/estimador no lo modela): se toma como ~5% de esa
+// misma brecha, la misma guía que ya usa el prompt del Agente de Arquitectura IA cuando no
+// tiene mejor dato, para no dejar esa zona completamente sin fijar.
+function estimadorAArquitectura(
+  resultado: NonNullable<ReturnType<typeof calcular>>,
+  programa: { generoVivienda: string; totalUnidades: number; mixHab: MixRow[]; incluirComercial: boolean; niveles: number; localesPorNivel: number; mixCom: MixRow[]; amenidadesM2: number },
+  sTerreno: number, cosStr: string | undefined, cusStr: string | undefined,
+): ArquitecturaResult {
+  const { areas, cajones, envolvente } = resultado
+  const noVendibleBruto = Math.max(0, areas.sobreRasante - programa.amenidadesM2 - areas.vendible)
+  const cuartosServicio = Math.round(noVendibleBruto * 0.05)
+  const circulaciones = Math.round(noVendibleBruto - cuartosServicio)
+  const vendible = Math.round(areas.vendible)
+
+  const pct = (m2: number) => areas.total > 0 ? `${Math.round((m2 / areas.total) * 100)}%` : '0%'
+
+  const zonas = [
+    { zona: 'Área vendible', concepto: 'Departamentos / unidades habitacionales' + (programa.incluirComercial ? ' y locales' : ''), m2: vendible, participacion: pct(vendible) },
+    { zona: 'Estacionamiento', concepto: 'Cajones cubiertos', m2: Math.round(cajones.areaM2), participacion: pct(cajones.areaM2), cajonesEstimados: cajones.cajonesTotales, m2PorCajon: cajones.areaPorCajon },
+    { zona: 'Circulaciones', concepto: 'Pasillos, escaleras, núcleo de elevadores (brecha bruto-vendible)', m2: circulaciones, participacion: pct(circulaciones) },
+    ...(programa.amenidadesM2 > 0 ? [{ zona: 'Áreas comunes', concepto: 'Lobby, amenidades', m2: Math.round(programa.amenidadesM2), participacion: pct(programa.amenidadesM2) }] : []),
+    { zona: 'Cuartos de servicio', concepto: 'Estimado — lib/estimador no lo modela por separado', m2: cuartosServicio, participacion: pct(cuartosServicio) },
+  ]
+
+  // TipologiaPropuesta.comercial no tiene mix por tipo de local (solo totalLocales/niveles),
+  // así que el mix comercial del usuario (mixCom) solo alimenta el cálculo de m² vía
+  // programaAUsos — no hay dónde desglosarlo en la bitácora, igual que en el modo IA.
+  const mixHabUnidades = programa.mixHab.map(r => ({ tipo: r.label, unidades: Math.round(programa.totalUnidades * (r.pct / 100)), m2Promedio: r.m2Promedio }))
+
+  return {
+    superficieConstruida: Math.round(areas.total),
+    superficieVendible: vendible,
+    bitacoraArquitectura: {
+      modo: 'usuario_define',
+      cosEstimado: cosStr || undefined,
+      cusEstimado: cusStr || undefined,
+      tipologiaPropuesta: {
+        habitacional: { totalDepartamentos: programa.totalUnidades, mix: mixHabUnidades },
+        comercial: programa.incluirComercial ? { totalLocales: programa.niveles * programa.localesPorNivel, niveles: programa.niveles } : null,
+      },
+      superficieConstruida: Math.round(areas.total),
+      superficieVendible: vendible,
+      desgloseZonas: zonas,
+      areaLibreYVerde: {
+        m2: Math.round(envolvente.permeableMin),
+        porcentajeLote: sTerreno > 0 ? `${Math.round((envolvente.permeableMin / sTerreno) * 100)}%` : '—',
+        descripcion: 'Área permeable mínima normativa (CAS) — jardines, accesos, área libre.',
+      },
+      envolvente,
+      cajones,
+      supuestos: resultado.supuestos,
+    },
+  }
+}
+
+function ArquitecturaInteractiva({
   sTerreno, cosStr, cusStr, onContinuar,
 }: {
   sTerreno: number; cosStr: string | undefined; cusStr: string | undefined
-  onContinuar: (resultado: ConstruccionResult) => void
+  onContinuar: (resultado: ArquitecturaResult) => void
 }) {
   const [incluirComercial, setIncluirComercial] = useState(false)
   const [generoVivienda, setGeneroVivienda] = useState<'vivienda_interes_social' | 'vivienda_residencial_media' | 'vivienda_residencial_lujo'>('vivienda_residencial_media')
@@ -699,7 +814,6 @@ function ConstruccionInteractiva({
     { label: 'Local grande', pct: 30, m2Promedio: 120 },
   ])
   const [amenidadesM2, setAmenidadesM2] = useState(0)
-  const [costoRealM2, setCostoRealM2] = useState('')
 
   const resultado = useMemo(() => {
     const programa: ProgramaUnidades = {
@@ -717,18 +831,13 @@ function ConstruccionInteractiva({
     }
   }, [generoVivienda, totalUnidades, mixHab, incluirComercial, niveles, localesPorNivel, mixCom, amenidadesM2, sTerreno, cosStr, cusStr])
 
-  const estimadoM2 = resultado?.indicadores.costoPorM2Bruto.base
-  const realM2 = costoRealM2 !== '' ? Number(costoRealM2) : undefined
-  const diffPct = estimadoM2 && realM2 ? ((realM2 - estimadoM2) / estimadoM2) * 100 : undefined
-  const semaforoReal = diffPct === undefined ? null : Math.abs(diffPct) <= 10 ? 'verde' : Math.abs(diffPct) <= 25 ? 'amarillo' : 'rojo'
-
   return (
     <div className="flex flex-col gap-4">
       <div className="bg-[#F7F8F6] rounded-xl px-4 py-3">
         <p className="text-[10px] font-bold text-[#9aab9f] uppercase tracking-wide mb-2">Habitacional</p>
         <div className="grid grid-cols-2 gap-2 mb-2">
           <div>
-            <p className="text-[9px] text-[#9aab9f] font-semibold mb-1">Banda de acabados</p>
+            <p className="text-[9px] text-[#9aab9f] font-semibold mb-1">Segmento de vivienda</p>
             <select value={generoVivienda} onChange={e => setGeneroVivienda(e.target.value as typeof generoVivienda)}
               className="w-full border border-[#E2E8E4] rounded-lg px-2 py-1.5 text-[12px] bg-white text-[#111d17]">
               {Object.entries(GENERO_VIVIENDA_LABELS).map(([id, label]) => <option key={id} value={id}>{label}</option>)}
@@ -802,55 +911,18 @@ function ConstruccionInteractiva({
             </div>
           </div>
 
-          <div className="bg-[#F7F8F6] rounded-xl px-4 py-3">
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-[10px] font-bold text-[#9aab9f] uppercase tracking-wide">Costo estimado (paramétrico)</p>
-              <p className="text-[15px] font-black text-[#111d17]">${Math.round(resultado.indicadores.costoPorM2Bruto.base).toLocaleString('es-MX')} MXN/m²</p>
-            </div>
-            <p className="text-[10px] text-[#9aab9f] mb-2">Costo total estimado: {fmt(resultado.costoTotal.base)}</p>
-            <label className="text-[10px] font-bold text-[#9aab9f] uppercase tracking-wide">Costo real conocido (opcional)</label>
-            <div className="relative w-48 mt-1">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[12px] text-[#9aab9f]">$</span>
-              <input type="number" value={costoRealM2} onChange={e => setCostoRealM2(e.target.value)} placeholder="0"
-                className="w-full border border-[#E2E8E4] rounded-xl pl-6 pr-16 py-2 text-[13px] text-[#111d17] bg-white focus:outline-none focus:border-[#1D9E75]" />
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-[#9aab9f] font-medium">MXN/m²</span>
-            </div>
-            {semaforoReal && (
-              <p className={`text-[11px] font-medium mt-2 ${
-                semaforoReal === 'verde' ? 'text-[#0F6E56]' : semaforoReal === 'amarillo' ? 'text-[#92400E]' : 'text-[#991B1B]'
-              }`}>
-                {diffPct! > 0 ? '+' : ''}{diffPct!.toFixed(1)}% vs. estimado paramétrico
-                {semaforoReal === 'verde' && ' — dentro de ±10%, buena señal'}
-                {semaforoReal === 'amarillo' && ' — diferencia moderada, revisar supuestos'}
-                {semaforoReal === 'rojo' && ' — diferencia grande, el estimado paramétrico puede no aplicar a este proyecto'}
-              </p>
-            )}
-          </div>
-
           <button
-            onClick={() => {
-              const construccionM2Final = realM2 ?? estimadoM2 ?? 0
-              const costoTotalFinal = realM2 !== undefined ? realM2 * resultado.areas.total : resultado.costoTotal.base
-              onContinuar({
-                construccionM2: construccionM2Final,
-                costoTotalConstruccion: costoTotalFinal,
-                superficieConstruida: resultado.areas.total,
-                superficieVendible: resultado.areas.vendible,
-                bitacoraConstruccion: {
-                  modo: 'usuario_define',
-                  envolvente: resultado.envolvente,
-                  cajones: resultado.cajones,
-                  indicadores: resultado.indicadores,
-                  supuestos: resultado.supuestos,
-                },
-              })
-            }}
+            onClick={() => onContinuar(estimadorAArquitectura(
+              resultado,
+              { generoVivienda, totalUnidades, mixHab, incluirComercial, niveles, localesPorNivel, mixCom, amenidadesM2 },
+              sTerreno, cosStr, cusStr,
+            ))}
             disabled={!resultado.envolvente.cumple}
             className={`w-full rounded-xl py-3 text-[13px] font-semibold transition-colors flex items-center justify-center gap-2 ${
               resultado.envolvente.cumple ? 'bg-[#1D9E75] text-white hover:bg-[#0F6E56] cursor-pointer' : 'bg-[#E2E8E4] text-[#9aab9f] cursor-not-allowed'
             }`}
           >
-            Usar este programa y continuar con Mercado
+            Usar este programa como diseño de Arquitectura
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
               <path d="M5 3l4 4-4 4" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
             </svg>
@@ -924,6 +996,12 @@ function ErrorCard({ label, onRetry }: { label: string; onRetry: () => void }) {
 // ─── Agent Chat ──────────────────────────────────────────────────────────────
 
 const QUICK_QUESTIONS: Record<string, string[]> = {
+  arquitectura: [
+    '¿Por qué ese mix de departamentos y no otro?',
+    '¿Cómo se calculó el área máxima construible?',
+    '¿Qué tan cerca está el diseño del techo legal (COS/CUS)?',
+    '¿Cómo cambia el diseño si ajusto los niveles?',
+  ],
   terreno: [
     '¿Por qué asignaste esa banda y no la adyacente?',
     '¿Cómo afecta la clasificación vial al valor?',
@@ -1078,6 +1156,7 @@ function PipelineContent() {
     comparables: { status: 'waiting', data: [] },
     comparablesVenta: { status: 'waiting', data: [] },
     terreno:     { status: 'waiting', corridas: [], seleccionada: null, overrideM2: '', usarPrecioSolicitado: false },
+    arquitectura:{ status: 'waiting', corridas: [], seleccionada: null },
     construccion:{ status: 'waiting', corridas: [], seleccionada: null, overrideM2: '', usarParametricoZona: false },
     legal:       { status: 'waiting', data: null },
     mercado:     { status: 'waiting', corridas: [], seleccionada: null, overridePrecioVenta: '', overrideAbsorcion: '' },
@@ -1090,10 +1169,14 @@ function PipelineContent() {
   // (o `null` si aún no hay ninguna corrida) — todo el resto del pipeline lee de aquí,
   // nunca de `corridas` directamente.
   const terrenoActual = pipe.terreno.seleccionada !== null ? pipe.terreno.corridas[pipe.terreno.seleccionada] : null
+  const arquitecturaActual = pipe.arquitectura.seleccionada !== null ? pipe.arquitectura.corridas[pipe.arquitectura.seleccionada] : null
   const construccionActual = pipe.construccion.seleccionada !== null ? pipe.construccion.corridas[pipe.construccion.seleccionada] : null
   const mercadoActual = pipe.mercado.seleccionada !== null ? pipe.mercado.corridas[pipe.mercado.seleccionada] : null
 
-  const [modoConstruccion, setModoConstruccion] = useState<'agente_propone' | 'usuario_define'>('agente_propone')
+  // Toggle del formulario "Definir mi programa de unidades" dentro de Arquitectura — vive
+  // fuera del IIFE que renderiza la tarjeta "done" (más abajo) porque ese bloque se invoca
+  // directamente durante el render y no puede usar hooks (reglas de hooks de React).
+  const [mostrarArquitecturaManual, setMostrarArquitecturaManual] = useState(false)
 
   useEffect(() => {
     const raw = localStorage.getItem('smt_flujo_a_data')
@@ -1273,19 +1356,44 @@ function PipelineContent() {
     }
   }
 
-  // ── Step 2: Construcción ──
-  const runConstruccion = async (overrides?: {
+  // ── Step 1b: Arquitectura — diseña a la máxima capacidad legal apenas Legal termina ──
+  const runArquitectura = async (overrides?: {
     bandaConstruccion?: string; nivelesOverride?: string; totalDeptosOverride?: string
     totalLocalesOverride?: string; amenidadesNivelOverride?: string
   }) => {
+    const payload = { ...formData, ...overrides, fichaLegal: pipe.legal.data?.fichaLegal }
+    setPipe(p => ({ ...p, arquitectura: { ...p.arquitectura, status: 'running' } }))
+    try {
+      const res = await fetch('/api/agentes/arquitectura', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      const json = await res.json()
+      if (json.error) throw new Error(json.error)
+      setPipe(p => ({ ...p, arquitectura: { ...p.arquitectura, status: 'done', corridas: [...p.arquitectura.corridas, json], seleccionada: p.arquitectura.corridas.length } }))
+    } catch {
+      setPipe(p => ({ ...p, arquitectura: { ...p.arquitectura, status: 'error' } }))
+    }
+  }
+
+  // ── Step 2: Construcción — costea el diseño que ya aprobó Arquitectura ──
+  const runConstruccion = async (overrides?: { bandaConstruccion?: string }) => {
     const t = terrenoActual!
+    const arq = arquitecturaActual!
+    const ba = arq.bitacoraArquitectura
     const m2 = pipe.terreno.usarPrecioSolicitado
       ? Number(formData.precioSolicitado) / Number(formData.superficie)
       : (pipe.terreno.overrideM2 !== '' ? Number(pipe.terreno.overrideM2) : t.costoTerrenoM2)
     const payload = {
       ...formData, ...overrides, costoTerrenoM2: m2, costoTerreno: m2 * Number(formData.superficie),
       mercado: mercadoActual?.mercado,
-      fichaLegal: pipe.legal.data?.fichaLegal,
+      arquitectura: {
+        tipologiaPropuesta: ba?.tipologiaPropuesta,
+        desgloseZonas: ba?.desgloseZonas,
+        areaLibreYVerde: ba?.areaLibreYVerde,
+        superficieConstruida: arq.superficieConstruida,
+        superficieVendible: arq.superficieVendible,
+      },
     }
     setPipe(p => ({ ...p, construccion: { ...p.construccion, status: 'running' } }))
     try {
@@ -1295,7 +1403,12 @@ function PipelineContent() {
       })
       const json = await res.json()
       if (json.error) throw new Error(json.error)
-      setPipe(p => ({ ...p, construccion: { ...p.construccion, status: 'done', corridas: [...p.construccion.corridas, json], seleccionada: p.construccion.corridas.length } }))
+      // Construcción ya no calcula ni devuelve superficieConstruida/superficieVendible (son
+      // dato fijo de Arquitectura) — se completan aquí en vez de dejarlas undefined, porque
+      // el resto del pipeline (tarjeta de Construcción, runFinanciero) sigue leyendo
+      // c.superficieConstruida/c.superficieVendible directo de la corrida.
+      const corrida: ConstruccionResult = { ...json, superficieConstruida: arq.superficieConstruida, superficieVendible: arq.superficieVendible }
+      setPipe(p => ({ ...p, construccion: { ...p.construccion, status: 'done', corridas: [...p.construccion.corridas, corrida], seleccionada: p.construccion.corridas.length } }))
     } catch {
       setPipe(p => ({ ...p, construccion: { ...p.construccion, status: 'error' } }))
     }
@@ -1329,10 +1442,19 @@ function PipelineContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pipe.terreno.status])
 
+  // Arquitectura necesita fichaLegal (COS/CUS) para diseñar al máximo normativo, así que
+  // espera a Legal en vez de a Terreno — corre en paralelo con Mercado, sin depender de él.
+  useEffect(() => {
+    if (pipe.legal.status === 'done' && pipe.arquitectura.status === 'waiting') {
+      runArquitectura()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pipe.legal.status])
+
   const runMercado = async (overrides?: { precioVentaObjetivo?: string; absorcionObjetivoManual?: string }) => {
     const precioVentaObjetivo = overrides?.precioVentaObjetivo ?? pipe.mercado.overridePrecioVenta
     const absorcionObjetivoManual = overrides?.absorcionObjetivoManual ?? pipe.mercado.overrideAbsorcion
-    const mixUnidadesResumen = resumenMixUnidades(construccionActual?.bitacoraConstruccion?.tipologiaPropuesta)
+    const mixUnidadesResumen = resumenMixUnidades(arquitecturaActual?.bitacoraArquitectura?.tipologiaPropuesta)
     setPipe(p => ({ ...p, mercado: { ...p.mercado, status: 'running', overridePrecioVenta: precioVentaObjetivo, overrideAbsorcion: absorcionObjetivoManual } }))
     // Los comparables reales no cambian entre corridas de "Ajustar parámetros" — se buscan
     // solo la primera vez y se reutilizan en corridas siguientes del mismo predio.
@@ -1376,9 +1498,9 @@ function PipelineContent() {
     const costoTotalConstruccion = usaOverrideConstruccion
       ? m2c * (c.superficieConstruida || Number(formData.superficie) * 1.2)
       : (c.costoTotalConstruccion || m2c * (c.superficieConstruida || Number(formData.superficie) * 1.2))
-    // Preferimos el área vendible derivada del mix real de Construcción sobre el campo
+    // Preferimos el área vendible derivada del mix real de Arquitectura sobre el campo
     // "resumen" superficieVendible que la IA reporta por separado — ver superficieVendibleDelMix.
-    const superficieVendibleReal = superficieVendibleDelMix(c.bitacoraConstruccion?.tipologiaPropuesta) ?? c.superficieVendible
+    const superficieVendibleReal = superficieVendibleDelMix(arquitecturaActual?.bitacoraArquitectura?.tipologiaPropuesta) ?? c.superficieVendible
     const payload = {
       ...formData,
       costoTerrenoM2: m2t, costoTerreno,
@@ -1407,6 +1529,10 @@ function PipelineContent() {
         proyecto,
         ...json,
         bitacoraTerreno: t.bitacoraTerreno,
+        // Diseño resuelto por Arquitectura (envolvente, zonas, tipología) — sin esto,
+        // app/analisis/page.tsx y Mastermind se quedan sin datos de diseño para análisis
+        // nuevos (ver lib/analisis/bitacoraArquitectura.ts).
+        bitacoraArquitectura: arquitecturaActual?.bitacoraArquitectura,
         // Se persiste superficieVendibleReal (el área vendible total que Financiero SÍ usó
         // para ingresos) — antes solo existía en este momento de la corrida en vivo y se
         // perdía al guardar, dejando a Mastermind sin poder reconstruirla después.
@@ -1491,8 +1617,9 @@ function PipelineContent() {
           <StepBadge n={1} status={pipe.terreno.status} label="Terreno" />
           <StepBadge n={2} status={pipe.legal.status} label="Legal (guardarraíl)" />
           <StepBadge n={3} status={pipe.mercado.status} label="Mercado" />
-          <StepBadge n={4} status={pipe.construccion.status} label="Construcción" />
-          <StepBadge n={5} status={pipe.financiero.status} label="Financiero" />
+          <StepBadge n={4} status={pipe.arquitectura.status} label="Arquitectura" />
+          <StepBadge n={5} status={pipe.construccion.status} label="Construcción" />
+          <StepBadge n={6} status={pipe.financiero.status} label="Financiero" />
         </aside>
 
         {/* Main content */}
@@ -2066,113 +2193,235 @@ function PipelineContent() {
               </section>
             )}
 
-            {/* ══ STEP 4 — CONSTRUCCIÓN (después de Mercado, para no proponer más unidades de las que el mercado absorbe) ══ */}
-            {/* Exige selección (no solo "done") en Terreno y Mercado — con "Ajustar parámetros"
-                puede haber varias corridas y Construcción necesita saber cuál usar. */}
-            {pipe.legal.status === 'done' && pipe.mercado.status === 'done'
-              && pipe.terreno.seleccionada !== null && pipe.mercado.seleccionada !== null && (
+            {/* ══ STEP 4 — ARQUITECTURA (corre automático apenas Legal termina, en paralelo con
+                Mercado — diseña a la máxima capacidad legal, sin achicar por absorción) ══ */}
+            {pipe.arquitectura.status !== 'waiting' && (
               <section>
-                <SectionHeader n={4} label="Agente de Construcción" />
+                <SectionHeader n={4} label="Agente de Arquitectura" />
 
-                {pipe.construccion.status === 'waiting' && (
-                  <div className="bg-white rounded-2xl border border-[#E2E8E4] p-4 mb-3">
-                    <p className="text-[11px] font-bold text-[#9aab9f] uppercase tracking-wide mb-2">¿Cómo defines la construcción?</p>
-                    <div className="flex gap-2 mb-3">
-                      <button
-                        onClick={() => setModoConstruccion('agente_propone')}
-                        className={`flex-1 text-[12px] font-medium px-3 py-2 rounded-xl border transition-colors cursor-pointer ${
-                          modoConstruccion === 'agente_propone' ? 'bg-[#1D9E75] border-[#1D9E75] text-white' : 'bg-white border-[#E2E8E4] text-[#5a7065]'
-                        }`}
-                      >
-                        Dejar que la IA proponga
-                      </button>
-                      <button
-                        onClick={() => setModoConstruccion('usuario_define')}
-                        className={`flex-1 text-[12px] font-medium px-3 py-2 rounded-xl border transition-colors cursor-pointer ${
-                          modoConstruccion === 'usuario_define' ? 'bg-[#1D9E75] border-[#1D9E75] text-white' : 'bg-white border-[#E2E8E4] text-[#5a7065]'
-                        }`}
-                      >
-                        Definir mi programa de unidades
-                      </button>
-                    </div>
-
-                    {modoConstruccion === 'agente_propone' && (
-                      <button
-                        onClick={() => runConstruccion()}
-                        className="w-full bg-[#1D9E75] text-white rounded-xl py-3 text-[13px] font-semibold hover:bg-[#0F6E56] transition-colors cursor-pointer flex items-center justify-center gap-2"
-                      >
-                        Aprobar y continuar con Construcción
-                        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                          <path d="M5 3l4 4-4 4" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
-                        </svg>
-                      </button>
-                    )}
-
-                    {modoConstruccion === 'usuario_define' && (
-                      <ConstruccionInteractiva
-                        sTerreno={Number(formData?.superficie || 0)}
-                        cosStr={pipe.legal.data?.fichaLegal?.cos}
-                        cusStr={pipe.legal.data?.fichaLegal?.cus}
-                        onContinuar={(construccionResult) => {
-                          // Fuera del alcance de "Ajustar parámetros" — el programa definido a mano
-                          // se edita in situ (sliders instantáneos, sin llamada a IA), no acumula
-                          // corridas: cada "Editar programa" reemplaza la anterior, como antes.
-                          setPipe(p => ({ ...p, construccion: { status: 'done', corridas: [construccionResult], seleccionada: 0, overrideM2: '', usarParametricoZona: false } }))
-                        }}
-                      />
-                    )}
-                  </div>
+                {pipe.arquitectura.status === 'running' && (
+                  <RunningCard label="Agente Arquitectura…" hint="Calculando envolvente legal, zonas y tipología de unidades" />
                 )}
-
-                {pipe.construccion.status === 'done' && construccionActual?.bitacoraConstruccion?.modo === 'usuario_define' && (() => {
-                  const c = construccionActual
-                  const m2efectivo = pipe.construccion.overrideM2 !== '' ? Number(pipe.construccion.overrideM2) : c.construccionM2
-                  const totalEfectivo = pipe.construccion.overrideM2 !== ''
-                    ? m2efectivo * (c.superficieConstruida || 0)
-                    : c.costoTotalConstruccion
+                {pipe.arquitectura.status === 'error' && (
+                  <ErrorCard label="Agente Arquitectura" onRetry={() => runArquitectura()} />
+                )}
+                {pipe.arquitectura.status === 'done' && arquitecturaActual && (() => {
+                  const arq = arquitecturaActual
+                  const ba = arq.bitacoraArquitectura
+                  const tip = ba?.tipologiaPropuesta
+                  const zonas = ba?.desgloseZonas
+                  const eficiencia = arq.superficieConstruida > 0
+                    ? `${Math.round((arq.superficieVendible / arq.superficieConstruida) * 100)}%`
+                    : '—'
+                  const mostrarLocales = (formData?.tiposDesarrollo ?? []).some((t: string) => t === 'comercial' || t === 'mixto')
                   return (
                     <DoneCard>
-                      <div className="px-5 py-4 border-b border-[#F0F4F2] flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <CheckIcon />
-                          <span className="text-[13px] font-bold text-[#0F6E56]">Programa definido por ti</span>
-                        </div>
-                        <button
-                          onClick={() => setPipe(p => ({ ...p, construccion: { status: 'waiting', corridas: [], seleccionada: null, overrideM2: '', usarParametricoZona: false } }))}
-                          className="text-[11px] text-[#9aab9f] hover:text-[#1D9E75] transition-colors cursor-pointer"
-                        >
-                          Editar programa
-                        </button>
+                      <SelectorCorridas
+                        corridas={pipe.arquitectura.corridas}
+                        seleccionada={pipe.arquitectura.seleccionada}
+                        onSeleccionar={i => setPipe(p => ({ ...p, arquitectura: { ...p.arquitectura, seleccionada: i } }))}
+                        resumen={(item) => (
+                          <div className="space-y-0.5">
+                            <p className="text-[11px] font-semibold text-[#111d17]">{item.superficieConstruida?.toLocaleString()} m² · {item.bitacoraArquitectura?.tipologiaPropuesta?.niveles ?? '—'} niv.</p>
+                            <p className="text-[10px] text-[#5a7065]">{item.bitacoraArquitectura?.tipologiaPropuesta?.habitacional?.totalDepartamentos ?? '—'} unidades</p>
+                          </div>
+                        )}
+                      />
+                      <div className="px-5 py-4 border-b border-[#F0F4F2] flex items-center gap-2">
+                        <CheckIcon />
+                        <span className="text-[13px] font-bold text-[#0F6E56]">Agente Arquitectura</span>
+                        <span className="text-[11px] text-[#9aab9f]">{arq.superficieConstruida?.toLocaleString()} m² construidos</span>
                       </div>
-                      <div className="px-5 py-4 grid grid-cols-3 gap-3">
-                        <EditableM2
-                          label="Costo / m²"
-                          value={c.construccionM2}
-                          override={pipe.construccion.overrideM2}
-                          onOverride={v => setPipe(p => ({ ...p, construccion: { ...p.construccion, overrideM2: v } }))}
-                        />
-                        <div className="bg-[#F7F8F6] rounded-xl px-3 py-2.5 text-center">
-                          <p className="text-[10px] text-[#9aab9f] uppercase tracking-wide font-semibold">Superficie construida</p>
-                          <p className="text-[14px] font-bold text-[#111d17] mt-0.5">{Math.round(c.superficieConstruida).toLocaleString('es-MX')} m²</p>
+
+                      {ba && (
+                        <div className="px-5 pt-4 pb-2 grid grid-cols-4 gap-2">
+                          {[
+                            { label: 'COS', val: ba.cosEstimado, hint: 'Huella máxima' },
+                            { label: 'CUS', val: ba.cusEstimado, hint: 'Superficie total' },
+                            { label: 'Eficiencia', val: eficiencia, hint: 'Área vendible / total' },
+                            { label: 'Área libre', val: `${ba.areaLibreYVerde?.m2?.toLocaleString() ?? '—'} m²`, hint: (ba.areaLibreYVerde?.porcentajeLote ?? '') + ' del lote' },
+                          ].map(item => (
+                            <div key={item.label} className="bg-[#F7F8F6] rounded-xl px-3 py-2.5 text-center">
+                              <p className="text-[10px] text-[#9aab9f] uppercase tracking-wide font-semibold">{item.label}</p>
+                              <p className="text-[15px] font-bold text-[#111d17] mt-0.5">{item.val}</p>
+                              <p className="text-[9px] text-[#c0cdc7] mt-0.5 leading-tight">{item.hint}</p>
+                            </div>
+                          ))}
                         </div>
-                        <div className="bg-[#F7F8F6] rounded-xl px-3 py-2.5 text-center">
-                          <p className="text-[10px] text-[#9aab9f] uppercase tracking-wide font-semibold">Costo total</p>
-                          <p className="text-[14px] font-bold text-[#111d17] mt-0.5">{fmt(totalEfectivo)}</p>
+                      )}
+
+                      <RangoConstruccionCard
+                        envolventeCalculada={ba?.envolventeCalculada}
+                        superficieConstruida={arq.superficieConstruida}
+                        validacion={ba?.validacionSuperficieConstruida}
+                      />
+
+                      {zonas && zonas.length > 0 && (
+                        <div className="px-5 pb-3">
+                          <p className="text-[10px] font-bold text-[#9aab9f] uppercase tracking-widest mb-2">Desglose de áreas por zona</p>
+                          <div className="rounded-xl border border-[#E2E8E4] overflow-hidden">
+                            <div className="grid grid-cols-[2fr_1fr_1fr] bg-[#F0F4F2] px-3 py-1.5">
+                              {['Zona', 'm²', 'Participación'].map(h => (
+                                <span key={h} className="text-[9px] font-bold text-[#9aab9f] uppercase tracking-wider">{h}</span>
+                              ))}
+                            </div>
+                            {zonas.map((z: any, i: number) => (
+                              <div key={i} className={`grid grid-cols-[2fr_1fr_1fr] px-3 py-2 ${i % 2 === 0 ? 'bg-white' : 'bg-[#FAFBFA]'} border-t border-[#F0F4F2]`}>
+                                <div>
+                                  <p className="text-[11px] font-semibold text-[#111d17]">{z.zona}</p>
+                                  <p className="text-[9px] text-[#9aab9f] leading-tight">{z.concepto}</p>
+                                </div>
+                                <span className="text-[11px] text-[#5a7065] self-center">{z.m2?.toLocaleString()} m²</span>
+                                <span className="text-[11px] text-[#5a7065] self-center">{z.participacion}</span>
+                              </div>
+                            ))}
+                          </div>
                         </div>
+                      )}
+
+                      {/* Tipología propuesta */}
+                      {tip && (
+                        <div className="px-5 pb-4 flex flex-col gap-3 border-t border-[#F0F4F2] pt-4">
+                          <p className="text-[10px] font-bold text-[#9aab9f] uppercase tracking-widest">Tipología propuesta</p>
+                          <div className="grid grid-cols-3 gap-2">
+                            <div className="bg-[#F7F8F6] rounded-xl px-3 py-2.5 text-center">
+                              <p className="text-[10px] text-[#9aab9f] uppercase tracking-wide font-semibold">Niveles</p>
+                              <p className="text-[14px] font-bold text-[#111d17] mt-0.5">{tip.niveles ?? '—'}</p>
+                            </div>
+                            {tip.habitacional && (
+                              <div className="bg-[#F7F8F6] rounded-xl px-3 py-2.5 text-center">
+                                <p className="text-[10px] text-[#9aab9f] uppercase tracking-wide font-semibold">Departamentos</p>
+                                <p className="text-[14px] font-bold text-[#111d17] mt-0.5">{tip.habitacional.totalDepartamentos}</p>
+                              </div>
+                            )}
+                            {tip.comercial && (
+                              <div className="bg-[#F7F8F6] rounded-xl px-3 py-2.5 text-center">
+                                <p className="text-[10px] text-[#9aab9f] uppercase tracking-wide font-semibold">Locales</p>
+                                <p className="text-[14px] font-bold text-[#111d17] mt-0.5">{tip.comercial.totalLocales} · {tip.comercial.niveles} niv.</p>
+                              </div>
+                            )}
+                            <div className="bg-[#F7F8F6] rounded-xl px-3 py-2.5 text-center">
+                              <p className="text-[10px] text-[#9aab9f] uppercase tracking-wide font-semibold">Amenidades</p>
+                              <p className="text-[14px] font-bold text-[#111d17] mt-0.5">{AMENIDADES_NIVEL_LABELS[String(tip.tamanoAmenidades)] ?? '—'}</p>
+                            </div>
+                          </div>
+                          {tip.habitacional?.mix && tip.habitacional.mix.length > 0 && (
+                            <div className="rounded-xl border border-[#E2E8E4] overflow-hidden">
+                              <div className="grid grid-cols-3 bg-[#F0F4F2] px-3 py-1.5">
+                                {['Tipo', 'Unidades', 'm² prom.'].map(h => (
+                                  <span key={h} className="text-[9px] font-bold text-[#9aab9f] uppercase tracking-wider">{h}</span>
+                                ))}
+                              </div>
+                              {tip.habitacional.mix.map((row: any, i: number) => (
+                                <div key={i} className={`grid grid-cols-3 px-3 py-2 ${i % 2 === 0 ? 'bg-white' : 'bg-[#FAFBFA]'} border-t border-[#F0F4F2]`}>
+                                  <span className="text-[11px] font-semibold text-[#111d17]">{row.tipo}</span>
+                                  <span className="text-[11px] text-[#5a7065]">{row.unidades}</span>
+                                  <span className="text-[11px] text-[#5a7065]">{row.m2Promedio} m²</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          {tip.fijadoManualmente?.length > 0 && (
+                            <p className="text-[9px] text-[#9aab9f]">Fijado manualmente: {tip.fijadoManualmente.join(', ')}</p>
+                          )}
+                          <AjustarSupuestosArquitectura
+                            nivelesActual={tip.niveles}
+                            totalDeptosActual={tip.habitacional?.totalDepartamentos}
+                            totalLocalesActual={tip.comercial?.totalLocales}
+                            amenidadesNivelActual={tip.tamanoAmenidades}
+                            mostrarLocales={mostrarLocales}
+                            onAplicar={(niveles, totalDeptos, totalLocales, amenidadesNivel) => runArquitectura({
+                              nivelesOverride: niveles || undefined,
+                              totalDeptosOverride: totalDeptos || undefined,
+                              totalLocalesOverride: totalLocales || undefined,
+                              amenidadesNivelOverride: amenidadesNivel !== String(tip.tamanoAmenidades ?? '') ? amenidadesNivel : undefined,
+                            })}
+                          />
+                        </div>
+                      )}
+
+                      {/* Alternativa a "Ajustar parámetros": en vez de pedirle a la IA que
+                          rediseñe, el usuario arma su propio programa de unidades (sin IA,
+                          lib/estimador) y lo agrega como una corrida más al selector de arriba. */}
+                      <div className="px-5 pb-4 border-t border-[#F0F4F2] pt-4">
+                        {!mostrarArquitecturaManual ? (
+                          <button
+                            onClick={() => setMostrarArquitecturaManual(true)}
+                            className="w-full flex items-center justify-between gap-2 bg-[#111d17] hover:bg-[#1f2e26] text-white rounded-xl px-4 py-3 transition-colors cursor-pointer"
+                          >
+                            <span className="flex items-center gap-2 text-[12px] font-semibold">
+                              <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                                <rect x="2" y="2" width="12" height="12" rx="2" stroke="currentColor" strokeWidth="1.5"/>
+                                <path d="M5 8h6M8 5v6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                              </svg>
+                              Definir mi programa de unidades manualmente
+                            </span>
+                            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                              <path d="M4 2L8 6L4 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                            </svg>
+                          </button>
+                        ) : (
+                          <div className="bg-[#F7F8F6] rounded-xl px-4 py-4 flex flex-col gap-4">
+                            <div className="flex items-center justify-between">
+                              <p className="text-[11px] font-bold text-[#111d17]">Definir mi programa de unidades</p>
+                              <button onClick={() => setMostrarArquitecturaManual(false)} className="text-[11px] text-[#9aab9f] hover:text-[#111d17] cursor-pointer">
+                                Cancelar
+                              </button>
+                            </div>
+                            <ArquitecturaInteractiva
+                              sTerreno={Number(formData?.superficie || 0)}
+                              cosStr={pipe.legal.data?.fichaLegal?.cos}
+                              cusStr={pipe.legal.data?.fichaLegal?.cus}
+                              onContinuar={(resultado) => {
+                                setPipe(p => ({ ...p, arquitectura: { ...p.arquitectura, corridas: [...p.arquitectura.corridas, resultado], seleccionada: p.arquitectura.corridas.length } }))
+                                setMostrarArquitecturaManual(false)
+                              }}
+                            />
+                          </div>
+                        )}
                       </div>
+
+                      <AgentChat agentKey="arquitectura" agentData={arquitecturaActual} />
                     </DoneCard>
                   )
                 })()}
+              </section>
+            )}
 
-                {modoConstruccion === 'agente_propone' && pipe.construccion.status === 'running' && (
+            {/* ══ STEP 5 — CONSTRUCCIÓN (costea el diseño que ya aprobó Arquitectura) ══ */}
+            {/* Exige selección (no solo "done") en Terreno, Mercado y Arquitectura — con "Ajustar
+                parámetros" puede haber varias corridas y Construcción necesita saber cuál usar. */}
+            {pipe.legal.status === 'done' && pipe.mercado.status === 'done' && pipe.arquitectura.status === 'done'
+              && pipe.terreno.seleccionada !== null && pipe.mercado.seleccionada !== null && pipe.arquitectura.seleccionada !== null && (
+              <section>
+                <SectionHeader n={5} label="Agente de Construcción" />
+
+                {/* El diseño (niveles/mix/zonas) ya lo resolvió Arquitectura — sea vía IA o
+                    manual, Construcción siempre lo costea vía IA. Ya no hay un modo
+                    "definir mi programa" aquí (se movió a Arquitectura). */}
+                {pipe.construccion.status === 'waiting' && (
+                  <div className="bg-white rounded-2xl border border-[#E2E8E4] p-4 mb-3">
+                    <button
+                      onClick={() => runConstruccion()}
+                      className="w-full bg-[#1D9E75] text-white rounded-xl py-3 text-[13px] font-semibold hover:bg-[#0F6E56] transition-colors cursor-pointer flex items-center justify-center gap-2"
+                    >
+                      Aprobar y continuar con Construcción
+                      <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                        <path d="M5 3l4 4-4 4" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
+                      </svg>
+                    </button>
+                  </div>
+                )}
+
+                {pipe.construccion.status === 'running' && (
                   <RunningCard label="Agente Construcción analizando…" hint="Consultando índices CMIC, calculando partidas y materiales principales" />
                 )}
 
-                {modoConstruccion === 'agente_propone' && pipe.construccion.status === 'error' && (
+                {pipe.construccion.status === 'error' && (
                   <ErrorCard label="Agente Construcción" onRetry={runConstruccion} />
                 )}
 
-                {pipe.construccion.status === 'done' && construccionActual && construccionActual.bitacoraConstruccion?.modo !== 'usuario_define' && (() => {
+                {pipe.construccion.status === 'done' && construccionActual && (() => {
                   const c = construccionActual
                   const ic = c.bitacoraConstruccion?.indiceConfiabilidad
                   const desglose = c.bitacoraConstruccion?.desgloseConstruccion
@@ -2206,30 +2455,6 @@ function PipelineContent() {
                           <SemaforoChip sem={ic?.semaforo} />
                         </div>
                       </div>
-
-                      {/* COS / CUS / Área verde resumen */}
-                      {desglose && (
-                        <div className="px-5 pt-4 pb-2 grid grid-cols-4 gap-2">
-                          {[
-                            { label: 'COS', val: desglose.cosEstimado, hint: 'Huella máxima' },
-                            { label: 'CUS', val: desglose.cusEstimado, hint: 'Superficie total' },
-                            { label: 'Eficiencia', val: desglose.eficiencia, hint: 'Área vendible / total' },
-                            { label: 'Área libre', val: `${desglose.areaVerdeYLibre?.m2?.toLocaleString()} m²`, hint: desglose.areaVerdeYLibre?.porcentajeLote + ' del lote' },
-                          ].map(item => (
-                            <div key={item.label} className="bg-[#F7F8F6] rounded-xl px-3 py-2.5 text-center">
-                              <p className="text-[10px] text-[#9aab9f] uppercase tracking-wide font-semibold">{item.label}</p>
-                              <p className="text-[15px] font-bold text-[#111d17] mt-0.5">{item.val}</p>
-                              <p className="text-[9px] text-[#c0cdc7] mt-0.5 leading-tight">{item.hint}</p>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-
-                      <RangoConstruccionCard
-                        envolventeCalculada={c.bitacoraConstruccion?.envolventeCalculada}
-                        superficieConstruida={c.superficieConstruida}
-                        validacion={c.bitacoraConstruccion?.validacionSuperficieConstruida}
-                      />
 
                       {/* Zona breakdown table */}
                       {desglose?.zonas && desglose.zonas.length > 0 && (
@@ -2267,7 +2492,7 @@ function PipelineContent() {
                               </div>
                             )}
                           </div>
-                          <p className="text-[9px] text-[#c0cdc7] mt-1.5">Área vendible: {c.superficieVendible?.toLocaleString() || desglose.zonas[0]?.m2?.toLocaleString()} m² · Eficiencia {desglose.eficiencia}</p>
+                          <p className="text-[9px] text-[#c0cdc7] mt-1.5">Área vendible: {c.superficieVendible?.toLocaleString() || desglose.zonas[0]?.m2?.toLocaleString()} m² — diseño fijado por Arquitectura</p>
                         </div>
                       )}
 
@@ -2311,73 +2536,16 @@ function PipelineContent() {
                         </div>
                       )}
 
-                      {/* Tipología propuesta — franja de ajuste entre el costo final y las preguntas */}
-                      {(() => {
-                        const tip = c.bitacoraConstruccion?.tipologiaPropuesta
-                        if (!tip) return null
-                        const mostrarLocales = (formData?.tiposDesarrollo ?? []).some((t: string) => t === 'comercial' || t === 'mixto')
-                        return (
-                          <div className="px-5 pb-4 flex flex-col gap-3 border-t border-[#F0F4F2] pt-4">
-                            <p className="text-[10px] font-bold text-[#9aab9f] uppercase tracking-widest">Tipología propuesta</p>
-                            <div className="grid grid-cols-3 gap-2">
-                              <div className="bg-[#F7F8F6] rounded-xl px-3 py-2.5 text-center">
-                                <p className="text-[10px] text-[#9aab9f] uppercase tracking-wide font-semibold">Niveles</p>
-                                <p className="text-[14px] font-bold text-[#111d17] mt-0.5">{tip.niveles ?? '—'}</p>
-                              </div>
-                              {tip.habitacional && (
-                                <div className="bg-[#F7F8F6] rounded-xl px-3 py-2.5 text-center">
-                                  <p className="text-[10px] text-[#9aab9f] uppercase tracking-wide font-semibold">Departamentos</p>
-                                  <p className="text-[14px] font-bold text-[#111d17] mt-0.5">{tip.habitacional.totalDepartamentos}</p>
-                                </div>
-                              )}
-                              {tip.comercial && (
-                                <div className="bg-[#F7F8F6] rounded-xl px-3 py-2.5 text-center">
-                                  <p className="text-[10px] text-[#9aab9f] uppercase tracking-wide font-semibold">Locales</p>
-                                  <p className="text-[14px] font-bold text-[#111d17] mt-0.5">{tip.comercial.totalLocales} · {tip.comercial.niveles} niv.</p>
-                                </div>
-                              )}
-                              <div className="bg-[#F7F8F6] rounded-xl px-3 py-2.5 text-center">
-                                <p className="text-[10px] text-[#9aab9f] uppercase tracking-wide font-semibold">Amenidades</p>
-                                <p className="text-[14px] font-bold text-[#111d17] mt-0.5">{AMENIDADES_NIVEL_LABELS[String(tip.tamanoAmenidades)] ?? '—'}</p>
-                              </div>
-                            </div>
-                            {tip.habitacional?.mix && tip.habitacional.mix.length > 0 && (
-                              <div className="rounded-xl border border-[#E2E8E4] overflow-hidden">
-                                <div className="grid grid-cols-3 bg-[#F0F4F2] px-3 py-1.5">
-                                  {['Tipo', 'Unidades', 'm² prom.'].map(h => (
-                                    <span key={h} className="text-[9px] font-bold text-[#9aab9f] uppercase tracking-wider">{h}</span>
-                                  ))}
-                                </div>
-                                {tip.habitacional.mix.map((row: any, i: number) => (
-                                  <div key={i} className={`grid grid-cols-3 px-3 py-2 ${i % 2 === 0 ? 'bg-white' : 'bg-[#FAFBFA]'} border-t border-[#F0F4F2]`}>
-                                    <span className="text-[11px] font-semibold text-[#111d17]">{row.tipo}</span>
-                                    <span className="text-[11px] text-[#5a7065]">{row.unidades}</span>
-                                    <span className="text-[11px] text-[#5a7065]">{row.m2Promedio} m²</span>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                            {tip.fijadoManualmente?.length > 0 && (
-                              <p className="text-[9px] text-[#9aab9f]">Fijado manualmente: {tip.fijadoManualmente.join(', ')}</p>
-                            )}
-                            <AjustarSupuestosConstruccion
-                              bandaActual={c.bitacoraConstruccion?.bandaElegida}
-                              nivelesActual={tip.niveles}
-                              totalDeptosActual={tip.habitacional?.totalDepartamentos}
-                              totalLocalesActual={tip.comercial?.totalLocales}
-                              amenidadesNivelActual={tip.tamanoAmenidades}
-                              mostrarLocales={mostrarLocales}
-                              onAplicar={(banda, niveles, totalDeptos, totalLocales, amenidadesNivel) => runConstruccion({
-                                bandaConstruccion: banda !== String(c.bitacoraConstruccion?.bandaElegida ?? '') ? banda : undefined,
-                                nivelesOverride: niveles || undefined,
-                                totalDeptosOverride: totalDeptos || undefined,
-                                totalLocalesOverride: totalLocales || undefined,
-                                amenidadesNivelOverride: amenidadesNivel !== String(tip.tamanoAmenidades ?? '') ? amenidadesNivel : undefined,
-                              })}
-                            />
-                          </div>
-                        )
-                      })()}
+                      {/* El diseño (niveles/mix/amenidades) ya lo fijó Arquitectura — aquí solo se
+                          puede volver a costear el mismo diseño con otra banda de acabados. */}
+                      <div className="px-5 pb-4 border-t border-[#F0F4F2] pt-4">
+                        <AjustarBandaConstruccion
+                          bandaActual={c.bitacoraConstruccion?.bandaElegida}
+                          onAplicar={(banda) => runConstruccion({
+                            bandaConstruccion: banda !== String(c.bitacoraConstruccion?.bandaElegida ?? '') ? banda : undefined,
+                          })}
+                        />
+                      </div>
 
                       <AgentChat agentKey="construccion" agentData={construccionActual} />
                     </DoneCard>
@@ -2413,7 +2581,7 @@ function PipelineContent() {
             {/* ══ STEP 5 — FINANCIERO ══ */}
             {pipe.financiero.status !== 'waiting' && (
               <section>
-                <SectionHeader n={5} label="Agente Financiero" />
+                <SectionHeader n={6} label="Agente Financiero" />
 
                 {pipe.financiero.status === 'running' && (
                   <RunningCard label="Agente Financiero modelando…" hint="Calculando TIR, flujo de caja, stress test y score de resiliencia" />

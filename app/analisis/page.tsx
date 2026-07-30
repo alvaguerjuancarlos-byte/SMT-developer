@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { Suspense, useEffect, useRef, useState } from 'react'
 import FuentesConsultadas from '@/app/components/FuentesConsultadas'
 import type { AnalisisData, StressItem, FlujoMes } from '@/lib/analisis/tipos'
+import { resolveBitacoraArquitectura } from '@/lib/analisis/bitacoraArquitectura'
 
 const FALLBACK: AnalisisData = {
   recomendacion: {
@@ -835,9 +836,8 @@ function AnalisisContent() {
   const MIX_COLORS = ['#1D9E75', '#4338CA', '#D97706', '#DB2777', '#0891B2', '#65A30D']
 
   const DiagramaApilamientoModal = () => {
-    const b = d.bitacoraConstruccion
-    const t = b?.tipologiaPropuesta
-    if (!b || !t) return null
+    const t = resolveBitacoraArquitectura(d)?.tipologiaPropuesta
+    if (!t) return null
 
     const nivelesComercial = t.comercial?.niveles ?? 0
     const totalNiveles = t.niveles ?? (nivelesComercial + (t.habitacional ? 1 : 0))
@@ -1341,7 +1341,7 @@ function AnalisisContent() {
                               Bitácora
                             </button>
                           )}
-                          {row.bitacoraCons && d.bitacoraConstruccion?.tipologiaPropuesta && (
+                          {row.bitacoraCons && resolveBitacoraArquitectura(d)?.tipologiaPropuesta && (
                             <button onClick={() => setShowDiagramaApilamiento(true)} title="Ver diagrama de apilamiento"
                               className="flex items-center gap-1 text-[10px] font-bold text-[#1D9E75] border border-[#9FE1CB] bg-[#F0FBF6] px-2 py-0.5 rounded-full hover:bg-[#E1F5EE] transition-colors shrink-0 cursor-pointer">
                               <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
