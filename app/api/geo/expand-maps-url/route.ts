@@ -13,6 +13,12 @@ function extractCoords(url: string): { lat: number; lng: number } | null {
   // ll=lat,lng
   m = url.match(/[?&]ll=(-?\d+\.\d+),(-?\d+\.\d+)/)
   if (m) return { lat: parseFloat(m[1]), lng: parseFloat(m[2]) }
+  // query=lat,lng (api=1 search links)
+  m = url.match(/[?&]query=(-?\d+\.\d+),(-?\d+\.\d+)/)
+  if (m) return { lat: parseFloat(m[1]), lng: parseFloat(m[2]) }
+  // /maps/search/lat,lng — dropped-pin "share location" links (mobile app)
+  m = url.match(/\/search\/(-?\d+\.\d+),\+?(-?\d+\.\d+)/)
+  if (m) return { lat: parseFloat(m[1]), lng: parseFloat(m[2]) }
   return null
 }
 

@@ -371,6 +371,12 @@ function FluidoAContent() {
     // ll=lat,lng — formato legacy
     m = url.match(/[?&]ll=(-?\d+\.\d+),(-?\d+\.\d+)/)
     if (m) return { lat: parseFloat(m[1]), lng: parseFloat(m[2]) }
+    // query=lat,lng — links de búsqueda api=1
+    m = url.match(/[?&]query=(-?\d+\.\d+),(-?\d+\.\d+)/)
+    if (m) return { lat: parseFloat(m[1]), lng: parseFloat(m[2]) }
+    // /maps/search/lat,lng — links de "compartir ubicación" (pin soltado) de la app móvil
+    m = url.match(/\/search\/(-?\d+\.\d+),\+?(-?\d+\.\d+)/)
+    if (m) return { lat: parseFloat(m[1]), lng: parseFloat(m[2]) }
     return null
   }
 
