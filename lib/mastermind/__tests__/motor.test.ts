@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll } from 'vitest'
-import { calcularMastermind } from '../motor'
-import type { MastermindInputs, MastermindOutputs } from '../tipos'
+import { calcularMastermind, calcularMastermindCore } from '../motor'
+import type { MastermindCoreOutputs, MastermindInputs, MastermindOutputs } from '../tipos'
 
 // ── Fixture de referencia ────────────────────────────────────────────────────
 // Terreno 500 m² · 4 niveles · 16 depas de 65 m² · $45,000/m² venta · sin financiamiento.
@@ -211,5 +211,70 @@ describe('porcentajeIndirectos — ahora es un input por proyecto, no una consta
     })
     expect(r20.costos.indirectos).toBe(22_950_000 * 0.20)
     expect(r20.costos.costoTotal).toBe(r.costos.costoTotal + (22_950_000 * 0.05))
+  })
+})
+
+// ── Mastermind 1 (costos e ingresos) — calcularMastermindCore ──────────────────
+// Mismo fixture de arriba (0% financiado) — con 0% financiado, calcularMastermind() también da
+// financieros = 0, así que costoTotal/margenBruto/puntoEquilibrio deben coincidir exactamente
+// entre el motor completo y el core: la única diferencia real es que el core NUNCA corre
+// calcularFlujoFinanciero, ni siquiera para calcular financieros — sencillamente parte de 0.
+describe('calcularMastermindCore — Mastermind 1', () => {
+  let core: MastermindCoreOutputs
+
+  beforeAll(() => {
+    core = calcularMastermindCore(inputs)
+  })
+
+  it('ingresos coincide con el motor completo (misma calcularIngresos)', () => {
+    expect(core.ingresos).toEqual(r.ingresos)
+  })
+
+  it('costos.financieros siempre es 0 — Mastermind 1 no corre plan financiero', () => {
+    expect(core.costos.financieros).toBe(0)
+  })
+
+  it('costoTotal = terreno + directo + indirectos + comercialización (sin financieros)', () => {
+    const esperado = 4_000_000 + 22_950_000 + core.costos.indirectos + core.costos.comercializacion
+    expect(core.costos.costoTotal).toBeCloseTo(esperado, 6)
+  })
+
+  it('con 0% financiado coincide con el costoTotal/margenBruto del motor completo', () => {
+    expect(core.costos.costoTotal).toBeCloseTo(r.costos.costoTotal, 6)
+    expect(core.utilidad.margenBruto).toBeCloseTo(r.utilidad.margenBruto, 6)
+  })
+
+  it('costoPorM2Vendible = costoTotal / m² vendibles totales (1,040 en este fixture)', () => {
+    const esperado = core.costos.costoTotal / 1_040
+    expect(core.costoPorM2Vendible).toBeCloseTo(esperado, 6)
+  })
+
+  it('spreadVentaConstruccion = precio venta / costo construcción por m² vendible', () => {
+    const costoConstruccionPorM2Vendible = 22_950_000 / 1_040
+    const esperado = 45_000 / costoConstruccionPorM2Vendible
+    expect(core.spreadVentaConstruccion).toBeCloseTo(esperado, 6)
+    // Fixture de referencia es un proyecto sano — el spread debe quedar arriba del umbral de
+    // alerta (1.6x, ver litmusViabilidad en app/api/agentes/construccion/route.ts).
+    expect(core.spreadVentaConstruccion as number).toBeGreaterThan(1.6)
+  })
+
+  it('spreadVentaConstruccion es null si no hay costo de construcción (evita división entre cero)', () => {
+    const sinConstruccion = calcularMastermindCore({
+      ...inputs,
+      proyecto: { ...inputs.proyecto, unidadesHabitacionales: 0, m2ComercialesPlantaBaja: 0, superficieConstruccionM2: 0 },
+    })
+    expect(sinConstruccion.spreadVentaConstruccion).toBeNull()
+  })
+
+  it('puntoEquilibrioUnidades coincide con el motor completo cuando financieros = 0 en ambos', () => {
+    expect(core.puntoEquilibrioUnidades).toBe(r.retorno.puntoEquilibrioUnidades)
+  })
+
+  it('spread cae por debajo de 1.6x si el costo de construcción calibrado sube demasiado', () => {
+    const caro = calcularMastermindCore({
+      ...inputs,
+      proyecto: { ...inputs.proyecto, costoConstruccionRealM2: 30_000 },
+    })
+    expect(caro.spreadVentaConstruccion as number).toBeLessThan(1.6)
   })
 })

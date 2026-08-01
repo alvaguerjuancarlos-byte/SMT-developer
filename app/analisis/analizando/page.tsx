@@ -5,6 +5,12 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { saveProyecto } from '@/lib/saveProyecto'
 import { calcular } from '@/lib/estimador/motor'
 import { construirInputsNormativos, programaAUsos, type ProgramaUnidades } from '@/lib/construccion/programaAdapter'
+import { BocetoVolumetria, VistaAereaTerreno } from '@/app/components/BocetoVolumetria'
+import type { AnalisisData } from '@/lib/analisis/tipos'
+import { extractMercadoContext, extractProyectoContext, extractTerrenoContext } from '@/lib/mastermind/contexto'
+import { calcularMastermindCore } from '@/lib/mastermind/motor'
+import { DEFAULTS } from '@/lib/mastermind/catalogo'
+import type { MastermindCoreInputs } from '@/lib/mastermind/tipos'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -83,7 +89,11 @@ interface PipelineState {
   construccion:{ status: AgentStatus; corridas: ConstruccionResult[]; seleccionada: number | null; overrideM2: string; usarParametricoZona: boolean }
   legal:       { status: AgentStatus; data: LegalResult | null }
   mercado:     { status: AgentStatus; corridas: MercadoResult[];      seleccionada: number | null; overridePrecioVenta: string; overrideAbsorcion: string }
-  financiero:  { status: AgentStatus; data: FinancieroResult | null }
+  // precioVentaObjetivo/unidadesObjetivo: vienen de Mastermind 1 ("Aplicar calibración y volver
+  // al pipeline") — si están seteados, Financiero los ancla en vez de elegirlos libremente (ver
+  // app/api/agentes/financiero/route.ts). A diferencia de "Ajustar parámetros" en Arquitectura,
+  // esto NO reabre ni recalcula el diseño — solo cambia lo que Financiero apunta.
+  financiero:  { status: AgentStatus; data: FinancieroResult | null; precioVentaObjetivo: string; unidadesObjetivo: string }
   ubicacion:   { status: AgentStatus; data: UbicacionData | null }
   catastro:    { status: AgentStatus; data: CatastroData | null }
 }
@@ -1160,7 +1170,7 @@ function PipelineContent() {
     construccion:{ status: 'waiting', corridas: [], seleccionada: null, overrideM2: '', usarParametricoZona: false },
     legal:       { status: 'waiting', data: null },
     mercado:     { status: 'waiting', corridas: [], seleccionada: null, overridePrecioVenta: '', overrideAbsorcion: '' },
-    financiero:  { status: 'waiting', data: null },
+    financiero:  { status: 'waiting', data: null, precioVentaObjetivo: '', unidadesObjetivo: '' },
     ubicacion:   { status: 'waiting', data: null },
     catastro:    { status: 'waiting', data: null },
   })
@@ -1178,15 +1188,73 @@ function PipelineContent() {
   // directamente durante el render y no puede usar hooks (reglas de hooks de React).
   const [mostrarArquitecturaManual, setMostrarArquitecturaManual] = useState(false)
 
+  // React Strict Mode (dev) invoca los efectos de montaje DOS veces — sin este guard, la
+  // primera invocación restauraba el snapshot y lo borraba de localStorage, y la segunda ya no
+  // lo encontraba (removeItem ya corrió) y caía al arranque normal, disparando Terreno/Legal/
+  // Mercado/Arquitectura/Construcción desde cero encima de lo ya restaurado. useRef persiste
+  // entre ambas invocaciones (mismo fiber), a diferencia de leer/borrar localStorage.
+  const bootstrapRef = useRef(false)
   useEffect(() => {
+    if (bootstrapRef.current) return
+    bootstrapRef.current = true
+
     const raw = localStorage.getItem('smt_flujo_a_data')
     if (!raw) { router.push('/prospeccion/flujo-a'); return }
     const fd = JSON.parse(raw)
     setFormData(fd)
+
+    // Si venimos de vuelta de Mastermind 1, restaura el pipeline completo en vez de arrancar
+    // desde cero — evita re-correr Terreno/Legal/Mercado/Arquitectura/Construcción (cada uno con
+    // su propia llamada LLM) solo por haber ido a calibrar (ver abrirMastermind1 más abajo).
+    const snapshotRaw = localStorage.getItem('smt_pipeline_snapshot')
+    if (snapshotRaw) {
+      localStorage.removeItem('smt_pipeline_snapshot')
+      try {
+        setPipe(JSON.parse(snapshotRaw))
+        return
+      } catch { /* snapshot corrupto — sigue el arranque normal abajo */ }
+    }
+
     console.log('[ubicacion] lat:', fd.lat, 'lng:', fd.lng, 'zonaGeo:', fd.zonaGeo)
     runUbicacion(fd)
     if (fd.cuentaPredial?.trim()) runCatastro(fd)
   }, [])
+
+  // Aplica la calibración de Mastermind 1 (si venimos de ahí) una vez que el pipeline
+  // restaurado ya tiene Construcción lista — antes de eso pipe.construccion todavía no existe
+  // como para aplicarle un overrideM2. Ningún override aquí reabre Arquitectura/Construcción ni
+  // llama de nuevo al LLM — todos anclan valores que el resto del pipeline ya sabe leer
+  // (overrideM2 de Terreno/Construcción, precioVentaObjetivo/unidadesObjetivo de Financiero).
+  const overridesAplicadosRef = useRef(false)
+  useEffect(() => {
+    if (overridesAplicadosRef.current) return
+    if (pipe.construccion.status !== 'done') return
+    overridesAplicadosRef.current = true
+
+    const raw = localStorage.getItem('smt_mastermind1_overrides')
+    if (!raw) return
+    localStorage.removeItem('smt_mastermind1_overrides')
+    try {
+      const ov = JSON.parse(raw)
+      if (ov.costoTerrenoM2) {
+        setPipe(p => ({ ...p, terreno: { ...p.terreno, overrideM2: ov.costoTerrenoM2 } }))
+      }
+      if (ov.costoConstruccionM2) {
+        setPipe(p => ({ ...p, construccion: { ...p.construccion, overrideM2: ov.costoConstruccionM2 } }))
+      }
+      if (ov.precioVentaObjetivo) {
+        setPipe(p => ({ ...p, financiero: { ...p.financiero, precioVentaObjetivo: ov.precioVentaObjetivo } }))
+      }
+      if (ov.unidadesObjetivo) {
+        // Igual patrón que precioVentaObjetivo: ancla directo el payload de Financiero, sin
+        // reabrir Arquitectura ni Construcción. Antes disparaba runArquitectura(nuevaCorrida),
+        // que volvía a llamar al LLM y "recalculaba" el diseño en vez de solo llevar el número
+        // ya calibrado en Mastermind 1 hacia adelante — justo lo que se pidió evitar.
+        setPipe(p => ({ ...p, financiero: { ...p.financiero, unidadesObjetivo: ov.unidadesObjetivo } }))
+      }
+    } catch { /* overrides corruptos — se ignoran */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pipe.construccion.status])
 
   const runCatastro = async (fd: any) => {
     setPipe(p => ({ ...p, catastro: { status: 'running', data: null } }))
@@ -1480,6 +1548,56 @@ function PipelineContent() {
     }
   }
 
+  // Abre Mastermind 1 (calibración de costos e ingresos) con un snapshot del pipeline en vivo —
+  // en este punto todavía no existe `financiero`/`estructuraCapital` (eso lo genera el Agente
+  // Financiero, que corre después), así que el snapshot es un AnalisisData parcial. Los mismos
+  // extractores de lib/mastermind/contexto.ts que usa Mastermind 2 (cargados desde un análisis
+  // completo) funcionan igual aquí porque ya leen todo vía optional chaining.
+  // Snapshot parcial de AnalisisData desde el pipeline en vivo — reusado tanto para abrir
+  // Mastermind 1 (handoff por localStorage) como para el resumen inline de costos e ingresos
+  // (mastermindCoreInputsActuales abajo), así ambos parten de exactamente los mismos datos.
+  const construirSnapshotAnalisis = (): Partial<AnalisisData> => ({
+    bitacoraTerreno: terrenoActual?.bitacoraTerreno,
+    bitacoraArquitectura: arquitecturaActual?.bitacoraArquitectura,
+    bitacoraConstruccion: construccionActual?.bitacoraConstruccion,
+    mercado: mercadoActual?.mercado,
+  })
+
+  const abrirMastermind1 = () => {
+    localStorage.setItem('smt_mastermind1_prefill', JSON.stringify(construirSnapshotAnalisis()))
+    // Navegar a /mastermind-core desmonta esta página y pierde el estado del pipeline (`pipe`
+    // vive solo en memoria) — se guarda un snapshot completo para restaurarlo al volver, en vez
+    // de que el usuario tenga que re-correr Terreno/Legal/Mercado/Arquitectura/Construcción
+    // (cada uno con su propia llamada LLM) solo por haber ido a calibrar.
+    localStorage.setItem('smt_pipeline_snapshot', JSON.stringify(pipe))
+    // El nombre del proyecto vive en la URL (?proyecto=...), no en `pipe` — sin esto, al volver
+    // de Mastermind 1 se perdía (router.push sin query string) y saveProyecto/localStorage
+    // fallaban con "nombre requerido" al aprobar Financiero. Se guarda aparte para que
+    // /mastermind-core pueda reconstruir la URL de vuelta con el mismo proyecto.
+    localStorage.setItem('smt_mastermind1_return_proyecto', proyecto)
+    router.push('/mastermind-core')
+  }
+
+  // Inputs para calcularMastermindCore leyendo el estado ACTUAL del pipeline (no un snapshot
+  // congelado) — si el usuario ya calibró en Mastermind 1, los overrides que trajo de vuelta
+  // (overrideM2 de terreno/construcción, precioVentaObjetivo/unidadesObjetivo de financiero) se
+  // aplican encima del extract crudo. Así el resumen SIEMPRE muestra lo que Financiero va a usar
+  // de verdad, sea el dato crudo de los agentes o la calibración manual.
+  const mastermindCoreInputsActuales = (): MastermindCoreInputs => {
+    const snapshot = construirSnapshotAnalisis()
+    const terreno = extractTerrenoContext(snapshot)
+    if (pipe.terreno.overrideM2 !== '') {
+      terreno.costoTerrenoM2 = Number(pipe.terreno.overrideM2)
+      terreno.costoTerreno = terreno.costoTerrenoM2 * terreno.superficieM2
+    }
+    const proyecto = { ...DEFAULTS.proyecto, ...extractProyectoContext(snapshot) }
+    if (pipe.construccion.overrideM2 !== '') proyecto.costoConstruccionRealM2 = Number(pipe.construccion.overrideM2)
+    if (pipe.financiero.unidadesObjetivo) proyecto.unidadesHabitacionales = Number(pipe.financiero.unidadesObjetivo)
+    const mercado = { ...DEFAULTS.mercado, ...extractMercadoContext(snapshot) }
+    if (pipe.financiero.precioVentaObjetivo) mercado.precioVentaDepasM2 = Number(pipe.financiero.precioVentaObjetivo)
+    return { terreno, proyecto, mercado }
+  }
+
   // ── Step 4: Financiero ──
   const runFinanciero = async () => {
     const t = terrenoActual!
@@ -1501,20 +1619,49 @@ function PipelineContent() {
     // Preferimos el área vendible derivada del mix real de Arquitectura sobre el campo
     // "resumen" superficieVendible que la IA reporta por separado — ver superficieVendibleDelMix.
     const superficieVendibleReal = superficieVendibleDelMix(arquitecturaActual?.bitacoraArquitectura?.tipologiaPropuesta) ?? c.superficieVendible
+    // Bug real encontrado en producción: Financiero nunca recibía el número de unidades que YA
+    // resolvió Arquitectura (limitado por densidad legal) — su prompt le pedía "calcula unidades
+    // dividiendo superficie vendible entre m² promedio", así que las inventaba por su cuenta y
+    // podía recomendar más unidades de las que la ficha legal permite (visto: 98 recomendadas
+    // vs 76 unidades máx por densidad). Si Mastermind 1 no calibró unidadesObjetivo, se manda el
+    // total real del mix (misma suma que ya usa extractProyectoContext en lib/mastermind/
+    // contexto.ts) para que Financiero deje de adivinar.
+    const mixHabReal = arquitecturaActual?.bitacoraArquitectura?.tipologiaPropuesta?.habitacional?.mix ?? []
+    const unidadesRealesArquitectura = mixHabReal.reduce((s: number, r: any) => s + (r.unidades || 0), 0)
+    const unidadesObjetivo = pipe.financiero.unidadesObjetivo || (unidadesRealesArquitectura > 0 ? String(unidadesRealesArquitectura) : undefined)
+    // Misma derivación "sobrante" que ya usa extractProyectoContext (lib/mastermind/contexto.ts)
+    // para m2ComercialesPlantaBaja: el área comercial real = superficieVendibleReal menos lo que
+    // el mix habitacional realmente suma — nunca se inventa si no hay componente comercial
+    // (tip.comercial) o si el sobrante es negativo. Sin esto, Financiero cobraba TODA el área
+    // (habitacional + comercial) al precio de departamentos, sobreestimando el ingreso cuando
+    // los locales comerciales valen menos por m² que la vivienda (bug real: ingreso $299.6M vs
+    // $260.6M que reconstruía Mastermind con precios diferenciados).
+    const tipReal = arquitecturaActual?.bitacoraArquitectura?.tipologiaPropuesta
+    const areaHabReal = mixHabReal.reduce((s: number, r: any) => s + (r.unidades || 0) * (r.m2Promedio || 0), 0)
+    const superficieVendibleTotal = superficieVendibleReal || 0
+    const superficieVendibleComercial = tipReal?.comercial && superficieVendibleTotal > areaHabReal
+      ? Math.round(superficieVendibleTotal - areaHabReal)
+      : 0
     const payload = {
       ...formData,
       costoTerrenoM2: m2t, costoTerreno,
       construccionM2: m2c, costoTotalConstruccion,
       superficieConstruida: c.superficieConstruida,
       superficieVendible: superficieVendibleReal,
+      superficieVendibleComercial,
       // Zona 1 real que Construcción costeó (antes de sustituirla arriba por la del mix) —
       // Financiero la necesita para saber qué % de esa área realmente aprovecha el mix de
       // unidades y escalar el costo hacia abajo si aprovecha menos (ver escalarCostoPorMix).
       superficieVendibleConstruccion: c.superficieVendible,
       fichaLegal: pipe.legal.data?.fichaLegal,
       mercado: mercadoActual?.mercado,
+      // Calibrado en Mastermind 1 ("Aplicar calibración y volver al pipeline") — si vienen,
+      // Financiero debe anclar precioVentaM2/unidades a estos valores en vez de elegirlos
+      // libremente, sin recalcular el diseño de Arquitectura/Construcción.
+      precioVentaObjetivo: pipe.financiero.precioVentaObjetivo || undefined,
+      unidadesObjetivo,
     }
-    setPipe(p => ({ ...p, financiero: { status: 'running', data: null } }))
+    setPipe(p => ({ ...p, financiero: { ...p.financiero, status: 'running', data: null } }))
     try {
       const res = await fetch('/api/agentes/financiero', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -1522,21 +1669,37 @@ function PipelineContent() {
       })
       const json = await res.json()
       if (json.error) throw new Error(json.error)
-      setPipe(p => ({ ...p, financiero: { status: 'done', data: json } }))
+      setPipe(p => ({ ...p, financiero: { ...p.financiero, status: 'done', data: json } }))
 
       // Assemble final result and save
       const fullResult = {
         proyecto,
         ...json,
-        bitacoraTerreno: t.bitacoraTerreno,
+        // Se sobrescriben precioM2Final/costoTotalTerreno con m2t/costoTerreno (los valores que
+        // Financiero SÍ usó — ya incluyen el override manual y/o el precio calibrado en
+        // Mastermind 1) — antes se guardaba t.bitacoraTerreno tal cual, el original SIN calibrar.
+        // Bug real encontrado en producción: Mastermind 1 mostraba terreno calibrado a
+        // $X/m², pero al reabrir Mastermind 2 (o esta misma pantalla) sobre el análisis ya
+        // guardado, volvía a mostrar el precio crudo original — porque extractTerrenoContext lee
+        // esta bitácora, no el override transitorio que solo vivía en pipe.terreno.overrideM2.
+        bitacoraTerreno: { ...t.bitacoraTerreno, precioM2Final: m2t, costoTotalTerreno: costoTerreno },
         // Diseño resuelto por Arquitectura (envolvente, zonas, tipología) — sin esto,
         // app/analisis/page.tsx y Mastermind se quedan sin datos de diseño para análisis
         // nuevos (ver lib/analisis/bitacoraArquitectura.ts).
         bitacoraArquitectura: arquitecturaActual?.bitacoraArquitectura,
-        // Se persiste superficieVendibleReal (el área vendible total que Financiero SÍ usó
-        // para ingresos) — antes solo existía en este momento de la corrida en vivo y se
-        // perdía al guardar, dejando a Mastermind sin poder reconstruirla después.
-        bitacoraConstruccion: { ...c.bitacoraConstruccion, superficieVendible: superficieVendibleReal },
+        // Mismo bug y mismo fix que bitacoraTerreno arriba, para costoPorM2Final/
+        // costoTotalConstruccion — sin esto, reabrir Mastermind sobre el análisis guardado
+        // revierte al costo de construcción crudo (Construcción original), no al calibrado en
+        // Mastermind 1 (extractProyectoContext prioriza bc.costoPorM2Final sobre
+        // financiero.costoTotalConstruccion). Se persiste también superficieVendibleReal (el
+        // área vendible total que Financiero SÍ usó para ingresos) — antes solo existía en este
+        // momento de la corrida en vivo y se perdía al guardar.
+        bitacoraConstruccion: {
+          ...c.bitacoraConstruccion,
+          superficieVendible: superficieVendibleReal,
+          costoPorM2Final: m2c,
+          costoTotalConstruccion: costoTotalConstruccion,
+        },
         fichaLegal: pipe.legal.data?.fichaLegal,
         mercado: mercadoActual?.mercado,
         fuentes: {
@@ -1549,7 +1712,7 @@ function PipelineContent() {
         .then(r => { if (r.ok && r.id) localStorage.setItem('smt_proyecto_id', r.id) })
       setTimeout(() => router.push(`/analisis?proyecto=${encodeURIComponent(proyecto)}`), 1200)
     } catch {
-      setPipe(p => ({ ...p, financiero: { status: 'error', data: null } }))
+      setPipe(p => ({ ...p, financiero: { ...p.financiero, status: 'error', data: null } }))
     }
   }
 
@@ -1619,7 +1782,8 @@ function PipelineContent() {
           <StepBadge n={3} status={pipe.mercado.status} label="Mercado" />
           <StepBadge n={4} status={pipe.arquitectura.status} label="Arquitectura" />
           <StepBadge n={5} status={pipe.construccion.status} label="Construcción" />
-          <StepBadge n={6} status={pipe.financiero.status} label="Financiero" />
+          <StepBadge n={6} status={pipe.construccion.status === 'done' ? 'done' : 'waiting'} label="Costos e Ingresos" />
+          <StepBadge n={7} status={pipe.financiero.status} label="Financiero" />
         </aside>
 
         {/* Main content */}
@@ -2305,6 +2469,25 @@ function PipelineContent() {
                               <p className="text-[14px] font-bold text-[#111d17] mt-0.5">{AMENIDADES_NIVEL_LABELS[String(tip.tamanoAmenidades)] ?? '—'}</p>
                             </div>
                           </div>
+                          {/* Bocetos — aquí es donde de verdad se ve si la tipología que
+                              resolvió Arquitectura tiene sentido, antes de esperar hasta el
+                              análisis final guardado. Elevación (apilamiento de niveles) +
+                              planta (huella sobre el lote, estacionamiento, área libre). */}
+                          <div>
+                            <p className="text-[9px] font-bold text-[#9aab9f] uppercase tracking-wider mb-1.5">Elevación</p>
+                            <BocetoVolumetria tipologia={tip} />
+                          </div>
+                          <div>
+                            <p className="text-[9px] font-bold text-[#9aab9f] uppercase tracking-wider mb-1.5">Vista en planta (aérea)</p>
+                            <VistaAereaTerreno
+                              superficieTerreno={Number(formData?.superficie || 0)}
+                              superficieConstruida={arq.superficieConstruida}
+                              niveles={tip.niveles}
+                              desgloseZonas={zonas}
+                              areaLibreYVerde={ba?.areaLibreYVerde}
+                            />
+                          </div>
+                          <p className="text-[9px] text-[#c0cdc7] italic">Bocetos ilustrativos a partir del programa propuesto — no sustituyen un plano arquitectónico ni asumen distribución real por nivel.</p>
                           {tip.habitacional?.mix && tip.habitacional.mix.length > 0 && (
                             <div className="rounded-xl border border-[#E2E8E4] overflow-hidden">
                               <div className="grid grid-cols-3 bg-[#F0F4F2] px-3 py-1.5">
@@ -2552,36 +2735,113 @@ function PipelineContent() {
                   )
                 })()}
 
-                {pipe.construccion.status === 'done' && pipe.construccion.seleccionada !== null && pipe.financiero.status === 'waiting' && (
-                  <div className="px-5 pb-5">
-                    <button
-                      onClick={runFinanciero}
-                      className="w-full bg-[#1D9E75] text-white rounded-xl py-3 text-[13px] font-semibold hover:bg-[#0F6E56] transition-colors cursor-pointer flex items-center justify-center gap-2"
-                    >
-                      Aprobar y generar Análisis Financiero
-                      <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                        <path d="M5 3l4 4-4 4" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
-                      </svg>
-                    </button>
-                    {pipe.construccion.overrideM2 !== '' && (
-                      <p className="text-[10px] text-[#9aab9f] text-center mt-2">
-                        Se usará tu valor corregido: ${Number(pipe.construccion.overrideM2).toLocaleString()}/m²
-                      </p>
-                    )}
-                    {pipe.construccion.usarParametricoZona && (
-                      <p className="text-[10px] text-[#9aab9f] text-center mt-2">
-                        Se usará el costo paramétrico de zona en vez del calculado por la IA
-                      </p>
-                    )}
-                  </div>
-                )}
               </section>
             )}
 
-            {/* ══ STEP 5 — FINANCIERO ══ */}
+            {/* ══ STEP 6 — RESUMEN: COSTOS E INGRESOS (antesala a Financiero) ══ */}
+            {/* Mismo motor que Mastermind 1 (calcularMastermindCore) leyendo el pipeline en vivo
+                — siempre refleja lo que Financiero va a usar, sea el dato crudo de los agentes
+                o lo calibrado a mano en Mastermind 1 (ver mastermindCoreInputsActuales arriba). */}
+            {pipe.construccion.status === 'done' && pipe.construccion.seleccionada !== null && pipe.financiero.status === 'waiting' && (() => {
+              const coreInputs = mastermindCoreInputsActuales()
+              const resumen = calcularMastermindCore(coreInputs)
+              const spreadBajo = resumen.spreadVentaConstruccion !== null && resumen.spreadVentaConstruccion < 1.6
+              const hayCalibracion = pipe.terreno.overrideM2 !== '' || pipe.construccion.overrideM2 !== ''
+                || !!pipe.financiero.precioVentaObjetivo || !!pipe.financiero.unidadesObjetivo
+              return (
+                <section>
+                  <SectionHeader n={6} label="Resumen: Costos e Ingresos" />
+                  <DoneCard>
+                    <div className="px-5 py-4 border-b border-[#F0F4F2] flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <CheckIcon />
+                        <span className="text-[13px] font-bold text-[#0F6E56]">Antes de correr el plan financiero completo</span>
+                      </div>
+                      {hayCalibracion && (
+                        <span className="text-[10px] font-bold text-[#1D9E75] bg-[#F0FBF6] border border-[#9FE1CB] px-2 py-0.5 rounded-full uppercase tracking-wide">
+                          ● Calibrado en Mastermind 1
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="px-5 py-4 grid grid-cols-4 gap-2">
+                      <div className="bg-[#F7F8F6] rounded-xl px-3 py-2.5 text-center">
+                        <p className="text-[10px] text-[#9aab9f] uppercase tracking-wide font-semibold">Costo terreno</p>
+                        <p className="text-[13px] font-bold text-[#111d17] mt-0.5">${Math.round(coreInputs.terreno.costoTerrenoM2).toLocaleString('es-MX')}/m²</p>
+                      </div>
+                      <div className="bg-[#F7F8F6] rounded-xl px-3 py-2.5 text-center">
+                        <p className="text-[10px] text-[#9aab9f] uppercase tracking-wide font-semibold">Costo construcción</p>
+                        <p className="text-[13px] font-bold text-[#111d17] mt-0.5">${resumen.costos.m2Construidos > 0 ? Math.round(resumen.costos.costoDirectoConstruccion / resumen.costos.m2Construidos).toLocaleString('es-MX') : '—'}/m²</p>
+                      </div>
+                      <div className="bg-[#F7F8F6] rounded-xl px-3 py-2.5 text-center">
+                        <p className="text-[10px] text-[#9aab9f] uppercase tracking-wide font-semibold">Precio de venta</p>
+                        <p className="text-[13px] font-bold text-[#111d17] mt-0.5">${coreInputs.mercado.precioVentaDepasM2.toLocaleString('es-MX')}/m²</p>
+                      </div>
+                      <div className="rounded-xl px-3 py-2.5 text-center" style={{ backgroundColor: resumen.utilidad.margenBruto >= 12 ? '#E1F5EE' : '#FEE2E2' }}>
+                        <p className="text-[10px] uppercase tracking-wide font-semibold" style={{ color: resumen.utilidad.margenBruto >= 12 ? '#0F6E56' : '#991B1B' }}>Margen bruto</p>
+                        <p className="text-[13px] font-bold mt-0.5" style={{ color: resumen.utilidad.margenBruto >= 12 ? '#0F6E56' : '#991B1B' }}>{resumen.utilidad.margenBruto.toFixed(1)}%</p>
+                      </div>
+                    </div>
+
+                    <div className="px-5 pb-4 grid grid-cols-4 gap-2">
+                      <div className="bg-[#F7F8F6] rounded-xl px-3 py-2.5 text-center">
+                        <p className="text-[10px] text-[#9aab9f] uppercase tracking-wide font-semibold">Costo / m² vendible</p>
+                        <p className="text-[13px] font-bold text-[#111d17] mt-0.5">{fmt(resumen.costoPorM2Vendible)}</p>
+                      </div>
+                      <div className="rounded-xl px-3 py-2.5 text-center" style={{ backgroundColor: spreadBajo ? '#FEE2E2' : '#F7F8F6' }}>
+                        <p className="text-[10px] uppercase tracking-wide font-semibold" style={{ color: spreadBajo ? '#991B1B' : '#9aab9f' }}>Spread venta/construcción</p>
+                        <p className="text-[13px] font-bold mt-0.5" style={{ color: spreadBajo ? '#991B1B' : '#111d17' }}>{resumen.spreadVentaConstruccion !== null ? `${resumen.spreadVentaConstruccion.toFixed(2)}x` : '—'}</p>
+                      </div>
+                      <div className="bg-[#F7F8F6] rounded-xl px-3 py-2.5 text-center">
+                        <p className="text-[10px] text-[#9aab9f] uppercase tracking-wide font-semibold">Punto de equilibrio</p>
+                        <p className="text-[13px] font-bold text-[#111d17] mt-0.5">{resumen.puntoEquilibrioUnidades} uds</p>
+                      </div>
+                      <div className="bg-[#F7F8F6] rounded-xl px-3 py-2.5 text-center">
+                        <p className="text-[10px] text-[#9aab9f] uppercase tracking-wide font-semibold">Utilidad bruta</p>
+                        <p className="text-[13px] font-bold text-[#111d17] mt-0.5">{fmt(resumen.utilidad.utilidadAntesImpuestos)}</p>
+                      </div>
+                    </div>
+
+                    {spreadBajo && (
+                      <div className="px-5 pb-3">
+                        <p className="text-[11px] text-[#991B1B] leading-snug">⚠ Spread por debajo de 1.6x — señal temprana de que el proyecto puede no ser viable, antes de correr el plan financiero completo.</p>
+                      </div>
+                    )}
+
+                    <div className="px-5 pb-5">
+                      <button
+                        onClick={abrirMastermind1}
+                        className="w-full bg-white border border-[#E2E8E4] text-[#111d17] rounded-xl py-3 text-[13px] font-semibold hover:border-[#1D9E75] hover:text-[#0F6E56] transition-colors cursor-pointer flex items-center justify-center gap-2 mb-2.5"
+                      >
+                        {hayCalibracion ? 'Volver a calibrar con Mastermind 1' : 'Calibrar con Mastermind 1 (costos e ingresos)'}
+                        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                          <path d="M5 3l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                        </svg>
+                      </button>
+                      <button
+                        onClick={runFinanciero}
+                        className="w-full bg-[#1D9E75] text-white rounded-xl py-3 text-[13px] font-semibold hover:bg-[#0F6E56] transition-colors cursor-pointer flex items-center justify-center gap-2"
+                      >
+                        Aprobar y generar Análisis Financiero
+                        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                          <path d="M5 3l4 4-4 4" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
+                        </svg>
+                      </button>
+                      {pipe.construccion.usarParametricoZona && (
+                        <p className="text-[10px] text-[#9aab9f] text-center mt-2">
+                          Se usará el costo paramétrico de zona en vez del calculado por la IA
+                        </p>
+                      )}
+                    </div>
+                  </DoneCard>
+                </section>
+              )
+            })()}
+
+            {/* ══ STEP 7 — FINANCIERO ══ */}
             {pipe.financiero.status !== 'waiting' && (
               <section>
-                <SectionHeader n={6} label="Agente Financiero" />
+                <SectionHeader n={7} label="Agente Financiero" />
 
                 {pipe.financiero.status === 'running' && (
                   <RunningCard label="Agente Financiero modelando…" hint="Calculando TIR, flujo de caja, stress test y score de resiliencia" />

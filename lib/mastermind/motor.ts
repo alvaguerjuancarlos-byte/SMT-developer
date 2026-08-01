@@ -14,13 +14,15 @@ import type {
   BloqueIngresos,
   BloqueRetorno,
   BloqueUtilidad,
+  MastermindCoreInputs,
+  MastermindCoreOutputs,
   MastermindInputs,
   MastermindOutputs,
 } from './tipos'
 import { BENCHMARKS_CONSTRUCCION_MXN_M2, FACTOR_EFICIENCIA_CONSTRUCCION, DESCUENTOS_CANCELACIONES, PORCENTAJE_COMERCIALIZACION } from './catalogo'
 import { calcularFlujoFinanciero } from '@/lib/analisis/flujoFinanciero'
 
-export function calcularIngresos(inputs: MastermindInputs): BloqueIngresos {
+export function calcularIngresos(inputs: Pick<MastermindInputs, 'proyecto' | 'mercado'>): BloqueIngresos {
   const { proyecto, mercado } = inputs
 
   const m2VendiblesHabitacional = proyecto.unidadesHabitacionales * proyecto.m2PromedioDepa
@@ -51,7 +53,7 @@ export function calcularIngresos(inputs: MastermindInputs): BloqueIngresos {
 // desde un análisis) > benchmark del catálogo (solo si no hay análisis cargado — sesión nueva
 // desde cero). Antes siempre se usaba el benchmark, "snapeado" a 1 de solo 6 valores fijos,
 // descartando el dato real y preciso aunque estuviera disponible.
-export function calcularCostos(inputs: MastermindInputs, benchmarkOverrideMxnM2?: number): Omit<BloqueCostos, 'comercializacion' | 'financieros' | 'costoTotal'> {
+export function calcularCostos(inputs: Pick<MastermindInputs, 'terreno' | 'proyecto'>, benchmarkOverrideMxnM2?: number): Omit<BloqueCostos, 'comercializacion' | 'financieros' | 'costoTotal'> {
   const { terreno, proyecto } = inputs
 
   // Preferimos la superficie de construcción real (validada por el Agente Construcción)
@@ -82,7 +84,7 @@ export function calcularUtilidad(ingresos: BloqueIngresos, costos: BloqueCostos)
 // Punto de equilibrio: unidades mínimas a m2PromedioDepa/precioVentaM2 actuales para UAI = 0.
 // Cerrado en forma algebraica porque, en este modelo, el costo de construcción depende de
 // superficieM2(terreno) × niveles — no de unidades — así que UAI es lineal en unidades.
-function calcularPuntoEquilibrioUnidades(inputs: MastermindInputs, costos: BloqueCostos, ingresoBrutoComercial: number): number {
+export function calcularPuntoEquilibrioUnidades(inputs: Pick<MastermindInputs, 'proyecto' | 'mercado'>, costos: BloqueCostos, ingresoBrutoComercial: number): number {
   const { proyecto, mercado } = inputs
   const denom = proyecto.m2PromedioDepa * mercado.precioVentaDepasM2
   if (denom <= 0) return 0
@@ -142,4 +144,37 @@ export function calcularMastermind(inputs: MastermindInputs): MastermindOutputs 
   }
 
   return { ingresos, costos, utilidad, retorno, flujoSocio: flujo.flujoSocio, flujoProyecto: flujo.flujoProyecto }
+}
+
+// ── Mastermind 1 (costos e ingresos) — calibración temprana, sin financiamiento ────────────
+// Para Mastermind 1 (embebido en el pipeline justo después de Construcción, antes de que exista
+// un plan financiero) NO se corre calcularFlujoFinanciero — se detiene exactamente donde
+// calcularMastermind() empieza a necesitar financiamiento/tiempo (ver comentario arriba). Reusa
+// calcularIngresos/calcularCostos/calcularUtilidad/calcularPuntoEquilibrioUnidades tal cual.
+export function calcularMastermindCore(inputs: MastermindCoreInputs): MastermindCoreOutputs {
+  const ingresos = calcularIngresos(inputs)
+  const costosBase = calcularCostos(inputs)
+
+  const comercializacion = ingresos.ingresoNeto * PORCENTAJE_COMERCIALIZACION
+  const costoTotal = costosBase.costoTerreno + costosBase.costoDirectoConstruccion + costosBase.indirectos + comercializacion
+  // financieros se deja en 0 (no 'undefined') para que costos siga siendo un BloqueCostos válido
+  // — así CostosGaugeCore/calcularUtilidad no necesitan un tipo distinto al de Mastermind 2.
+  const costos: BloqueCostos = { ...costosBase, comercializacion, financieros: 0, costoTotal }
+
+  const utilidad = calcularUtilidad(ingresos, costos)
+
+  const m2VendiblesTotal = ingresos.m2VendiblesHabitacional + ingresos.m2VendiblesComercial
+  const costoPorM2Vendible = m2VendiblesTotal > 0 ? costoTotal / m2VendiblesTotal : 0
+
+  // Spread precio de venta / costo de construcción — mismo indicador y mismo umbral (<1.6 =
+  // alerta) que litmusViabilidad en app/api/agentes/construccion/route.ts, aplicado aquí sobre
+  // el costo/m² de construcción calibrado por el usuario en vez del que propuso el Agente IA.
+  const costoConstruccionPorM2Vendible = m2VendiblesTotal > 0 ? costosBase.costoDirectoConstruccion / m2VendiblesTotal : 0
+  const spreadVentaConstruccion = costoConstruccionPorM2Vendible > 0
+    ? inputs.mercado.precioVentaDepasM2 / costoConstruccionPorM2Vendible
+    : null
+
+  const puntoEquilibrioUnidades = calcularPuntoEquilibrioUnidades(inputs, costos, ingresos.ingresoBrutoComercial)
+
+  return { ingresos, costos, utilidad, costoPorM2Vendible, spreadVentaConstruccion, puntoEquilibrioUnidades }
 }

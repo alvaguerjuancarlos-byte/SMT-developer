@@ -3,8 +3,13 @@
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Suspense, useEffect, useRef, useState } from 'react'
 import FuentesConsultadas from '@/app/components/FuentesConsultadas'
+import { BocetoVolumetria, VistaAereaTerreno } from '@/app/components/BocetoVolumetria'
 import type { AnalisisData, StressItem, FlujoMes } from '@/lib/analisis/tipos'
 import { resolveBitacoraArquitectura } from '@/lib/analisis/bitacoraArquitectura'
+
+const AMENIDADES_NIVEL_LABELS: Record<string, string> = {
+  '1': 'Mínimas', '2': 'Intermedias', '3': 'Top',
+}
 
 const FALLBACK: AnalisisData = {
   recomendacion: {
@@ -36,98 +41,6 @@ function CheckIcon({ color = '#1D9E75' }: { color?: string }) {
   return (
     <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
       <path d="M2.5 7l3 3 6-6" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-    </svg>
-  )
-}
-
-// Boceto tipo elevación arquitectónica (no un plano real): silueta del edificio apilando
-// niveles comerciales/habitacionales de abajo hacia arriba, con textura de ventanas/vitrinas
-// y un filtro de desplazamiento SVG (feTurbulence) para dar look "dibujado a mano".
-function EdificioSketch({ nivelesComercial, nivelesHabitacional, tieneAmenidades }: { nivelesComercial: number; nivelesHabitacional: number; tieneAmenidades: boolean }) {
-  const MARGIN = 24
-  const BUILD_W = 220
-  const LEVEL_H = 26
-  const COMERCIAL_H = 34
-  const AMEN_H = 24
-  const CAP_H = 6
-  const GROUND_H = 16
-  const AMEN_W = BUILD_W * 0.55
-
-  const bodyH = nivelesComercial * COMERCIAL_H + nivelesHabitacional * LEVEL_H
-  const svgW = BUILD_W + MARGIN * 2
-  const svgH = MARGIN + CAP_H + (tieneAmenidades ? AMEN_H : 0) + bodyH + GROUND_H + MARGIN
-  const x0 = MARGIN
-  const groundY = svgH - MARGIN - GROUND_H
-
-  type Floor = { y: number; h: number; tipo: 'comercial' | 'habitacional' }
-  const floors: Floor[] = []
-  let cursorY = groundY
-  for (let i = 0; i < nivelesComercial; i++) { cursorY -= COMERCIAL_H; floors.push({ y: cursorY, h: COMERCIAL_H, tipo: 'comercial' }) }
-  for (let i = 0; i < nivelesHabitacional; i++) { cursorY -= LEVEL_H; floors.push({ y: cursorY, h: LEVEL_H, tipo: 'habitacional' }) }
-  const roofY = cursorY - CAP_H
-  const amenY = roofY - AMEN_H
-
-  return (
-    <svg width={svgW} height={svgH} viewBox={`0 0 ${svgW} ${svgH}`}>
-      <defs>
-        <filter id="sketchy-edificio" x="-20%" y="-20%" width="140%" height="140%">
-          <feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="7" result="noise" />
-          <feDisplacementMap in="SourceGraphic" in2="noise" scale="2.4" />
-        </filter>
-      </defs>
-      <g filter="url(#sketchy-edificio)" strokeLinejoin="round" strokeLinecap="round">
-        {/* terreno */}
-        <line x1={x0 - 10} y1={groundY} x2={x0 + BUILD_W + 10} y2={groundY} stroke="#5a7065" strokeWidth="1.5" />
-        {Array.from({ length: 14 }).map((_, i) => {
-          const gx = x0 - 8 + i * ((BUILD_W + 16) / 13)
-          return <line key={i} x1={gx} y1={groundY} x2={gx - 6} y2={groundY + GROUND_H} stroke="#c8d5cf" strokeWidth="1" />
-        })}
-
-        {/* remate / azotea */}
-        <rect x={x0 - 2} y={roofY} width={BUILD_W + 4} height={CAP_H} fill="#111d17" rx="1" />
-
-        {/* volumen de amenidades, retranqueado */}
-        {tieneAmenidades && (
-          <g>
-            <rect x={x0 + (BUILD_W - AMEN_W) / 2} y={amenY} width={AMEN_W} height={AMEN_H} fill="#F5F3FF" stroke="#6D28D9" strokeWidth="1.4" strokeDasharray="4 3" rx="2" />
-            {Array.from({ length: 4 }).map((_, i) => {
-              const lx = x0 + (BUILD_W - AMEN_W) / 2 + 6 + i * ((AMEN_W - 12) / 3)
-              return <line key={i} x1={lx} y1={amenY + 4} x2={lx} y2={amenY + AMEN_H - 4} stroke="#A78BFA" strokeWidth="1" />
-            })}
-            <circle cx={x0 + BUILD_W - 24} cy={amenY - 6} r="5" fill="none" stroke="#D97706" strokeWidth="1.2" />
-          </g>
-        )}
-
-        {/* niveles */}
-        {floors.map((f, i) => {
-          if (f.tipo === 'comercial') {
-            const doorW = 20, doorH = f.h * 0.7, nDoors = 3
-            return (
-              <g key={i}>
-                <rect x={x0} y={f.y} width={BUILD_W} height={f.h} fill="#FEF3C7" stroke="#B45309" strokeWidth="1.4" />
-                {Array.from({ length: 10 }).map((_, j) => (
-                  <rect key={j} x={x0 + j * (BUILD_W / 10)} y={f.y - 4} width={BUILD_W / 10} height="4" fill={j % 2 === 0 ? '#B45309' : '#FEF3C7'} />
-                ))}
-                {Array.from({ length: nDoors }).map((_, j) => {
-                  const dx = x0 + (BUILD_W / nDoors) * j + (BUILD_W / nDoors - doorW) / 2
-                  return <rect key={j} x={dx} y={f.y + f.h - doorH} width={doorW} height={doorH} fill="#FFFDF5" stroke="#B45309" strokeWidth="1" />
-                })}
-              </g>
-            )
-          }
-          const nWin = 5, winW = 14, winH = f.h * 0.4
-          return (
-            <g key={i}>
-              <rect x={x0} y={f.y} width={BUILD_W} height={f.h} fill="#F0FBF6" stroke="#0F6E56" strokeWidth="1.2" />
-              {Array.from({ length: nWin }).map((_, j) => {
-                const wx = x0 + (BUILD_W / nWin) * j + (BUILD_W / nWin - winW) / 2
-                const wy = f.y + (f.h - winH) / 2
-                return <rect key={j} x={wx} y={wy} width={winW} height={winH} fill="#BAE6C9" stroke="#1D9E75" strokeWidth="0.8" rx="1" />
-              })}
-            </g>
-          )
-        })}
-      </g>
     </svg>
   )
 }
@@ -836,18 +749,14 @@ function AnalisisContent() {
   const MIX_COLORS = ['#1D9E75', '#4338CA', '#D97706', '#DB2777', '#0891B2', '#65A30D']
 
   const DiagramaApilamientoModal = () => {
-    const t = resolveBitacoraArquitectura(d)?.tipologiaPropuesta
+    const ba = resolveBitacoraArquitectura(d)
+    const t = ba?.tipologiaPropuesta
     if (!t) return null
 
     const nivelesComercial = t.comercial?.niveles ?? 0
     const totalNiveles = t.niveles ?? (nivelesComercial + (t.habitacional ? 1 : 0))
-    const nivelesHabitacional = Math.max(totalNiveles - nivelesComercial, t.habitacional ? 1 : 0)
     const mix = t.habitacional?.mix ?? []
     const totalUnidadesMix = mix.reduce((s, m) => s + m.unidades, 0)
-
-    const niveles: { label: string; tipo: 'comercial' | 'habitacional' }[] = []
-    for (let i = 0; i < nivelesComercial; i++) niveles.push({ label: i === 0 ? 'PB · Comercial' : `Nivel ${i + 1} · Comercial`, tipo: 'comercial' })
-    for (let i = 0; i < nivelesHabitacional; i++) niveles.push({ label: `Nivel ${nivelesComercial + i + 1} · Habitacional`, tipo: 'habitacional' })
 
     return (
       <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/40 backdrop-blur-sm" onClick={() => setShowDiagramaApilamiento(false)}>
@@ -889,28 +798,27 @@ function AnalisisContent() {
                 <p className="text-[9px] text-[#9aab9f] uppercase tracking-wide">Locales</p>
               </div>
               <div className="bg-[#F7F8F6] border border-[#E2E8E4] rounded-xl px-3 py-2.5 text-center">
-                <p className="text-[16px] font-black text-[#111d17]">{t.tamanoAmenidades ? t.tamanoAmenidades.toLocaleString('es-MX') : '—'}</p>
-                <p className="text-[9px] text-[#9aab9f] uppercase tracking-wide">m² Amenidades</p>
+                {/* tamanoAmenidades es una escala 1-3 (ver AMENIDADES_NIVEL_LABELS), no m² —
+                    antes se mostraba mal como "{n} m² Amenidades". */}
+                <p className="text-[16px] font-black text-[#111d17]">{AMENIDADES_NIVEL_LABELS[String(t.tamanoAmenidades)] ?? '—'}</p>
+                <p className="text-[9px] text-[#9aab9f] uppercase tracking-wide">Amenidades</p>
               </div>
             </div>
 
-            {/* Sketch de volumetría */}
+            {/* Bocetos — elevación (apilamiento) + planta (huella sobre el lote) */}
             <div>
-              <p className="text-[11px] font-bold text-[#5a7065] uppercase tracking-wide mb-2">Boceto de volumetría</p>
-              {niveles.length === 0 ? (
-                <p className="text-[12px] text-[#9aab9f] italic px-1">Sin datos de niveles para graficar.</p>
-              ) : (
-                <>
-                  <div className="bg-[#FAFAF7] border border-[#E2E8E4] rounded-xl px-4 py-5 flex justify-center">
-                    <EdificioSketch nivelesComercial={nivelesComercial} nivelesHabitacional={nivelesHabitacional} tieneAmenidades={!!t.tamanoAmenidades} />
-                  </div>
-                  <div className="flex items-center gap-4 mt-2 flex-wrap px-1">
-                    <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-[#FEF3C7] border border-[#B45309]" /><span className="text-[10px] text-[#5a7065]">PB / Comercial</span></div>
-                    <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-[#F0FBF6] border border-[#0F6E56]" /><span className="text-[10px] text-[#5a7065]">Habitacional</span></div>
-                    {!!t.tamanoAmenidades && <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-[#F5F3FF] border border-dashed border-[#6D28D9]" /><span className="text-[10px] text-[#5a7065]">Amenidades (azotea) · {t.tamanoAmenidades.toLocaleString('es-MX')} m² · no ocupa nivel exclusivo</span></div>}
-                  </div>
-                </>
-              )}
+              <p className="text-[11px] font-bold text-[#5a7065] uppercase tracking-wide mb-2">Elevación</p>
+              <BocetoVolumetria tipologia={t} />
+            </div>
+            <div>
+              <p className="text-[11px] font-bold text-[#5a7065] uppercase tracking-wide mb-2">Vista en planta (aérea)</p>
+              <VistaAereaTerreno
+                superficieTerreno={d.bitacoraTerreno?.superficieM2 ?? 0}
+                superficieConstruida={ba?.superficieConstruida ?? 0}
+                niveles={t.niveles}
+                desgloseZonas={ba?.desgloseZonas}
+                areaLibreYVerde={ba?.areaLibreYVerde}
+              />
             </div>
 
             {/* Mix de unidades habitacionales */}

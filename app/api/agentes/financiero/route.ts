@@ -78,6 +78,8 @@ MERCADO (Agente Mercado):
 - Precio preventa objetivo: $${data.mercado?.pricingFases?.[0]?.precioM2 || 'por determinar'}/m²
 - Precio entrega objetivo: $${data.mercado?.pricingFases?.[2]?.precioM2 || 'por determinar'}/m²
 - Segmentación: ${JSON.stringify(data.mercado?.segmentacion?.map((s: any) => s.tipo) || [])}
+${data.precioVentaObjetivo ? `- PRECIO DE VENTA OBJETIVO calibrado en Mastermind 1 por el desarrollador: $${Number(data.precioVentaObjetivo).toLocaleString('es-MX')}/m² — úsalo EXACTAMENTE como precioVentaM2, no lo recalcules ni lo ajustes contra la zona/comparables. Ya es una decisión tomada, no una sugerencia.` : ''}
+${data.unidadesObjetivo ? `- NÚMERO DE UNIDADES calibrado en Mastermind 1 por el desarrollador: ${Number(data.unidadesObjetivo)} — úsalo EXACTAMENTE (en recomendacion.tipologia y en la narrativa), no lo recalcules dividiendo superficie vendible entre m² promedio. Ajusta el m² promedio implícito para que unidades × m² promedio siga aproximando la superficie vendible aprobada.` : ''}
 
 INSTRUCCIONES FINANCIERAS:
 1. Calcula indirectos (15–18% de costoTotalConstruccion), honorarios de proyecto (8–10%), imprevistos (5%). Desglosa cada uno por concepto (el desglose debe sumar aproximadamente el total del rubro, ±5%):
@@ -86,7 +88,7 @@ INSTRUCCIONES FINANCIERAS:
    - imprevistosDesglose: contingencia por incremento de materiales, ajustes de diseño en obra, condiciones de suelo no previstas, costos por retrasos, requerimientos municipales adicionales
    No inventes rubros que no apliquen a la escala del proyecto (ej. un desarrollo unifamiliar pequeño no necesita gerencia de proyecto como línea separada) — usa 3-6 conceptos por desglose, los que realmente apliquen.
 2. inversionTotal = costoTerreno + costoTotalConstruccion + indirectos + honorarios + imprevistos + comercialización. El proyecto también paga descuentos y cancelaciones (5% del ingreso bruto) y comercialización/comisión de venta (3% del ingreso neto tras descuentos) — estos dos y el resto de la aritmética financiera (ingresosProyectados, inversionTotal, utilidadBruta, margenBruto) se recalculan automáticamente en código después de tu respuesta, así que NO necesitas calcularlos tú con precisión — concéntrate en elegir bien precioVentaM2 y los porcentajes de indirectos/honorarios/imprevistos; usa cifras aproximadas razonables para estos campos en tu respuesta y para que tu narrativa (descripción, stress test, punto de quiebre) sea coherente con que estos costos existen.
-3. Reparte la superficie vendible aprobada (${superficieVendible} m²) en unidades según la tipología — el número de unidades sale de dividir esa superficie entre el m² promedio por unidad típico de la tipología, NO de recalcular el envolvente con COS/CUS (eso ya lo hizo el Agente Construcción).
+3. Reparte la superficie vendible aprobada (${superficieVendible} m²) en unidades según la tipología — el número de unidades sale de dividir esa superficie entre el m² promedio por unidad típico de la tipología, NO de recalcular el envolvente con COS/CUS (eso ya lo hizo el Agente Construcción).${data.unidadesObjetivo ? ` Excepto si arriba viene NÚMERO DE UNIDADES calibrado en Mastermind 1 — en ese caso usa ese número exacto, no lo derives de la superficie.` : ''}
    REGLA CRÍTICA: Si el tipo de desarrollo incluye "unifamiliar" o "Unifamiliar", el número de unidades es EXACTAMENTE 1 — una sola vivienda. No importa la superficie. NUNCA recomiendes 2 o más casas para un desarrollo unifamiliar.
 4. ingresosProyectados = unidades × precio promedio ponderado de las fases de venta
 5. utilidadBruta = ingresosProyectados − inversionTotal
@@ -298,17 +300,27 @@ REGLAS:
       // Igual que con costoTotalConstruccion, un aviso en el prompt no es suficiente — aquí se
       // limita en código al techo plausible de la banda de construcción (mismo criterio y mismo
       // multiplicador ×3 que ya usa evaluarPlausibilidadBanda para marcar comparables).
+      const precioVentaObjetivo = Number(data.precioVentaObjetivo) || 0
       const precioVentaM2Modelo = Number(parsed.financiero.precioVentaM2) || 0
-      const evaluacionPrecio = evaluarPlausibilidadBanda(precioVentaM2Modelo, data.bandaConstruccion)
-      const precioVentaM2Real = evaluacionPrecio?.sospechosoPorBanda ? evaluacionPrecio.precioVentaMaxPlausible : precioVentaM2Modelo
-      parsed.financiero.precioVentaM2 = precioVentaM2Real
-      if (evaluacionPrecio?.sospechosoPorBanda) {
-        parsed.financiero.precioVentaAjustadoPorBanda = {
-          precioVentaM2Modelo,
-          precioVentaM2Ajustado: precioVentaM2Real,
-          techoBandaConstruccion: evaluacionPrecio.techoBandaConstruccion,
+      // Si el precio viene calibrado explícitamente en Mastermind 1, es una decisión del
+      // desarrollador, no una elección libre del modelo — se ancla directo y se salta el tope
+      // de plausibilidad de banda (ese tope existe para corregir al modelo cuando alucina un
+      // precio de zona premium, no para segundo-adivinar una decisión humana explícita).
+      let precioVentaM2Real: number
+      if (precioVentaObjetivo > 0) {
+        precioVentaM2Real = precioVentaObjetivo
+      } else {
+        const evaluacionPrecio = evaluarPlausibilidadBanda(precioVentaM2Modelo, data.bandaConstruccion)
+        precioVentaM2Real = evaluacionPrecio?.sospechosoPorBanda ? evaluacionPrecio.precioVentaMaxPlausible : precioVentaM2Modelo
+        if (evaluacionPrecio?.sospechosoPorBanda) {
+          parsed.financiero.precioVentaAjustadoPorBanda = {
+            precioVentaM2Modelo,
+            precioVentaM2Ajustado: precioVentaM2Real,
+            techoBandaConstruccion: evaluacionPrecio.techoBandaConstruccion,
+          }
         }
       }
+      parsed.financiero.precioVentaM2 = precioVentaM2Real
 
       const indirectosReal = Number(parsed.financiero.indirectos) || 0
       const honorariosReal = Number(parsed.financiero.honorarios) || 0
@@ -326,7 +338,29 @@ REGLAS:
       // descuentos/comercializacion son costos reales que Mastermind ya cobraba desde el
       // principio pero el análisis nunca modeló — mismas constantes, para que ambos lados
       // dejen de divergir por esto. No son estimación del modelo, son aritmética fija.
-      const ingresosProyectadosReal = Math.round(superficieVendible * precioVentaM2Real)
+      //
+      // Bug real encontrado en producción: aquí se aplicaba precioVentaM2Real a TODA
+      // superficieVendible por igual, aunque el proyecto tuviera un componente comercial con su
+      // propio precio (data.mercado.segmentacion) — Mastermind (lib/mastermind/contexto.ts,
+      // extractMercadoContext) sí diferencia precioLocalesM2 del habitacional, así que el
+      // ingreso reconstruido ahí nunca coincidía con el de Financiero. Se replica el mismo
+      // criterio aquí: si hay área comercial real (data.superficieVendibleComercial, calculada
+      // en analizando/page.tsx desde el mix de Arquitectura) y un precio de segmento comercial
+      // en Mercado, se cobra cada área a su propio precio — mismo tope de plausibilidad de
+      // banda que ya usa precioVentaM2Real arriba.
+      const superficieVendibleComercial = Math.min(Number(data.superficieVendibleComercial) || 0, superficieVendible)
+      const superficieVendibleHabitacional = superficieVendible - superficieVendibleComercial
+      let precioLocalesReal = precioVentaM2Real
+      if (superficieVendibleComercial > 0) {
+        const segmentoLocal = data.mercado?.segmentacion?.find((s: any) => /local|comercial/i.test(s.tipo))
+        if (segmentoLocal?.precioM2) {
+          const evaluacionLocal = evaluarPlausibilidadBanda(segmentoLocal.precioM2, data.bandaConstruccion)
+          precioLocalesReal = evaluacionLocal?.sospechosoPorBanda ? evaluacionLocal.precioVentaMaxPlausible : segmentoLocal.precioM2
+        }
+      }
+      const ingresosProyectadosReal = superficieVendibleComercial > 0
+        ? Math.round(superficieVendibleHabitacional * precioVentaM2Real + superficieVendibleComercial * precioLocalesReal)
+        : Math.round(superficieVendible * precioVentaM2Real)
       const descuentosReal = Math.round(ingresosProyectadosReal * DESCUENTOS_CANCELACIONES)
       const ingresosNetosReal = ingresosProyectadosReal - descuentosReal
       const comercializacionReal = Math.round(ingresosNetosReal * PORCENTAJE_COMERCIALIZACION)

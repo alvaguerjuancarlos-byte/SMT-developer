@@ -117,6 +117,26 @@ export interface MastermindOutputs {
   flujoProyecto: number[]
 }
 
+// ── Mastermind 1 (costos e ingresos) ────────────────────────────────────────
+// Subconjunto de MastermindInputs — sin tiempo/financiamiento/tirObjetivo, porque Mastermind 1
+// corre antes de que exista un plan financiero (justo después de Construcción en el pipeline).
+export interface MastermindCoreInputs {
+  terreno: TerrenoContext
+  proyecto: InputsProyecto
+  mercado: InputsMercado
+}
+
+export interface MastermindCoreOutputs {
+  ingresos: BloqueIngresos
+  // costos.financieros siempre 0 aquí — BloqueCostos completo (no Omit) para que
+  // calcularUtilidad/CostosGaugeCore no necesiten un tipo aparte.
+  costos: BloqueCostos
+  utilidad: BloqueUtilidad
+  costoPorM2Vendible: number
+  spreadVentaConstruccion: number | null
+  puntoEquilibrioUnidades: number
+}
+
 export interface IRRResult {
   tasaMensual: number | null
   tirAnual: number | null

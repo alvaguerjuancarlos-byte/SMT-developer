@@ -29,7 +29,7 @@ function evaluarRango(valor: number, min: number, max: number): { fuera: boolean
 // construcción calculado en $12,000/m² cuando la banda seleccionada (Económica) espera
 // $7,000–$10,500/m². No corrige nada: solo avisa, para no confundir "terreno caro porque
 // el mercado es caro" con "terreno caro por un error de captura o de cálculo".
-export function detectarAnomalias(inputs: MastermindInputs): AlertaAnomalia[] {
+export function detectarAnomalias(inputs: Pick<MastermindInputs, 'terreno' | 'proyecto'>): AlertaAnomalia[] {
   const alertas: AlertaAnomalia[] = []
 
   const bandaTerreno = inputs.terreno.bandaTerreno

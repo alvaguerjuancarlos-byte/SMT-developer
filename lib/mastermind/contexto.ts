@@ -8,7 +8,7 @@ import { BENCHMARKS_CONSTRUCCION_MXN_M2 } from './catalogo'
 import type { BenchmarkConstruccion, InputsFinanciamiento, InputsMercado, InputsProyecto, InputsTiempo, TerrenoContext, TipoProyecto } from './tipos'
 import { evaluarPlausibilidadBanda } from '@/lib/mercado/validarComparableVenta'
 
-export function extractTerrenoContext(d: AnalisisData | null | undefined): TerrenoContext {
+export function extractTerrenoContext(d: Partial<AnalisisData> | null | undefined): TerrenoContext {
   if (!d) {
     return { costoTerreno: 0, costoTerrenoM2: 0, superficieM2: 0 }
   }
@@ -45,7 +45,7 @@ function benchmarkMasCercano(costoPorM2Final: number): BenchmarkConstruccion {
 // una sola vez y se mezcla en el resultado de cualquier rama de extractProyectoContext.
 // Nota: comercialización y descuentos NO se calibran — se quedan fijos (decisión del usuario,
 // ver catalogo.ts), el análisis no modela esos rubros por separado.
-function calibrarPorcentajeIndirectos(d: AnalisisData | null | undefined): number | undefined {
+function calibrarPorcentajeIndirectos(d: Partial<AnalisisData> | null | undefined): number | undefined {
   const overheadReal = (d?.financiero?.indirectos ?? 0) + (d?.financiero?.honorarios ?? 0) + (d?.financiero?.imprevistos ?? 0)
   const costoConstruccionReal = d?.financiero?.costoTotalConstruccion ?? 0
   return costoConstruccionReal > 0 && overheadReal > 0
@@ -53,7 +53,7 @@ function calibrarPorcentajeIndirectos(d: AnalisisData | null | undefined): numbe
     : undefined
 }
 
-export function extractProyectoContext(d: AnalisisData | null | undefined): Partial<InputsProyecto> {
+export function extractProyectoContext(d: Partial<AnalisisData> | null | undefined): Partial<InputsProyecto> {
   const bc = d?.bitacoraConstruccion
   const tip = resolveBitacoraArquitectura(d)?.tipologiaPropuesta
   const out: Partial<InputsProyecto> = {}
@@ -135,7 +135,7 @@ export function extractProyectoContext(d: AnalisisData | null | undefined): Part
   return out
 }
 
-export function extractMercadoContext(d: AnalisisData | null | undefined): Partial<InputsMercado> {
+export function extractMercadoContext(d: Partial<AnalisisData> | null | undefined): Partial<InputsMercado> {
   if (!d) return {}
   const out: Partial<InputsMercado> = {}
 

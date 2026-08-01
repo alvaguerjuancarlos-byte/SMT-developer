@@ -107,10 +107,23 @@ export interface TipologiaPropuesta {
 // Fase 7 del refactor los retira de ahí. Usar siempre lib/analisis/bitacoraArquitectura.ts
 // (resolveBitacoraArquitectura) para leerlos en vez de acceder a cualquiera de los dos
 // campos directamente, así el fallback a datos viejos queda en un solo lugar.
+export interface ZonaArquitectura {
+  zona: string
+  concepto?: string
+  m2: number
+  participacion: string
+  cajonesEstimados?: number
+  m2PorCajon?: number
+}
+
 export interface BitacoraArquitectura {
+  cosEstimado?: string
+  cusEstimado?: string
   tipologiaPropuesta?: TipologiaPropuesta
   superficieConstruida?: number
   superficieVendible?: number
+  desgloseZonas?: ZonaArquitectura[]
+  areaLibreYVerde?: { m2: number; porcentajeLote: string; descripcion?: string }
   envolventeCalculada?: {
     areaMaxConstruible: number
     areaConstruida: { piso: number; base: number; techo: number }
