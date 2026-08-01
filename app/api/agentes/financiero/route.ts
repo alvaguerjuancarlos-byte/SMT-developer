@@ -1,6 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { NextRequest, NextResponse } from 'next/server'
-import { DESCUENTOS_CANCELACIONES, PORCENTAJE_COMERCIALIZACION } from '@/lib/mastermind/catalogo'
+import { DESCUENTOS_CANCELACIONES, PORCENTAJE_COMERCIALIZACION, RANGOS_HONORARIOS_POR_BANDA } from '@/lib/mastermind/catalogo'
 import { calcularFlujoFinanciero } from '@/lib/analisis/flujoFinanciero'
 import { validarIndirectos, escalarCostoPorMix } from '@/lib/analisis/validacionFinanciera'
 import { evaluarPlausibilidadBanda } from '@/lib/mercado/validarComparableVenta'
@@ -20,6 +20,13 @@ export async function POST(req: NextRequest) {
     'menos-5m': 'Menos de $5 MDP', '5-15m': '$5–$15 MDP', '15-50m': '$15–$50 MDP',
     '50-150m': '$50–$150 MDP', 'mas-150m': 'Más de $150 MDP', 'por-definir': 'Por definir',
   }
+
+  // Honorarios de proyecto (arquitecto, ingenierías, DRO) varían mucho más que indirectos según
+  // la complejidad/segmento — un desarrollo sencillo en banda popular solo necesita un diseño
+  // básico, uno complejo o de lujo suma especialistas (interiorismo, paisajismo, gerencia de
+  // proyecto). Mismo catálogo que usa Mastermind (lib/mastermind/catalogo.ts) para que el rango
+  // sugerido no diverja entre los dos motores. Default a banda 2 si no viene banda todavía.
+  const rangoHonorarios = RANGOS_HONORARIOS_POR_BANDA[Number(data.bandaConstruccion)] ?? RANGOS_HONORARIOS_POR_BANDA[2]
 
   // Approved values (possibly overridden by user)
   const costoTerrenoM2 = data.costoTerrenoM2
@@ -82,7 +89,7 @@ ${data.precioVentaObjetivo ? `- PRECIO DE VENTA OBJETIVO calibrado en Mastermind
 ${data.unidadesObjetivo ? `- NÚMERO DE UNIDADES calibrado en Mastermind 1 por el desarrollador: ${Number(data.unidadesObjetivo)} — úsalo EXACTAMENTE (en recomendacion.tipologia y en la narrativa), no lo recalcules dividiendo superficie vendible entre m² promedio. Ajusta el m² promedio implícito para que unidades × m² promedio siga aproximando la superficie vendible aprobada.` : ''}
 
 INSTRUCCIONES FINANCIERAS:
-1. Calcula indirectos (15–18% de costoTotalConstruccion), honorarios de proyecto (8–10%), imprevistos (5%). Desglosa cada uno por concepto (el desglose debe sumar aproximadamente el total del rubro, ±5%):
+1. Calcula indirectos (15–18% de costoTotalConstruccion), honorarios de proyecto (${rangoHonorarios.min}–${rangoHonorarios.max}% — el rango de tu banda de construcción, más alto cuanto más complejo/lujo sea el proyecto dentro de ese rango, no siempre el punto medio), imprevistos (5%). Ningún rubro puede quedar en 0 — todo proyecto real paga overhead. Desglosa cada uno por concepto (el desglose debe sumar aproximadamente el total del rubro, ±5%):
    - indirectosDesglose: supervisión de obra, permisos y licencias de construcción, estudios técnicos (mecánica de suelos, topografía), seguros de obra, administración de obra (caseta/luz/agua provisional/vigilancia), IMSS/INFONAVIT de nómina de construcción
    - honorariosDesglose: arquitecto (diseño arquitectónico), ingeniero estructural, ingenierías especiales (hidrosanitaria/eléctrica/aire acondicionado), Director Responsable de Obra (DRO), gerencia de proyecto (si aplica)
    - imprevistosDesglose: contingencia por incremento de materiales, ajustes de diseño en obra, condiciones de suelo no previstas, costos por retrasos, requerimientos municipales adicionales
@@ -322,17 +329,31 @@ REGLAS:
       }
       parsed.financiero.precioVentaM2 = precioVentaM2Real
 
-      const indirectosReal = Number(parsed.financiero.indirectos) || 0
-      const honorariosReal = Number(parsed.financiero.honorarios) || 0
-      const imprevistosReal = Number(parsed.financiero.imprevistos) || 0
+      let indirectosReal = Number(parsed.financiero.indirectos) || 0
+      let honorariosReal = Number(parsed.financiero.honorarios) || 0
+      let imprevistosReal = Number(parsed.financiero.imprevistos) || 0
 
-      // Indirectos/honorarios/imprevistos son montos que el modelo elige libremente (se le
-      // pide 15-18%/8-10%/5% de costoTotalConstruccion, ver prompt) — a diferencia de
-      // ingresosProyectados/inversionTotal, aquí no se recalculan (cambiar el dinero que
-      // "decidió" el modelo es más riesgoso que solo señalarlo), pero sí se anota si se salieron
-      // del rango esperado respecto al ancla real, para detectar si el modelo los calculó sobre
-      // una obra distinta a la aprobada.
-      parsed.financiero.validacionIndirectos = validarIndirectos(indirectosReal, honorariosReal, imprevistosReal, costoTotalConstruccion)
+      // Indirectos/honorarios/imprevistos son montos que el modelo elige libremente (se le pide
+      // 15-18%/rango de honorarios por banda/5% de costoTotalConstruccion, ver prompt) — a
+      // diferencia de ingresosProyectados/inversionTotal, aquí no se recalculan si el modelo
+      // eligió un valor razonable (cambiar el dinero que "decidió" es más riesgoso que solo
+      // señalarlo), solo se anota si se salió del rango esperado.
+      //
+      // Pero 0 nunca es una elección razonable — ningún proyecto real se construye sin overhead,
+      // así que un 0 no es "el modelo decidió un valor bajo", es el campo vacío/omitido o
+      // copiado del placeholder del schema del prompt (bug real reportado en producción:
+      // "Honorarios y diseño" en $0 en la propuesta final, sin ninguna señal de que algo falló).
+      // Para estos tres, y solo cuando vienen en 0, sí se reemplaza por el punto medio del rango
+      // que el propio prompt pidió — mismo criterio que ya usa el tope de banda de
+      // precioVentaM2Real arriba (corregir un valor imposible, no adivinar uno plausible).
+      if (indirectosReal <= 0) indirectosReal = Math.round(costoTotalConstruccion * 0.165)
+      if (honorariosReal <= 0) honorariosReal = Math.round(costoTotalConstruccion * ((rangoHonorarios.min + rangoHonorarios.max) / 2 / 100))
+      if (imprevistosReal <= 0) imprevistosReal = Math.round(costoTotalConstruccion * 0.05)
+      parsed.financiero.indirectos = indirectosReal
+      parsed.financiero.honorarios = honorariosReal
+      parsed.financiero.imprevistos = imprevistosReal
+
+      parsed.financiero.validacionIndirectos = validarIndirectos(indirectosReal, honorariosReal, imprevistosReal, costoTotalConstruccion, rangoHonorarios)
 
       // ingresosProyectados se queda como el ingreso BRUTO (mismo significado de siempre).
       // descuentos/comercializacion son costos reales que Mastermind ya cobraba desde el

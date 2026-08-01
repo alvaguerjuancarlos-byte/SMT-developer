@@ -41,15 +41,20 @@ function benchmarkMasCercano(costoPorM2Final: number): BenchmarkConstruccion {
 }
 
 // El Agente Financiero corre igual sin importar el modo de construcción (agente_propone o
-// usuario_define), así que la calibración de indirectos aplica a ambos por igual — se calcula
-// una sola vez y se mezcla en el resultado de cualquier rama de extractProyectoContext.
-// Nota: comercialización y descuentos NO se calibran — se quedan fijos (decisión del usuario,
-// ver catalogo.ts), el análisis no modela esos rubros por separado.
-function calibrarPorcentajeIndirectos(d: Partial<AnalisisData> | null | undefined): number | undefined {
-  const overheadReal = (d?.financiero?.indirectos ?? 0) + (d?.financiero?.honorarios ?? 0) + (d?.financiero?.imprevistos ?? 0)
-  const costoConstruccionReal = d?.financiero?.costoTotalConstruccion ?? 0
-  return costoConstruccionReal > 0 && overheadReal > 0
-    ? Math.round((overheadReal / costoConstruccionReal) * 1000) / 10
+// usuario_define), así que la calibración de indirectos/honorarios/imprevistos aplica a ambos
+// por igual — se calcula una sola vez cada uno y se mezcla en el resultado de cualquier rama de
+// extractProyectoContext. Nota: comercialización y descuentos NO se calibran — se quedan fijos
+// (decisión del usuario, ver catalogo.ts), el análisis no modela esos rubros por separado.
+//
+// Antes los 3 rubros se blendeaban en un solo % ("porcentajeIndirectos" agregado) porque
+// Mastermind no los modelaba por separado — eso escondía el bug real de que financiero.honorarios
+// podía venir en 0 (el Agente Financiero no lo recalcula/topa en código, confía en lo que
+// devuelve el LLM) sin que se notara: el % agregado seguía viéndose razonable. Ahora cada rubro
+// se calibra independiente para que Mastermind pueda ajustarlos por separado (ver
+// RANGOS_HONORARIOS_POR_BANDA en catalogo.ts) y para que un honorarios=0 real sea visible.
+function calibrarPorcentaje(monto: number | undefined, costoConstruccionReal: number): number | undefined {
+  return costoConstruccionReal > 0 && monto !== undefined && monto > 0
+    ? Math.round((monto / costoConstruccionReal) * 1000) / 10
     : undefined
 }
 
@@ -58,8 +63,13 @@ export function extractProyectoContext(d: Partial<AnalisisData> | null | undefin
   const tip = resolveBitacoraArquitectura(d)?.tipologiaPropuesta
   const out: Partial<InputsProyecto> = {}
 
-  const porcentajeIndirectos = calibrarPorcentajeIndirectos(d)
+  const costoConstruccionReal = d?.financiero?.costoTotalConstruccion ?? 0
+  const porcentajeIndirectos = calibrarPorcentaje(d?.financiero?.indirectos, costoConstruccionReal)
   if (porcentajeIndirectos !== undefined) out.porcentajeIndirectos = porcentajeIndirectos
+  const porcentajeHonorarios = calibrarPorcentaje(d?.financiero?.honorarios, costoConstruccionReal)
+  if (porcentajeHonorarios !== undefined) out.porcentajeHonorarios = porcentajeHonorarios
+  const porcentajeImprevistos = calibrarPorcentaje(d?.financiero?.imprevistos, costoConstruccionReal)
+  if (porcentajeImprevistos !== undefined) out.porcentajeImprevistos = porcentajeImprevistos
 
   // superficieConstruccionM2/costoPorM2Final son campos "base" de BitacoraConstruccion que
   // existen desde antes de que se agregara tipologiaPropuesta (el desglose de tipología es

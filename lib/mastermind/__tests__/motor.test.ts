@@ -17,6 +17,8 @@ const inputs: MastermindInputs = {
     m2ComercialesPlantaBaja: 0,
     benchmarkConstruccion: 'habitacional_medio',
     porcentajeIndirectos: 15,
+    porcentajeHonorarios: 10,
+    porcentajeImprevistos: 5,
   },
   mercado: {
     precioVentaDepasM2: 45_000,
@@ -61,14 +63,20 @@ describe('Bloque 2 — Costos', () => {
   it('indirectos = 15% del directo = 3,442,500', () => {
     expect(r.costos.indirectos).toBeCloseTo(22_950_000 * 0.15, 6)
   })
+  it('honorarios = 10% del directo = 2,295,000', () => {
+    expect(r.costos.honorarios).toBeCloseTo(22_950_000 * 0.10, 6)
+  })
+  it('imprevistos = 5% del directo = 1,147,500', () => {
+    expect(r.costos.imprevistos).toBeCloseTo(22_950_000 * 0.05, 6)
+  })
   it('comercialización = 3% del ingreso neto', () => {
     expect(r.costos.comercializacion).toBeCloseTo(44_460_000 * 0.03, 6)
   })
   it('financieros = 0 (sin % financiado)', () => {
     expect(r.costos.financieros).toBe(0)
   })
-  it('costo total = terreno + directo + indirectos + comercialización + financieros', () => {
-    const esperado = 4_000_000 + 22_950_000 + r.costos.indirectos + r.costos.comercializacion + 0
+  it('costo total = terreno + directo + indirectos + honorarios + imprevistos + comercialización + financieros', () => {
+    const esperado = 4_000_000 + 22_950_000 + r.costos.indirectos + r.costos.honorarios + r.costos.imprevistos + r.costos.comercializacion + 0
     expect(r.costos.costoTotal).toBeCloseTo(esperado, 6)
   })
 })
@@ -90,8 +98,8 @@ describe('Bloque 3 — Utilidad', () => {
 })
 
 describe('Bloque 4 — Retorno', () => {
-  it('punto de equilibrio = 12 unidades (11 da UAI negativo, 12 positivo)', () => {
-    expect(r.retorno.puntoEquilibrioUnidades).toBe(12)
+  it('punto de equilibrio = 13 unidades (12 da UAI negativo, 13 positivo)', () => {
+    expect(r.retorno.puntoEquilibrioUnidades).toBe(13)
   })
   it('inversión socios = inversión proyecto cuando % financiado = 0 (sin apalancamiento)', () => {
     expect(r.retorno.inversionSocios).toBeCloseTo(r.retorno.inversionProyecto, 6)
@@ -125,17 +133,18 @@ describe('Apalancamiento: % financiado mueve la TIR Socio pero no la TIR Proyect
   })
 })
 
-describe('Base financiable: la deuda cubre terreno + construcción + indirectos, no solo construcción', () => {
+describe('Base financiable: la deuda cubre terreno + construcción + indirectos + honorarios + imprevistos, no solo construcción', () => {
   // El análisis exige montoEquity + montoDeuda = inversionTotal — la deuda real se dimensiona
   // sobre todo lo anterior a financieros, no solo el costo directo de construcción. Este test
   // fija el valor exacto para detectar si alguien vuelve a angostar la base sin querer.
-  it('financieros e inversionSocios usan costoTerreno + costoDirectoConstruccion + indirectos como base', () => {
+  it('financieros e inversionSocios usan costoTerreno + costoDirectoConstruccion + indirectos + honorarios + imprevistos como base', () => {
     const apalancado = calcularMastermind({
       ...inputs,
       financiamiento: { porcentajeFinanciado: 50, tasaAnualCredito: 14 },
     })
-    // baseFinanciable = 4,000,000 (terreno) + 22,950,000 (directo) + 3,442,500 (indirectos 15%) = 30,392,500
-    const baseFinanciable = 4_000_000 + 22_950_000 + 3_442_500
+    // baseFinanciable = 4,000,000 (terreno) + 22,950,000 (directo) + 3,442,500 (indirectos 15%)
+    // + 2,295,000 (honorarios 10%) + 1,147,500 (imprevistos 5%) = 33,835,000
+    const baseFinanciable = 4_000_000 + 22_950_000 + 3_442_500 + 2_295_000 + 1_147_500
     const financierosEsperado = 0.5 * baseFinanciable * (0.14 / 12) * 18
     expect(apalancado.costos.financieros).toBeCloseTo(financierosEsperado, 2)
     // inversionSocios = 50% de la misma base (antes solo el terreno + indirectos quedaban
@@ -234,8 +243,8 @@ describe('calcularMastermindCore — Mastermind 1', () => {
     expect(core.costos.financieros).toBe(0)
   })
 
-  it('costoTotal = terreno + directo + indirectos + comercialización (sin financieros)', () => {
-    const esperado = 4_000_000 + 22_950_000 + core.costos.indirectos + core.costos.comercializacion
+  it('costoTotal = terreno + directo + indirectos + honorarios + imprevistos + comercialización (sin financieros)', () => {
+    const esperado = 4_000_000 + 22_950_000 + core.costos.indirectos + core.costos.honorarios + core.costos.imprevistos + core.costos.comercializacion
     expect(core.costos.costoTotal).toBeCloseTo(esperado, 6)
   })
 

@@ -46,8 +46,8 @@ export function calcularFlujoFinanciero(inputs: InputsFlujoFinanciero): Resultad
   } = inputs
 
   const porcentajeDeuda = 100 - porcentajeEquity
-  // Todo lo "financiable" aparte del terreno — construcción + los tres rubros de overhead
-  // que el análisis desglosa por separado (Mastermind los junta en un solo % de indirectos).
+  // Todo lo "financiable" aparte del terreno — construcción + los tres rubros de overhead,
+  // que tanto el análisis como Mastermind desglosan por separado (ver lib/mastermind/motor.ts).
   const costoObraTotal = costoTotalConstruccion + indirectos + honorarios + imprevistos
   const baseFinanciable = costoTerreno + costoObraTotal
   const montoEquity = (porcentajeEquity / 100) * baseFinanciable

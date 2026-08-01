@@ -31,11 +31,19 @@ export interface InputsProyecto {
   // superficieM2(terreno) × niveles — esa estimación asume 100% de cobertura del lote,
   // lo cual sobreestima muchísimo el costo si el edificio no ocupa todo el terreno.
   superficieConstruccionM2?: number
-  // % de indirectos sobre el costo directo de construcción (15 = 15%). Por default es el
-  // genérico del catálogo, pero se calibra con el dato real del análisis (indirectos +
-  // honorarios + imprevistos, todos % de costoTotalConstruccion en ese modelo) cuando está
+  // % de indirectos/honorarios/imprevistos sobre el costo directo de construcción (15 = 15%),
+  // cada uno editable por separado (igual granularidad que ya usa el Agente Financiero — ver
+  // app/api/agentes/financiero/route.ts). Por default son los genéricos del catálogo, pero se
+  // calibran con el dato real del análisis (cada rubro / costoTotalConstruccion) cuando está
   // disponible — ver lib/mastermind/contexto.ts.
   porcentajeIndirectos: number
+  // % de honorarios de proyecto (arquitecto, ingenierías, DRO) — varía mucho más que indirectos
+  // según la complejidad del proyecto: un desarrollo sencillo en banda popular necesita solo un
+  // diseño básico (7-9%), uno complejo o de lujo requiere múltiples especialistas (hasta 30%) —
+  // ver RANGOS_HONORARIOS_POR_BANDA en catalogo.ts.
+  porcentajeHonorarios: number
+  // % de imprevistos/contingencia — típicamente ~5%, también editable por proyecto.
+  porcentajeImprevistos: number
   // Banda de construcción (1-4) elegida en el análisis original — junto con
   // costoConstruccionRealM2, permite comparar el costo bottom-up real contra el rango de
   // mercado esperado de esa banda (ver RANGOS_BANDA_MXN_M2 y lib/mastermind/diagnostico.ts).
@@ -85,6 +93,8 @@ export interface BloqueCostos {
   costoTerreno: number
   costoDirectoConstruccion: number
   indirectos: number
+  honorarios: number
+  imprevistos: number
   comercializacion: number
   financieros: number
   costoTotal: number

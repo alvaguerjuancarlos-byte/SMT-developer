@@ -45,13 +45,14 @@ describe('extractProyectoContext — modo "usuario_define" (construcción intera
   })
 })
 
-describe('extractProyectoContext — calibración de porcentajeIndirectos desde financiero real', () => {
-  it('calcula el % combinado (indirectos + honorarios + imprevistos) / costoTotalConstruccion', () => {
+describe('extractProyectoContext — calibración de indirectos/honorarios/imprevistos desde financiero real', () => {
+  it('calcula cada % por separado (monto / costoTotalConstruccion), no un blend agregado', () => {
     const out = extractProyectoContext(fixture(undefined, {
       indirectos: 3_000_000, honorarios: 1_800_000, imprevistos: 1_200_000, costoTotalConstruccion: 24_000_000,
     }))
-    // (3,000,000 + 1,800,000 + 1,200,000) / 24,000,000 = 25%
-    expect(out.porcentajeIndirectos).toBe(25)
+    expect(out.porcentajeIndirectos).toBe(12.5)
+    expect(out.porcentajeHonorarios).toBe(7.5)
+    expect(out.porcentajeImprevistos).toBe(5)
   })
 
   it('aplica igual en modo usuario_define (junto con superficieConstruccionM2)', () => {
@@ -60,7 +61,9 @@ describe('extractProyectoContext — calibración de porcentajeIndirectos desde 
       { indirectos: 2_000_000, honorarios: 1_000_000, imprevistos: 500_000, costoTotalConstruccion: 20_000_000 },
     ))
     expect(out.superficieConstruccionM2).toBe(1000)
-    expect(out.porcentajeIndirectos).toBe(17.5)
+    expect(out.porcentajeIndirectos).toBe(10)
+    expect(out.porcentajeHonorarios).toBe(5)
+    expect(out.porcentajeImprevistos).toBe(2.5)
   })
 
   it('aplica igual en modo con tipologiaPropuesta (agente_propone)', () => {
@@ -69,12 +72,25 @@ describe('extractProyectoContext — calibración de porcentajeIndirectos desde 
       { indirectos: 1_800_000, honorarios: 1_200_000, imprevistos: 600_000, costoTotalConstruccion: 20_000_000 },
     ))
     expect(out.niveles).toBe(5)
-    expect(out.porcentajeIndirectos).toBe(18)
+    expect(out.porcentajeIndirectos).toBe(9)
+    expect(out.porcentajeHonorarios).toBe(6)
+    expect(out.porcentajeImprevistos).toBe(3)
   })
 
-  it('sin financiero (o costoTotalConstruccion/overhead en 0), no agrega porcentajeIndirectos — se queda en el default del catálogo', () => {
+  it('sin financiero (o costoTotalConstruccion en 0), no agrega ninguno de los 3 % — se queda en el default del catálogo', () => {
     const out = extractProyectoContext(fixture(undefined, { costoTotalConstruccion: 20_000_000 }))
     expect(out.porcentajeIndirectos).toBeUndefined()
+    expect(out.porcentajeHonorarios).toBeUndefined()
+    expect(out.porcentajeImprevistos).toBeUndefined()
+  })
+
+  it('honorarios=0 real (el bug que motivó este cambio) NO se calibra como 0% — se deja el default del catálogo en vez de arrastrar un honorarios roto', () => {
+    const out = extractProyectoContext(fixture(undefined, {
+      indirectos: 3_000_000, honorarios: 0, imprevistos: 1_200_000, costoTotalConstruccion: 24_000_000,
+    }))
+    expect(out.porcentajeIndirectos).toBe(12.5)
+    expect(out.porcentajeHonorarios).toBeUndefined()
+    expect(out.porcentajeImprevistos).toBe(5)
   })
 })
 

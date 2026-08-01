@@ -29,11 +29,33 @@ export const RANGOS_BANDA_MXN_M2: Record<number, { min: number; max: number; nom
 export const FACTOR_EFICIENCIA_CONSTRUCCION = 0.85 // m² construidos → m² vendibles equivalentes
 export const DESCUENTOS_CANCELACIONES = 0.05        // -5% sobre ingreso bruto
 export const PORCENTAJE_COMERCIALIZACION = 0.03      // 3% sobre ingreso neto
-// PORCENTAJE_INDIRECTOS ya no es una constante fija — es DEFAULTS.proyecto.porcentajeIndirectos,
-// editable por proyecto y calibrable desde el análisis real (ver lib/mastermind/contexto.ts).
-// Comercialización y descuentos sí se quedan fijos para todo proyecto — decisión explícita:
-// se tratan como costos reales de cualquier desarrollo, aunque el análisis original no los
-// haya modelado por separado (no siempre van a cuadrar centavo a centavo con el análisis).
+// PORCENTAJE_INDIRECTOS/HONORARIOS/IMPREVISTOS ya no son constantes fijas — son
+// DEFAULTS.proyecto.porcentaje{Indirectos,Honorarios,Imprevistos}, editables por proyecto y
+// calibrables desde el análisis real (ver lib/mastermind/contexto.ts). Comercialización y
+// descuentos sí se quedan fijos para todo proyecto — decisión explícita: se tratan como costos
+// reales de cualquier desarrollo, aunque el análisis original no los haya modelado por separado
+// (no siempre van a cuadrar centavo a centavo con el análisis).
+
+// ── Rango sugerido de % de honorarios de proyecto, por banda de construcción ────────────────
+// A diferencia de indirectos (administración de obra, permisos — escala ~linealmente con el
+// costo de construcción sin importar el segmento) y de imprevistos (contingencia, ~fija), los
+// honorarios de diseño SÍ varían mucho con la complejidad/segmento del proyecto: un desarrollo
+// sencillo en banda popular solo necesita un arquitecto y quizás un ingeniero estructural
+// (7-9%), mientras uno complejo o de lujo suma ingenierías especiales, DRO, gerencia de
+// proyecto, interiorismo, paisajismo, etc. (hasta 30%). Solo es un rango SUGERIDO para
+// prellenar/validar — el usuario lo puede ajustar libremente en Mastermind y el Agente
+// Financiero también decide dentro de este rango (ver app/api/agentes/financiero/route.ts).
+export const RANGOS_HONORARIOS_POR_BANDA: Record<number, { min: number; max: number }> = {
+  1: { min: 7, max: 9 },   // Popular / Económica
+  2: { min: 9, max: 13 },  // Media Estándar
+  3: { min: 13, max: 20 }, // Media Alta / Residencial
+  4: { min: 20, max: 30 }, // Premium / Lujo
+}
+
+// Punto medio del rango de la banda 2 (Media Estándar) — default genérico cuando no hay banda
+// conocida todavía (ej. Mastermind sin análisis previo cargado).
+export const PORCENTAJE_HONORARIOS_DEFAULT = 11
+export const PORCENTAJE_IMPREVISTOS_DEFAULT = 5
 
 // ── Defaults de inputs de usuario ────────────────────────────────────────────
 export const DEFAULTS: Omit<MastermindInputs, 'terreno'> = {
@@ -45,6 +67,8 @@ export const DEFAULTS: Omit<MastermindInputs, 'terreno'> = {
     m2ComercialesPlantaBaja: 0,
     benchmarkConstruccion: 'habitacional_medio',
     porcentajeIndirectos: 15,
+    porcentajeHonorarios: PORCENTAJE_HONORARIOS_DEFAULT,
+    porcentajeImprevistos: PORCENTAJE_IMPREVISTOS_DEFAULT,
   },
   mercado: {
     precioVentaDepasM2: 0,

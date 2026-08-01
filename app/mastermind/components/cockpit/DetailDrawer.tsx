@@ -118,9 +118,24 @@ export default function DetailDrawer({ leverId, origenAnalisis }: {
               onChange={v => setProyecto({ porcentajeIndirectos: v })}
             />
             <ReadOnlyRow label="Monto indirectos" value={fmt(outputs.costos.indirectos)} />
+            <Slider
+              label="% Honorarios"
+              value={inputs.proyecto.porcentajeHonorarios}
+              min={5} max={30} step={0.5} unit="%"
+              onChange={v => setProyecto({ porcentajeHonorarios: v })}
+            />
+            <ReadOnlyRow label="Monto honorarios" value={fmt(outputs.costos.honorarios)} />
+            <Slider
+              label="% Imprevistos"
+              value={inputs.proyecto.porcentajeImprevistos}
+              min={0} max={15} step={0.5} unit="%"
+              onChange={v => setProyecto({ porcentajeImprevistos: v })}
+            />
+            <ReadOnlyRow label="Monto imprevistos" value={fmt(outputs.costos.imprevistos)} />
             <ReadOnlyRow label="Comercialización (3%, fijo)" value={fmt(outputs.costos.comercializacion)} />
             <p className="col-span-2 text-[10px] text-white/25 -mt-1">
-              % Indirectos se calibra del análisis (indirectos + honorarios + imprevistos) cuando está disponible, si no usa 15% por default.
+              Los 3 % se calibran del análisis (cada rubro / costo de construcción) cuando está disponible, si no usan los defaults del catálogo.
+              Honorarios varía más por complejidad/segmento: banda popular ~7-9%, media ~9-13%, media alta ~13-20%, premium/lujo hasta 30%.
               Comercialización se queda fija en 3% del ingreso neto para todo proyecto — el análisis no la modela por separado.
             </p>
           </>

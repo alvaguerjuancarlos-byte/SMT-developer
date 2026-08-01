@@ -80,16 +80,20 @@ function MastermindContent() {
         descuentos: Math.round(outputs.ingresos.descuentos),
         ingresosNetos: Math.round(outputs.ingresos.ingresoNeto),
         comercializacion: Math.round(c.comercializacion),
-        // Mastermind usa un solo % agregado de indirectos (no separa honorarios/imprevistos
-        // como el Agente Financiero, ver lib/mastermind/motor.ts) — se dejan en 0 en vez de
-        // conservar los montos viejos, que ya no sumarían el nuevo indirectos correctamente.
+        // Indirectos/honorarios/imprevistos ahora son 3 rubros independientes en Mastermind
+        // (ver lib/mastermind/motor.ts) — antes se colapsaban en un solo % agregado de
+        // "indirectos" y este guardado ponía honorarios/imprevistos en 0 sin importar lo que
+        // el Agente Financiero hubiera calculado, arrastrando ese 0 hasta la propuesta final
+        // (bug real reportado en producción: "Honorarios y diseño" en $0 después de calibrar
+        // en Mastermind). Los desgloses por concepto sí se dejan undefined — ninguno se
+        // regenera aquí (sería otra llamada LLM), pero los montos totales ya son correctos.
         indirectos: Math.round(c.indirectos),
-        honorarios: 0,
-        imprevistos: 0,
+        honorarios: Math.round(c.honorarios),
+        imprevistos: Math.round(c.imprevistos),
         indirectosDesglose: undefined,
         honorariosDesglose: undefined,
         imprevistosDesglose: undefined,
-        inversionTotal: Math.round(c.costoTerreno + c.costoDirectoConstruccion + c.indirectos + c.comercializacion),
+        inversionTotal: Math.round(c.costoTerreno + c.costoDirectoConstruccion + c.indirectos + c.honorarios + c.imprevistos + c.comercializacion),
         utilidadBruta: Math.round(u.utilidadAntesImpuestos),
         margenBruto: u.margenBruto,
         tir: r.tirSocioAnual,

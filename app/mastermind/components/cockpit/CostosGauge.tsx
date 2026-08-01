@@ -24,7 +24,7 @@ export default function CostosGauge() {
   const filas: [string, number][] = [
     ['Terreno', c.costoTerreno],
     ['Construcción', c.costoDirectoConstruccion],
-    ['Administrativo', c.indirectos + c.comercializacion],
+    ['Administrativo', c.indirectos + c.honorarios + c.imprevistos + c.comercializacion],
     ['Financiero', c.financieros],
   ]
 

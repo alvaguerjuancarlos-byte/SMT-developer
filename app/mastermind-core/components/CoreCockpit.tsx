@@ -41,7 +41,7 @@ export default function CoreCockpit({ mixHabitacional, totalLocales }: { mixHabi
           <div className="flex gap-2">
             <Palanca label="Terreno" value={fmtCompact(c.costoTerreno)} pct={c.costoTotal > 0 ? (c.costoTerreno / c.costoTotal) * 100 : 0} active={leverActive === 'terreno'} onClick={() => toggle('terreno')} />
             <Palanca label="Construcción" value={fmtCompact(c.costoDirectoConstruccion)} pct={c.costoTotal > 0 ? (c.costoDirectoConstruccion / c.costoTotal) * 100 : 0} active={leverActive === 'construccion'} onClick={() => toggle('construccion')} />
-            <Palanca label="Administrativo" value={fmtCompact(c.indirectos + c.comercializacion)} pct={c.costoTotal > 0 ? ((c.indirectos + c.comercializacion) / c.costoTotal) * 100 : 0} active={leverActive === 'administrativo'} onClick={() => toggle('administrativo')} />
+            <Palanca label="Administrativo" value={fmtCompact(c.indirectos + c.honorarios + c.imprevistos + c.comercializacion)} pct={c.costoTotal > 0 ? ((c.indirectos + c.honorarios + c.imprevistos + c.comercializacion) / c.costoTotal) * 100 : 0} active={leverActive === 'administrativo'} onClick={() => toggle('administrativo')} />
           </div>
         </div>
 

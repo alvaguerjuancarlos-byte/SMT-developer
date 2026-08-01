@@ -65,12 +65,16 @@ export function calcularCostos(inputs: Pick<MastermindInputs, 'terreno' | 'proye
   const costoDirectoConstruccion = m2Construidos * benchmarkMxnM2
 
   const indirectos = costoDirectoConstruccion * (proyecto.porcentajeIndirectos / 100)
+  const honorarios = costoDirectoConstruccion * (proyecto.porcentajeHonorarios / 100)
+  const imprevistos = costoDirectoConstruccion * (proyecto.porcentajeImprevistos / 100)
 
   return {
     m2Construidos,
     costoTerreno: terreno.costoTerreno,
     costoDirectoConstruccion,
     indirectos,
+    honorarios,
+    imprevistos,
   }
 }
 
@@ -89,7 +93,7 @@ export function calcularPuntoEquilibrioUnidades(inputs: Pick<MastermindInputs, '
   const denom = proyecto.m2PromedioDepa * mercado.precioVentaDepasM2
   if (denom <= 0) return 0
 
-  const costoFijo = costos.costoTerreno + costos.costoDirectoConstruccion + costos.indirectos + costos.financieros
+  const costoFijo = costos.costoTerreno + costos.costoDirectoConstruccion + costos.indirectos + costos.honorarios + costos.imprevistos + costos.financieros
   const factorNeto = (1 - PORCENTAJE_COMERCIALIZACION) * (1 - DESCUENTOS_CANCELACIONES)
   const ingresoBrutoHabRequerido = costoFijo / factorNeto - ingresoBrutoComercial
 
@@ -105,10 +109,12 @@ export function calcularMastermind(inputs: MastermindInputs): MastermindOutputs 
   const flujo = calcularFlujoFinanciero({
     costoTerreno: costosBase.costoTerreno,
     costoTotalConstruccion: costosBase.costoDirectoConstruccion,
-    // Mastermind usa un solo % agregado de indirectos (no separa honorarios/imprevistos como
-    // el Agente Financiero) — pasarlo todo en "indirectos" y 0 en los otros dos es equivalente,
-    // calcularFlujoFinanciero solo usa la suma de los tres para la base financiable.
-    indirectos: costosBase.indirectos, honorarios: 0, imprevistos: 0,
+    // Indirectos/honorarios/imprevistos ahora son 3 rubros independientes en Mastermind (igual
+    // granularidad que ya usa el Agente Financiero) — antes se colapsaban en un solo % agregado
+    // de "indirectos", lo que hacía que guardarCambios (app/mastermind/page.tsx) sobrescribiera
+    // financiero.honorarios/imprevistos con 0 al volver del cockpit. calcularFlujoFinanciero solo
+    // usa la suma de los tres para la base financiable, así que separarlos no cambia el total.
+    indirectos: costosBase.indirectos, honorarios: costosBase.honorarios, imprevistos: costosBase.imprevistos,
     ingresosNetos: ingresos.ingresoNeto,
     comercializacion: ingresos.ingresoNeto * PORCENTAJE_COMERCIALIZACION,
     plazoObraMeses: tiempo.plazoObraMeses, plazoVentaMeses: tiempo.plazoVentaMeses, inicioVentasMes: tiempo.inicioVentasMes,
@@ -121,7 +127,7 @@ export function calcularMastermind(inputs: MastermindInputs): MastermindOutputs 
     ...costosBase,
     comercializacion,
     financieros: flujo.costoFinanciero,
-    costoTotal: costosBase.costoTerreno + costosBase.costoDirectoConstruccion + costosBase.indirectos + comercializacion + flujo.costoFinanciero,
+    costoTotal: costosBase.costoTerreno + costosBase.costoDirectoConstruccion + costosBase.indirectos + costosBase.honorarios + costosBase.imprevistos + comercializacion + flujo.costoFinanciero,
   }
 
   const utilidad = calcularUtilidad(ingresos, costos)
@@ -156,7 +162,7 @@ export function calcularMastermindCore(inputs: MastermindCoreInputs): Mastermind
   const costosBase = calcularCostos(inputs)
 
   const comercializacion = ingresos.ingresoNeto * PORCENTAJE_COMERCIALIZACION
-  const costoTotal = costosBase.costoTerreno + costosBase.costoDirectoConstruccion + costosBase.indirectos + comercializacion
+  const costoTotal = costosBase.costoTerreno + costosBase.costoDirectoConstruccion + costosBase.indirectos + costosBase.honorarios + costosBase.imprevistos + comercializacion
   // financieros se deja en 0 (no 'undefined') para que costos siga siendo un BloqueCostos válido
   // — así CostosGaugeCore/calcularUtilidad no necesitan un tipo distinto al de Mastermind 2.
   const costos: BloqueCostos = { ...costosBase, comercializacion, financieros: 0, costoTotal }

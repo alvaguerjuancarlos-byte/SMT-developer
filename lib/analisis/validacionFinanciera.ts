@@ -18,7 +18,11 @@ export interface ResultadoValidacionIndirectos {
 }
 
 const RANGO_INDIRECTOS = { min: 15, max: 18 }
-const RANGO_HONORARIOS = { min: 8, max: 10 }
+// Rango default de honorarios si el caller no pasa uno específico por banda — banda 2 (Media
+// Estándar) de RANGOS_HONORARIOS_POR_BANDA en lib/mastermind/catalogo.ts. El Agente Financiero
+// (app/api/agentes/financiero/route.ts) sí pasa el rango real de la banda del proyecto — este
+// default solo aplica a callers que todavía no distinguen banda.
+const RANGO_HONORARIOS_DEFAULT = { min: 8, max: 10 }
 const IMPREVISTOS_OBJETIVO = 5
 const IMPREVISTOS_TOLERANCIA = 1.5
 
@@ -27,6 +31,7 @@ export function validarIndirectos(
   honorarios: number,
   imprevistos: number,
   costoTotalConstruccion: number,
+  rangoHonorarios: { min: number; max: number } = RANGO_HONORARIOS_DEFAULT,
 ): ResultadoValidacionIndirectos {
   const pct = (monto: number) => costoTotalConstruccion !== 0 ? redondear1((monto / costoTotalConstruccion) * 100) : 0
 
@@ -39,7 +44,7 @@ export function validarIndirectos(
     honorariosPct,
     imprevistosPct,
     indirectosFueraDeRango: indirectosPct < RANGO_INDIRECTOS.min || indirectosPct > RANGO_INDIRECTOS.max,
-    honorariosFueraDeRango: honorariosPct < RANGO_HONORARIOS.min || honorariosPct > RANGO_HONORARIOS.max,
+    honorariosFueraDeRango: honorariosPct < rangoHonorarios.min || honorariosPct > rangoHonorarios.max,
     imprevistosFueraDeRango: Math.abs(imprevistosPct - IMPREVISTOS_OBJETIVO) > IMPREVISTOS_TOLERANCIA,
   }
 }
