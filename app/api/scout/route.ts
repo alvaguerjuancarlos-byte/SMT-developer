@@ -28,7 +28,19 @@ export async function POST(req: NextRequest) {
     riesgo: 'Menor riesgo', plusvalia: 'Zona con plusvalía',
   }
 
-  const zonaGeo = data.zonaGeo as { lat: number; lng: number; nombre: string; municipio: string } | null
+  interface ZonaGeoIn { cp?: string; lat: number; lng: number; nombre: string; municipio: string }
+  const zonasGeo: ZonaGeoIn[] = Array.isArray(data.zonasGeo) && data.zonasGeo.length > 0
+    ? data.zonasGeo
+    : (data.zonaGeo ? [data.zonaGeo] : [])
+
+  const listaZonas = (indent: string) =>
+    zonasGeo.map((z, i) => `${indent}${i + 1}. ${z.nombre}${z.cp ? ` (CP ${z.cp})` : ''} — lat ${z.lat}, lng ${z.lng}`).join('\n')
+
+  const zonasGeoTexto = zonasGeo.length === 0
+    ? ''
+    : zonasGeo.length === 1
+      ? `- Coordenadas GPS verificadas: lat ${zonasGeo[0].lat}, lng ${zonasGeo[0].lng} — CRÍTICO: los 3 candidatos deben estar dentro de un radio de 1.5 km de este punto`
+      : `- Zonas candidatas verificadas por GPS (${zonasGeo.length}) — CRÍTICO: cada candidato debe estar dentro de un radio de 1.5 km de AL MENOS UNA de estas zonas. Evalúa las ${zonasGeo.length} zonas en conjunto y elige entre todas ellas los 3 mejores candidatos — no es necesario un candidato por zona, pueden concentrarse en la(s) zona(s) más fuerte(s):\n${listaZonas('  ')}`
 
   const prompt = `Eres el Agente Scout de SMT Developer, especialista en prospección de terrenos en el mercado inmobiliario mexicano.
 
@@ -37,7 +49,7 @@ El cliente busca un terreno con los siguientes criterios:
 - Estado: ${data.estado || 'No especificado'}
 - Ciudad / Municipio: ${data.ciudad}
 - Zona/colonia requerida: ${data.zona ? `OBLIGATORIO — los 3 candidatos deben estar dentro de "${data.zona}", ${data.ciudad}, ${data.estado}` : 'Sin restricción de zona (explorar toda la ciudad)'}
-${zonaGeo ? `- Coordenadas GPS verificadas: lat ${zonaGeo.lat}, lng ${zonaGeo.lng} — CRÍTICO: los 3 candidatos deben estar dentro de un radio de 1.5 km de este punto` : ''}
+${zonasGeoTexto}
 - Tipo de desarrollo: ${data.tipoDev === 'otro' ? (data.tipoOtroTexto || 'Otro') : (tipoDev[data.tipoDev] || data.tipoDev)}
 - Superficie requerida: ${superficie[data.superficie] || data.superficie}
 - Presupuesto de adquisición: ${presupuesto[data.presupuesto] || data.presupuesto}
@@ -313,10 +325,14 @@ Genera 3 candidatos de terreno reales y distintos${data.zona ? ` DENTRO de la zo
 }
 
 REGLAS:
-${zonaGeo ? `- CRÍTICO: los 3 candidatos deben estar dentro de un radio MÁXIMO de 1.5 km del punto GPS (lat: ${zonaGeo.lat}, lng: ${zonaGeo.lng}) — zona "${data.zona || zonaGeo.nombre}", ${data.ciudad}` : data.zona ? `- CRÍTICO: los 3 candidatos deben estar físicamente ubicados dentro de "${data.zona}", ${data.ciudad} — NO en otras colonias o municipios` : `- Los 3 candidatos deben estar dentro de ${data.ciudad}`}
+${zonasGeo.length === 1
+  ? `- CRÍTICO: los 3 candidatos deben estar dentro de un radio MÁXIMO de 1.5 km del punto GPS (lat: ${zonasGeo[0].lat}, lng: ${zonasGeo[0].lng}) — zona "${data.zona || zonasGeo[0].nombre}", ${data.ciudad}`
+  : zonasGeo.length > 1
+    ? `- CRÍTICO: cada candidato debe estar dentro de un radio MÁXIMO de 1.5 km de AL MENOS UNA de estas ${zonasGeo.length} zonas GPS verificadas — elige entre todas las zonas los 3 mejores candidatos en conjunto (no es obligatorio un candidato por zona):\n${listaZonas('  ')}`
+    : data.zona ? `- CRÍTICO: los 3 candidatos deben estar físicamente ubicados dentro de "${data.zona}", ${data.ciudad} — NO en otras colonias o municipios` : `- Los 3 candidatos deben estar dentro de ${data.ciudad}`}
 - Los candidatos deben tener características distintas entre sí (precio, superficie, perfil de mercado)
 - mercadoColor: candidato 1 = "green", candidato 2 = "blue", candidato 3 = "purple"
-- lat/lng deben ser coordenadas GPS reales y precisas ${zonaGeo ? `dentro de 1.5 km de (${zonaGeo.lat}, ${zonaGeo.lng})` : data.zona ? `dentro de "${data.zona}"` : `dentro de ${data.ciudad}`}
+- lat/lng deben ser coordenadas GPS reales y precisas ${zonasGeo.length === 1 ? `dentro de 1.5 km de (${zonasGeo[0].lat}, ${zonasGeo[0].lng})` : zonasGeo.length > 1 ? `dentro de 1.5 km de alguna de las zonas GPS verificadas listadas arriba` : data.zona ? `dentro de "${data.zona}"` : `dentro de ${data.ciudad}`}
 - score: 0-100, el candidato con recomendado=true debe tener el mayor score
 - tir: TIR anual estimada realista según tipo de desarrollo, superficie y precio
 - pros: exactamente 3 fortalezas concretas y específicas por candidato

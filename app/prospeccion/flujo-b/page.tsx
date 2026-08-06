@@ -89,6 +89,7 @@ const PRIORIDADES = [
 ]
 
 interface ZonaGeo {
+  cp: string
   lat: number
   lng: number
   nombre: string
@@ -96,14 +97,14 @@ interface ZonaGeo {
   estado?: string
 }
 
+const MAX_CODIGOS_POSTALES = 3
+
 interface FormData {
   nombreProyecto: string
   estado: string
   ciudad: string
   zona: string
-  codigoPostal: string
-  zonaGeo: ZonaGeo | null
-  zonaConfirmada: boolean
+  zonasGeo: ZonaGeo[]
   tipoDev: string
   tipoOtroTexto: string
   superficie: string
@@ -117,9 +118,7 @@ const INITIAL: FormData = {
   estado: '',
   ciudad: '',
   zona: '',
-  codigoPostal: '',
-  zonaGeo: null,
-  zonaConfirmada: false,
+  zonasGeo: [],
   tipoDev: '',
   tipoOtroTexto: '',
   superficie: '',
@@ -195,12 +194,17 @@ function Step1({ data, setData }: { data: FormData; setData: (d: FormData) => vo
 }
 
 function Step2({ data, setData }: { data: FormData; setData: (d: FormData) => void }) {
-  const [subStep, setSubStep] = useState<1 | 2 | 3>(1)
+  const [subStep, setSubStep] = useState<1 | 2>(1)
   const [cpInput, setCpInput] = useState('')
   const [verifying, setVerifying] = useState(false)
   const [verifyError, setVerifyError] = useState('')
+  const [preview, setPreview] = useState<ZonaGeo | null>(null)
 
   const geocodeCP = async (cp: string) => {
+    if (data.zonasGeo.some(z => z.cp === cp)) {
+      setVerifyError('Ese código postal ya lo agregaste.')
+      return
+    }
     setVerifying(true)
     setVerifyError('')
     try {
@@ -211,22 +215,14 @@ function Step2({ data, setData }: { data: FormData; setData: (d: FormData) => vo
         setVerifyError('No se encontró ese código postal en México. Verifica e intenta de nuevo.')
         return
       }
-      const zonaGeo: ZonaGeo = {
+      setPreview({
+        cp,
         lat: json.lat,
         lng: json.lng,
         nombre: json.colonia || data.zona || json.municipio,
         municipio: json.municipio || data.ciudad,
         estado: json.estado,
-      }
-      setData({
-        ...data,
-        codigoPostal: cp,
-        zonaGeo,
-        zonaConfirmada: false,
-        ciudad: data.ciudad || json.municipio,
-        estado: data.estado || json.estado,
       })
-      setSubStep(3)
     } catch {
       setVerifyError('Error de conexión. Verifica tu red e intenta de nuevo.')
     } finally {
@@ -241,9 +237,27 @@ function Step2({ data, setData }: { data: FormData; setData: (d: FormData) => vo
     if (val.length === 5) geocodeCP(val)
   }
 
-  const mapSrc = data.zonaGeo
-    ? `https://www.openstreetmap.org/export/embed.html?bbox=${data.zonaGeo.lng - 0.012},${data.zonaGeo.lat - 0.008},${data.zonaGeo.lng + 0.012},${data.zonaGeo.lat + 0.008}&layer=mapnik&marker=${data.zonaGeo.lat},${data.zonaGeo.lng}`
-    : null
+  const confirmAdd = () => {
+    if (!preview) return
+    setData({
+      ...data,
+      zonasGeo: [...data.zonasGeo, preview],
+      ciudad: data.ciudad || preview.municipio,
+      estado: data.estado || preview.estado || data.estado,
+    })
+    setPreview(null)
+    setCpInput('')
+  }
+
+  const cancelPreview = () => {
+    setPreview(null)
+    setCpInput('')
+    setVerifyError('')
+  }
+
+  const removeZona = (cp: string) => {
+    setData({ ...data, zonasGeo: data.zonasGeo.filter(z => z.cp !== cp) })
+  }
 
   /* ── SUB-PASO 1: zona y ciudad ── */
   if (subStep === 1) {
@@ -314,25 +328,80 @@ function Step2({ data, setData }: { data: FormData; setData: (d: FormData) => vo
     )
   }
 
-  /* ── SUB-PASO 2: ingresar código postal ── */
-  if (subStep === 2) {
-    return (
-      <div>
-        <p className="text-[12px] font-semibold text-[#1D9E75] tracking-[0.12em] uppercase mb-2">Scout IA · Flujo B</p>
-        <h2 className="text-[24px] font-semibold text-[#111d17] mb-2">Confirma con el código postal</h2>
-        <p className="text-[14px] text-[#5a7065] mb-2">
-          El código postal permite al Scout usar coordenadas GPS exactas para la búsqueda.
-        </p>
+  /* ── SUB-PASO 2: agregar hasta 3 códigos postales ── */
+  const puedeAgregarMas = data.zonasGeo.length < MAX_CODIGOS_POSTALES
+  return (
+    <div>
+      <p className="text-[12px] font-semibold text-[#1D9E75] tracking-[0.12em] uppercase mb-2">Scout IA · Flujo B</p>
+      <h2 className="text-[24px] font-semibold text-[#111d17] mb-2">Códigos postales a buscar</h2>
+      <p className="text-[14px] text-[#5a7065] mb-2">
+        El código postal permite al Scout usar coordenadas GPS exactas para la búsqueda. Puedes agregar hasta {MAX_CODIGOS_POSTALES} para ampliar el área.
+      </p>
 
-        {/* Resumen de lo elegido */}
-        <div className="flex items-center gap-2 mb-6">
-          <button onClick={() => setSubStep(1)} className="text-[11px] text-[#5a9078] hover:text-[#0F6E56] underline underline-offset-2">
-            ← {data.estado && `${data.estado} · `}{data.ciudad}{data.zona ? ` · ${data.zona}` : ''}
-          </button>
+      {/* Resumen de lo elegido */}
+      <div className="flex items-center gap-2 mb-6">
+        <button onClick={() => setSubStep(1)} className="text-[11px] text-[#5a9078] hover:text-[#0F6E56] underline underline-offset-2">
+          ← {data.estado && `${data.estado} · `}{data.ciudad}{data.zona ? ` · ${data.zona}` : ''}
+        </button>
+      </div>
+
+      {/* Chips de zonas ya confirmadas */}
+      {data.zonasGeo.length > 0 && (
+        <div className="flex flex-wrap gap-2 mb-5">
+          {data.zonasGeo.map(z => (
+            <div key={z.cp} className="flex items-center gap-2 bg-[#E1F5EE] border border-[#9FE1CB] rounded-full pl-3 pr-2 py-1.5">
+              <span className="text-[12px] font-semibold text-[#0F6E56]">CP {z.cp}</span>
+              <span className="text-[11px] text-[#5a9078]">· {z.nombre}</span>
+              <button
+                onClick={() => removeZona(z.cp)}
+                className="text-[#5a9078] hover:text-red-500 ml-1"
+                aria-label={`Quitar CP ${z.cp}`}
+              >
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                  <path d="M2 2L10 10M10 2L2 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                </svg>
+              </button>
+            </div>
+          ))}
         </div>
+      )}
 
-        <div className="mb-6">
-          <label className="block text-[12px] text-[#5a7065] mb-2">Código postal</label>
+      {/* Preview del CP recién geocodificado, pendiente de confirmar */}
+      {preview && (
+        <div className="rounded-xl border border-[#E2E8E4] bg-[#FAFBF9] px-4 py-3 mb-5">
+          <div className="rounded-2xl overflow-hidden border border-[#E2E8E4] mb-3" style={{ height: 160 }}>
+            <iframe
+              src={`https://www.openstreetmap.org/export/embed.html?bbox=${preview.lng - 0.012},${preview.lat - 0.008},${preview.lng + 0.012},${preview.lat + 0.008}&layer=mapnik&marker=${preview.lat},${preview.lng}`}
+              className="w-full h-full border-0"
+              loading="lazy"
+              title="Mapa de la zona"
+            />
+          </div>
+          <p className="text-[13px] font-semibold text-[#111d17]">CP {preview.cp} · {preview.nombre}</p>
+          <p className="text-[10px] text-[#9aab9f] font-mono mb-3">{preview.lat.toFixed(5)}, {preview.lng.toFixed(5)}</p>
+          <div className="flex gap-2">
+            <button
+              onClick={confirmAdd}
+              className="flex-1 bg-[#1D9E75] text-white rounded-xl py-2.5 text-[13px] font-semibold hover:bg-[#0F6E56] transition-colors"
+            >
+              Agregar esta zona
+            </button>
+            <button
+              onClick={cancelPreview}
+              className="px-4 border border-[#E2E8E4] text-[#5a7065] rounded-xl py-2.5 text-[13px] hover:border-[#9FE1CB] transition-colors"
+            >
+              Cambiar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Input para agregar un nuevo CP */}
+      {!preview && puedeAgregarMas && (
+        <div className="mb-2">
+          <label className="block text-[12px] text-[#5a7065] mb-2">
+            {data.zonasGeo.length === 0 ? 'Código postal' : `Agregar otro código postal (${data.zonasGeo.length}/${MAX_CODIGOS_POSTALES})`}
+          </label>
           <div className="relative">
             <input
               type="text"
@@ -360,78 +429,18 @@ function Step2({ data, setData }: { data: FormData; setData: (d: FormData) => vo
           {verifyError && <p className="text-[11px] text-red-500 mt-2">{verifyError}</p>}
           {verifying && <p className="text-[11px] text-[#1D9E75] mt-2">Buscando en Google Maps…</p>}
           {!verifyError && !verifying && (
-            <p className="text-[11px] text-[#9aab9f] mt-2">Al completar 5 dígitos verificamos automáticamente y mostramos el mapa.</p>
+            <p className="text-[11px] text-[#9aab9f] mt-2">
+              {data.zonasGeo.length === 0
+                ? 'Al completar 5 dígitos verificamos automáticamente y mostramos el mapa.'
+                : `Opcional — puedes agregar hasta ${MAX_CODIGOS_POSTALES} códigos postales para ampliar la búsqueda.`}
+            </p>
           )}
-        </div>
-      </div>
-    )
-  }
-
-  /* ── SUB-PASO 3: confirmar en el mapa ── */
-  return (
-    <div>
-      <p className="text-[12px] font-semibold text-[#1D9E75] tracking-[0.12em] uppercase mb-2">Scout IA · Flujo B</p>
-      <h2 className="text-[24px] font-semibold text-[#111d17] mb-2">Confirma en el mapa</h2>
-      <p className="text-[14px] text-[#5a7065] mb-4">
-        Verifica que el pin esté en la zona correcta. El Scout buscará terrenos en este radio.
-      </p>
-
-      {/* Mapa OpenStreetMap */}
-      <div className="rounded-2xl overflow-hidden border border-[#E2E8E4] mb-4 relative" style={{ height: 210 }}>
-        <iframe
-          src={mapSrc!}
-          className="w-full h-full border-0"
-          loading="lazy"
-          title="Mapa de la zona"
-        />
-        <div className="absolute top-3 left-3 bg-white/90 backdrop-blur-sm rounded-lg px-3 py-1.5 shadow-sm pointer-events-none">
-          <p className="text-[11px] font-bold text-[#111d17]">CP {data.codigoPostal}</p>
-          <p className="text-[10px] text-[#5a7065]">{data.zonaGeo?.nombre}</p>
-        </div>
-      </div>
-
-      {/* Info */}
-      {data.zonaGeo && (
-        <div className="rounded-xl border border-[#E2E8E4] bg-[#FAFBF9] px-4 py-3 mb-5">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              {(data.estado || data.zonaGeo.estado) && (
-                <p className="text-[10px] font-semibold text-[#1D9E75] uppercase tracking-wide mb-1">
-                  {data.estado || data.zonaGeo.estado}
-                </p>
-              )}
-              <p className="text-[13px] font-semibold text-[#111d17]">
-                {data.ciudad || data.zonaGeo.municipio}
-                {(data.zona || data.zonaGeo.nombre) && (data.zona || data.zonaGeo.nombre) !== (data.ciudad || data.zonaGeo.municipio)
-                  ? ` · ${data.zona || data.zonaGeo.nombre}`
-                  : ''}
-              </p>
-              <p className="text-[10px] text-[#9aab9f] font-mono mt-1">
-                {data.zonaGeo.lat.toFixed(5)}, {data.zonaGeo.lng.toFixed(5)}
-              </p>
-            </div>
-            <button
-              onClick={() => { setCpInput(''); setSubStep(2); setData({ ...data, codigoPostal: '', zonaGeo: null, zonaConfirmada: false }) }}
-              className="text-[11px] text-[#5a9078] hover:text-[#0F6E56] underline underline-offset-2 shrink-0"
-            >
-              Cambiar CP
-            </button>
-          </div>
         </div>
       )}
 
-      <button
-        onClick={() => setData({ ...data, zonaConfirmada: true })}
-        className="w-full bg-[#1D9E75] text-white rounded-xl py-3.5 text-[14px] font-semibold hover:bg-[#0F6E56] transition-colors mb-3"
-      >
-        Sí, buscar terrenos aquí
-      </button>
-      <button
-        onClick={() => { setSubStep(1); setData({ ...data, codigoPostal: '', zonaGeo: null, zonaConfirmada: false }); setCpInput('') }}
-        className="w-full border border-[#E2E8E4] text-[#5a7065] rounded-xl py-3 text-[13px] hover:border-[#9FE1CB] hover:text-[#111d17] transition-colors"
-      >
-        Cambiar zona
-      </button>
+      {!puedeAgregarMas && (
+        <p className="text-[11px] text-[#9aab9f] mt-2">Máximo de {MAX_CODIGOS_POSTALES} códigos postales alcanzado.</p>
+      )}
     </div>
   )
 }
@@ -608,10 +617,14 @@ function Step6({ data }: { data: FormData }) {
             {data.estado && <p className="text-[10px] font-semibold text-[#1D9E75] mb-0.5">{data.estado}</p>}
             <p className="text-[13px] font-semibold text-[#111d17]">{data.ciudad || '—'}</p>
             {data.zona && <p className="text-[11px] text-[#5a7065] mt-0.5">{data.zona}</p>}
-            {data.codigoPostal && (
-              <p className="text-[10px] mt-1 font-medium text-[#1D9E75]">
-                CP {data.codigoPostal}{data.zonaConfirmada ? ' · GPS confirmado' : ''}
-              </p>
+            {data.zonasGeo.length > 0 && (
+              <div className="flex flex-wrap gap-1 mt-1">
+                {data.zonasGeo.map(z => (
+                  <span key={z.cp} className="text-[10px] font-medium text-[#1D9E75] bg-[#E1F5EE] px-1.5 py-0.5 rounded">
+                    CP {z.cp}
+                  </span>
+                ))}
+              </div>
             )}
           </div>
           <div className="bg-white rounded-xl p-3 border border-[#D4EFE3]">
@@ -664,7 +677,7 @@ export default function FlujoB() {
 
   const canAdvance = () => {
     if (step === 1) return data.nombreProyecto.trim() !== ''
-    if (step === 2) return data.zonaConfirmada && data.ciudad !== ''
+    if (step === 2) return data.zonasGeo.length > 0 && data.ciudad !== ''
     if (step === 3) {
       const otroOk = data.tipoDev !== 'otro' || data.tipoOtroTexto.trim() !== ''
       return data.tipoDev !== '' && otroOk
