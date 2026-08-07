@@ -1,7 +1,11 @@
 'use client'
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
+import { useRouter, usePathname } from 'next/navigation'
+import type { Session } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
+
+const PUBLIC_ROUTES = ['/login', '/registro']
 
 export type TerrainData = {
   nombre: string
@@ -80,19 +84,29 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1)
   const [terrain, setTerrain] = useState<TerrainData>(defaultTerrain)
   const [prospectionSaved, setProspectionSaved] = useState(false)
+  const [session, setSession] = useState<Session | null | undefined>(undefined) // undefined = todavía no se sabe
+  const router = useRouter()
+  const pathname = usePathname()
 
+  // Se suscribe UNA sola vez durante toda la vida del provider — separado del
+  // efecto de abajo para no re-suscribirse cada vez que cambia la ruta (eso
+  // causaba un ciclo: onAuthStateChange dispara su evento inicial en cuanto
+  // te suscribes, y al re-suscribirte en cada pathname distinto se disparaban
+  // redirects en cascada).
   useEffect(() => {
-    const ensureAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) {
-        await supabase.auth.signInWithPassword({
-          email: 'jcalvarez@mindbridge.com.mx',
-          password: 'JCAGxy1960',
-        })
-      }
-    }
-    ensureAuth()
+    supabase.auth.getSession().then(({ data }) => setSession(data.session))
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => setSession(s))
+    return () => sub.subscription.unsubscribe()
   }, [])
+
+  // Decide si redirigir — pura función de sesión + ruta actual, sin volver a suscribirse a nada.
+  useEffect(() => {
+    if (session === undefined) return // todavía cargando la sesión inicial
+    const isPublic = PUBLIC_ROUTES.includes(pathname)
+    if (!session && !isPublic) {
+      router.replace('/login')
+    }
+  }, [session, pathname, router])
 
   return (
     <AppContext.Provider value={{ currentStep, setCurrentStep, terrain, setTerrain, prospectionSaved, setProspectionSaved }}>

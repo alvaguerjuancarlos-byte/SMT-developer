@@ -29,46 +29,49 @@ export default function RegistroPage() {
 
     setLoading(true)
 
-    const { data, error: signUpError } = await supabase.auth.signUp({ email, password })
+    const res = await fetch('/api/auth/registro', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nombre, empresa, email, password }),
+    })
+    const body = await res.json()
 
-    if (signUpError) {
-      setError(signUpError.message === 'User already registered'
-        ? 'Este correo ya está registrado. Inicia sesión.'
-        : signUpError.message)
+    if (!res.ok) {
+      setError(body.error || 'No se pudo crear la cuenta.')
       setLoading(false)
       return
     }
 
-    if (data.user) {
-      await supabase.from('usuarios').insert({
-        id:     data.user.id,
-        nombre,
-        empresa,
-        email,
-      })
+    // La cuenta se creó en el servidor (con confirmación de correo ya resuelta) —
+    // ahora sí iniciamos sesión desde el cliente para obtener una sesión real.
+    const { data, error: signInError } = await supabase.auth.signInWithPassword({ email, password })
+    if (signInError || !data.user) {
+      setError('Cuenta creada, pero no se pudo iniciar sesión automáticamente. Intenta iniciar sesión.')
+      setLoading(false)
+      return
+    }
 
-      const pendingRaw = localStorage.getItem('smt_pending_save')
-      if (pendingRaw) {
-        try {
-          const pending = JSON.parse(pendingRaw)
-          const dataKey = pending.flujo === 'B' ? 'smt_scout_data' : 'smt_analisis_data'
-          const datosRaw = localStorage.getItem(dataKey)
-          if (datosRaw) {
-            const datos = JSON.parse(datosRaw)
-            await supabase.from('proyectos').insert({
-              usuario_id: data.user.id,
-              nombre: pending.nombre,
-              datos,
-              flujo: pending.flujo,
-              status: 'analisis',
-            })
-          }
-          localStorage.removeItem('smt_pending_save')
-          const path = pending.flujo === 'B' ? '/analisis/flujo-b' : '/analisis'
-          router.push(`${path}?proyecto=${encodeURIComponent(pending.nombre)}`)
-          return
-        } catch { /* si falla, ir al dashboard igual */ }
-      }
+    const pendingRaw = localStorage.getItem('smt_pending_save')
+    if (pendingRaw) {
+      try {
+        const pending = JSON.parse(pendingRaw)
+        const dataKey = pending.flujo === 'B' ? 'smt_scout_data' : 'smt_analisis_data'
+        const datosRaw = localStorage.getItem(dataKey)
+        if (datosRaw) {
+          const datos = JSON.parse(datosRaw)
+          await supabase.from('proyectos').insert({
+            usuario_id: data.user.id,
+            nombre: pending.nombre,
+            datos,
+            flujo: pending.flujo,
+            status: 'analisis',
+          })
+        }
+        localStorage.removeItem('smt_pending_save')
+        const path = pending.flujo === 'B' ? '/analisis/flujo-b' : '/analisis'
+        router.push(`${path}?proyecto=${encodeURIComponent(pending.nombre)}`)
+        return
+      } catch { /* si falla, ir al dashboard igual */ }
     }
 
     router.push('/dashboard')

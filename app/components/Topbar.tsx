@@ -1,8 +1,31 @@
 'use client'
 
 import Link from 'next/link'
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { supabase } from '@/lib/supabase'
+
+function inicialesDe(email: string | undefined) {
+  if (!email) return '—'
+  const nombre = email.split('@')[0]
+  return nombre.slice(0, 2).toUpperCase()
+}
 
 export default function Topbar() {
+  const router = useRouter()
+  const [email, setEmail] = useState<string | undefined>(undefined)
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => setEmail(session?.user?.email))
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => setEmail(session?.user?.email))
+    return () => sub.subscription.unsubscribe()
+  }, [])
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut()
+    router.push('/login')
+  }
+
   return (
     <header className="bg-[#085041] shadow-lg">
       <div className="max-w-7xl mx-auto px-6 h-14 flex items-center justify-between">
@@ -20,9 +43,20 @@ export default function Topbar() {
         </div>
         <div className="flex items-center gap-4">
           <span className="text-white/70 text-xs">v3.0 · Jul 2026</span>
-          <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
-            <span className="text-white text-xs font-semibold">JC</span>
-          </div>
+          {email && (
+            <>
+              <span className="text-white/60 text-xs hidden sm:inline">{email}</span>
+              <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
+                <span className="text-white text-xs font-semibold">{inicialesDe(email)}</span>
+              </div>
+              <button
+                onClick={handleLogout}
+                className="text-white/60 hover:text-white text-xs transition-colors"
+              >
+                Salir
+              </button>
+            </>
+          )}
         </div>
       </div>
     </header>
