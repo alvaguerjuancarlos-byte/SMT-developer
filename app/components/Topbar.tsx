@@ -46,9 +46,13 @@ export default function Topbar() {
           {email && (
             <>
               <span className="text-white/60 text-xs hidden sm:inline">{email}</span>
-              <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
+              <Link
+                href="/perfil"
+                className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center hover:bg-white/30 transition-colors"
+                title="Mi cuenta"
+              >
                 <span className="text-white text-xs font-semibold">{inicialesDe(email)}</span>
-              </div>
+              </Link>
               <button
                 onClick={handleLogout}
                 className="text-white/60 hover:text-white text-xs transition-colors"
