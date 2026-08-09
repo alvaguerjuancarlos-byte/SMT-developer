@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireUser, unauthorized } from '@/lib/api-auth'
 import Anthropic from '@anthropic-ai/sdk'
 import { validarComparableVenta, evaluarPlausibilidadBanda } from '@/lib/mercado/validarComparableVenta'
 import type { ComparableVenta } from '@/lib/mercado/validarComparableVenta'
@@ -17,6 +18,9 @@ function palabraClaveVenta(tiposDesarrollo: string[] | undefined): string {
 }
 
 export async function POST(req: NextRequest) {
+  const user = await requireUser(req)
+  if (!user) return unauthorized()
+
   const { colonia, ciudad, estado, codigoPostal, tiposDesarrollo, bandaConstruccion } = await req.json()
 
   const serperKey = process.env.SERPER_API_KEY?.trim()

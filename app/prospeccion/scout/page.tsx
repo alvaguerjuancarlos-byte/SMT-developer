@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import type { MLListing } from '@/app/api/scout/ml/route'
+import { authedFetch } from '@/lib/apiClient'
 
 const ESTADOS_MX = [
   'Aguascalientes','Baja California','Baja California Sur','Campeche','Chiapas',
@@ -43,7 +44,7 @@ export default function ScoutPage() {
       if (municipio) params.set('municipio', municipio)
       if (colonia) params.set('colonia', colonia)
       if (cp) params.set('cp', cp)
-      const res = await fetch(`/api/scout/ml?${params}`)
+      const res = await authedFetch(`/api/scout/ml?${params}`)
       const json = await res.json()
       if (!res.ok) { setError(json.error ?? 'Error al buscar'); return }
       setResults(json.results)

@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { NextRequest, NextResponse } from 'next/server'
+import { requireUser, unauthorized } from '@/lib/api-auth'
 import { calcularEnvolvente, validarMix, validarSuperficieConstruida } from '@/lib/analisis/envolventeYAreas'
 import type { EntradaEnvolvente, SalidaEnvolvente } from '@/lib/analisis/envolventeYAreas'
 
@@ -16,6 +17,9 @@ function tipologiaEnvolvente(tiposDesarrollo: string[] | undefined): EntradaEnvo
 }
 
 export async function POST(req: NextRequest) {
+  const user = await requireUser(req)
+  if (!user) return unauthorized()
+
   const data = await req.json()
 
   // Envolvente determinístico (lib/analisis/envolventeYAreas.ts) — solo se puede calcular si

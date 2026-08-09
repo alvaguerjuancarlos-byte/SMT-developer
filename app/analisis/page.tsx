@@ -3,6 +3,7 @@
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Suspense, useEffect, useRef, useState } from 'react'
 import FuentesConsultadas from '@/app/components/FuentesConsultadas'
+import { authedFetch } from '@/lib/apiClient'
 import { BocetoVolumetria, VistaAereaTerreno } from '@/app/components/BocetoVolumetria'
 import type { AnalisisData, StressItem, FlujoMes } from '@/lib/analisis/tipos'
 import { resolveBitacoraArquitectura } from '@/lib/analisis/bitacoraArquitectura'
@@ -237,7 +238,7 @@ function AnalisisContent() {
     setChatLoading(true)
 
     const callApi = async () => {
-      const res = await fetch('/api/chat-analisis', {
+      const res = await authedFetch('/api/chat-analisis', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ analisis: d, messages: history, pregunta }),

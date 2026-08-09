@@ -1,9 +1,13 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { NextRequest, NextResponse } from 'next/server'
+import { requireUser, unauthorized } from '@/lib/api-auth'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
 export async function POST(req: NextRequest) {
+  const user = await requireUser(req)
+  if (!user) return unauthorized()
+
   const { analisis, messages, pregunta } = await req.json()
 
   // Strip fuentes from context — not needed for Q&A and saves tokens

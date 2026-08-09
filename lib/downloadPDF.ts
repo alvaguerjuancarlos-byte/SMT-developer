@@ -1,3 +1,5 @@
+import { authedFetch } from '@/lib/apiClient'
+
 async function buildPDF(filename: string, elementId = 'propuesta-print') {
   const { toCanvas } = await import('html-to-image')
   const { jsPDF } = await import('jspdf')
@@ -70,7 +72,7 @@ async function buildPDF(filename: string, elementId = 'propuesta-print') {
 function uploadPDF(pdf: import('jspdf').jsPDF, proyectoId: string) {
   const base64 = pdf.output('datauristring')
   const pdfBase64 = base64.split(',')[1]
-  return fetch('/api/upload-pdf', {
+  return authedFetch('/api/upload-pdf', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ proyectoId, pdfBase64 }),

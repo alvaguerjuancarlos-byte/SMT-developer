@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireUser, unauthorized } from '@/lib/api-auth'
 import Anthropic from '@anthropic-ai/sdk'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
@@ -26,6 +27,9 @@ export interface MLListing {
 }
 
 export async function GET(req: NextRequest) {
+  const user = await requireUser(req)
+  if (!user) return unauthorized()
+
   const { searchParams } = new URL(req.url)
   const estado    = searchParams.get('estado') ?? ''
   const municipio = searchParams.get('municipio') ?? ''

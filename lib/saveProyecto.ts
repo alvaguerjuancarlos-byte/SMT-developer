@@ -1,3 +1,5 @@
+import { authedFetch } from '@/lib/apiClient'
+
 export async function saveProyecto({
   nombre,
   datos,
@@ -8,7 +10,7 @@ export async function saveProyecto({
   flujo: 'A' | 'B'
 }): Promise<{ ok: boolean; error?: string; id?: string }> {
   try {
-    const res = await fetch('/api/save-proyecto', {
+    const res = await authedFetch('/api/save-proyecto', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ nombre, datos, flujo }),

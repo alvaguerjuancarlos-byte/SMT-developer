@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { NextRequest, NextResponse } from 'next/server'
+import { requireUser, unauthorized } from '@/lib/api-auth'
 import { DESCUENTOS_CANCELACIONES, PORCENTAJE_COMERCIALIZACION, RANGOS_HONORARIOS_POR_BANDA } from '@/lib/mastermind/catalogo'
 import { calcularFlujoFinanciero } from '@/lib/analisis/flujoFinanciero'
 import { validarIndirectos, escalarCostoPorMix } from '@/lib/analisis/validacionFinanciera'
@@ -8,6 +9,9 @@ import { evaluarPlausibilidadBanda } from '@/lib/mercado/validarComparableVenta'
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
 export async function POST(req: NextRequest) {
+  const user = await requireUser(req)
+  if (!user) return unauthorized()
+
   const data = await req.json()
 
   const bandaLabels: Record<string, string> = {

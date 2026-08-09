@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { authedFetch } from '@/lib/apiClient'
 
 const CIUDADES = [
   'Acapulco', 'Acuña', 'Agua Prieta', 'Aguascalientes', 'Ahome', 'Allende',
@@ -209,7 +210,7 @@ function Step2({ data, setData }: { data: FormData; setData: (d: FormData) => vo
     setVerifyError('')
     try {
       const params = new URLSearchParams({ cp, ciudad: data.ciudad, estado: data.estado })
-      const res = await fetch(`/api/geocode?${params}`)
+      const res = await authedFetch(`/api/geocode?${params}`)
       const json = await res.json()
       if (!json.found) {
         setVerifyError('No se encontró ese código postal en México. Verifica e intenta de nuevo.')

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, useRef, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { saveProyecto } from '@/lib/saveProyecto'
+import { authedFetch } from '@/lib/apiClient'
 import { calcular } from '@/lib/estimador/motor'
 import { construirInputsNormativos, programaAUsos, type ProgramaUnidades } from '@/lib/construccion/programaAdapter'
 import { BocetoVolumetria, VistaAereaTerreno } from '@/app/components/BocetoVolumetria'
@@ -1056,7 +1057,7 @@ function AgentChat({ agentKey, agentData }: { agentKey: string; agentData: any }
     setMessages(next)
     setLoading(true)
     try {
-      const res = await fetch('/api/chat-analisis', {
+      const res = await authedFetch('/api/chat-analisis', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ analisis: agentData, messages, pregunta }),
@@ -1259,7 +1260,7 @@ function PipelineContent() {
   const runCatastro = async (fd: any) => {
     setPipe(p => ({ ...p, catastro: { status: 'running', data: null } }))
     try {
-      const res = await fetch('/api/catastro', {
+      const res = await authedFetch('/api/catastro', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1315,7 +1316,7 @@ function PipelineContent() {
         if (fd.colonia)   params.set('colonia',   fd.colonia)
         if (fd.ciudad)    params.set('ciudad',    fd.ciudad)
         if (fd.estado)    params.set('estado',    fd.estado)
-        const geoRes = await fetch(`/api/geocode?${params}`).then(r => r.json())
+        const geoRes = await authedFetch(`/api/geocode?${params}`).then(r => r.json())
         if (geoRes.found) { lat = geoRes.lat; lng = geoRes.lng }
       } catch { /* continúa sin coords */ }
     }
@@ -1349,7 +1350,7 @@ function PipelineContent() {
     setPipe(p => ({ ...p, ubicacion: { status: 'running', data: null } }))
     const [comps, isoRes] = await Promise.all([
       getComps(fd),
-      fetch('/api/geo/isochrone', {
+      authedFetch('/api/geo/isochrone', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ lat, lng, perfil: 'driving' }),
       }).then(r => r.json()).catch(() => ({ isocronas: [] })),
@@ -1364,7 +1365,7 @@ function PipelineContent() {
     const input = fd || formData
     setPipe(p => ({ ...p, comparables: { status: 'running', data: [] } }))
     try {
-      const res = await fetch('/api/agentes/comparables', {
+      const res = await authedFetch('/api/agentes/comparables', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ colonia: input.colonia, ciudad: input.ciudad, estado: input.estado, codigoPostal: input.codigoPostal }),
       })
@@ -1385,7 +1386,7 @@ function PipelineContent() {
   const runComparablesVenta = async (): Promise<ComparableVentaItem[]> => {
     setPipe(p => ({ ...p, comparablesVenta: { status: 'running', data: [] } }))
     try {
-      const res = await fetch('/api/agentes/comparables-venta', {
+      const res = await authedFetch('/api/agentes/comparables-venta', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           colonia: formData.colonia, ciudad: formData.ciudad, estado: formData.estado,
@@ -1412,7 +1413,7 @@ function PipelineContent() {
     // (banda/vialidad ajustadas o "Ajustar parámetros" sin cambios), el número manual queda obsoleto.
     setPipe(p => ({ ...p, terreno: { ...p.terreno, status: 'running', overrideM2: '', usarPrecioSolicitado: false } }))
     try {
-      const res = await fetch('/api/agentes/terreno', {
+      const res = await authedFetch('/api/agentes/terreno', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...input, ubicacion: ub, comparablesPrecargados: comps }),
       })
@@ -1432,7 +1433,7 @@ function PipelineContent() {
     const payload = { ...formData, ...overrides, fichaLegal: pipe.legal.data?.fichaLegal }
     setPipe(p => ({ ...p, arquitectura: { ...p.arquitectura, status: 'running' } }))
     try {
-      const res = await fetch('/api/agentes/arquitectura', {
+      const res = await authedFetch('/api/agentes/arquitectura', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       })
@@ -1465,7 +1466,7 @@ function PipelineContent() {
     }
     setPipe(p => ({ ...p, construccion: { ...p.construccion, status: 'running' } }))
     try {
-      const res = await fetch('/api/agentes/construccion', {
+      const res = await authedFetch('/api/agentes/construccion', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       })
@@ -1486,7 +1487,7 @@ function PipelineContent() {
   const runLegal = async () => {
     setPipe(p => ({ ...p, legal: { status: 'running', data: null } }))
     try {
-      const res = await fetch('/api/agentes/legal', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(formData) })
+      const res = await authedFetch('/api/agentes/legal', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(formData) })
       const json = await res.json()
       if (json.error) throw new Error(json.error)
       setPipe(p => ({ ...p, legal: { status: 'done', data: json } }))
@@ -1530,7 +1531,7 @@ function PipelineContent() {
       ? await runComparablesVenta()
       : pipe.comparablesVenta.data
     try {
-      const res = await fetch('/api/agentes/mercado', {
+      const res = await authedFetch('/api/agentes/mercado', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...formData,
@@ -1663,7 +1664,7 @@ function PipelineContent() {
     }
     setPipe(p => ({ ...p, financiero: { ...p.financiero, status: 'running', data: null } }))
     try {
-      const res = await fetch('/api/agentes/financiero', {
+      const res = await authedFetch('/api/agentes/financiero', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       })

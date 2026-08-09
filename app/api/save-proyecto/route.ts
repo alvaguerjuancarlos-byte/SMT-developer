@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireUser, unauthorized } from '@/lib/api-auth'
 
 const SUPABASE_URL = process.env.SUPABASE_URL!
 const SERVICE_KEY  = process.env.SUPABASE_SERVICE_KEY!
 export async function POST(req: NextRequest) {
+  const user = await requireUser(req)
+  if (!user) return unauthorized()
+
   try {
     const { nombre, datos, flujo } = await req.json()
     if (!nombre) return NextResponse.json({ error: 'nombre requerido' }, { status: 400 })
@@ -19,6 +23,7 @@ export async function POST(req: NextRequest) {
       datos: datos ?? {},
       flujo: flujo || 'A',
       status: 'en-revision',
+      usuario_id: user.id,
     }
 
     const res = await fetch(`${SUPABASE_URL}/rest/v1/proyectos`, {

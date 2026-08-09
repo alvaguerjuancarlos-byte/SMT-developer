@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { saveProyecto } from '@/lib/saveProyecto'
+import { authedFetch } from '@/lib/apiClient'
 
 function loadGoogleMaps(): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -301,7 +302,7 @@ function BuscandoContent() {
       setStatusText('Agente Legal verificando uso de suelo y normativa...')
     }, 3000)
 
-    fetch('/api/scout', {
+    authedFetch('/api/scout', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(formData),

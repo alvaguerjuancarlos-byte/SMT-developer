@@ -1,9 +1,13 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
+import { requireUser, unauthorized } from '@/lib/api-auth'
 
 const SUPABASE_URL = process.env.SUPABASE_URL!
 const SERVICE_KEY  = process.env.SUPABASE_SERVICE_KEY!
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const user = await requireUser(req)
+  if (!user) return unauthorized()
+
   const fetchProyectos = async (withPdfUrl: boolean) =>
     fetch(
       `${SUPABASE_URL}/rest/v1/proyectos?select=id,nombre,status,flujo,datos${withPdfUrl ? ',pdf_url' : ''},created_at&order=created_at.desc`,

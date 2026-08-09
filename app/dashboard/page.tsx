@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { authedFetch } from '@/lib/apiClient'
 
 interface Proyecto {
   id: string
@@ -73,7 +74,7 @@ export default function DashboardPage() {
   const load = async () => {
     setLoading(true)
     try {
-      const res = await fetch('/api/proyectos')
+      const res = await authedFetch('/api/proyectos')
       const data = await res.json()
       setProyectos(Array.isArray(data) ? data : [])
     } catch {
@@ -114,7 +115,7 @@ export default function DashboardPage() {
     const newStatus = p.status === 'aprobado' ? 'en-revision' : 'aprobado'
     setToggling(p.id)
     setProyectos(prev => prev.map(x => x.id === p.id ? { ...x, status: newStatus } : x))
-    await fetch('/api/update-status', {
+    await authedFetch('/api/update-status', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id: p.id, status: newStatus }),
@@ -125,7 +126,7 @@ export default function DashboardPage() {
   const handleDelete = async (id: string) => {
     if (!confirm('¿Eliminar este proyecto?')) return
     setProyectos(prev => prev.filter(p => p.id !== id))
-    fetch('/api/delete-proyecto', {
+    authedFetch('/api/delete-proyecto', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id }),

@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireUser, unauthorized } from '@/lib/api-auth'
 
 const SUPABASE_URL = process.env.SUPABASE_URL!
 const SERVICE_KEY  = process.env.SUPABASE_SERVICE_KEY!
 
 export async function POST(req: NextRequest) {
+  const user = await requireUser(req)
+  if (!user) return unauthorized()
+
   const { proyectoId, pdfBase64 } = await req.json()
   if (!proyectoId || !pdfBase64) {
     return NextResponse.json({ error: 'proyectoId y pdfBase64 requeridos' }, { status: 400 })

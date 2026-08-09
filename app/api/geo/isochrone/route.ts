@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireUser, unauthorized } from '@/lib/api-auth'
 import { fetchIsochrones, OrsError, type IsochroneResult } from '@/lib/geo/isochrone'
 
 const SUPABASE_URL = process.env.SUPABASE_URL!
@@ -22,6 +23,9 @@ interface CachedRow {
 }
 
 export async function POST(req: NextRequest) {
+  const user = await requireUser(req)
+  if (!user) return unauthorized()
+
   const body = await req.json() as {
     terrenoId?: string | null
     lat: number

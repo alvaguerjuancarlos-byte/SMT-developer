@@ -4,6 +4,7 @@ export const dynamic = 'force-dynamic'
 
 import { useState, useRef, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { authedFetch } from '@/lib/apiClient'
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -410,7 +411,7 @@ function FluidoAContent() {
       setExpanding(true)
       setInferred(null)
       try {
-        const res = await fetch(`/api/geo/expand-maps-url?url=${encodeURIComponent(url)}`, { signal: controller.signal })
+        const res = await authedFetch(`/api/geo/expand-maps-url?url=${encodeURIComponent(url)}`, { signal: controller.signal })
         const json = await res.json()
         if (json.lat && json.lng) {
           setExpanding(false)
@@ -436,7 +437,7 @@ function FluidoAContent() {
     setInferring(true)
     setInferred(null)
     try {
-      const res = await fetch(`/api/inferir-predio?lat=${coords.lat}&lng=${coords.lng}`)
+      const res = await authedFetch(`/api/inferir-predio?lat=${coords.lat}&lng=${coords.lng}`)
       const json = await res.json()
       if (json.ok) {
         const inf: Inferred = json.inferred
@@ -474,10 +475,10 @@ function FluidoAContent() {
       let res: Response
       if (mCP.length === 5) {
         const params = new URLSearchParams({ cp: mCP, ciudad: mCiudad, estado: mEstado, ...(mCalle && { direccion: mCalle }), ...(mColonia && { colonia: mColonia }) })
-        res = await fetch(`/api/geocode?${params}`)
+        res = await authedFetch(`/api/geocode?${params}`)
       } else {
         const q = [mCalle, mColonia, mCiudad, mEstado, 'México'].filter(Boolean).join(', ')
-        res = await fetch(`/api/geocode?q=${encodeURIComponent(q)}`)
+        res = await authedFetch(`/api/geocode?q=${encodeURIComponent(q)}`)
       }
       const json = await res.json()
       if (json.found) {

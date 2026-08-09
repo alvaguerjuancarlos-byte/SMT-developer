@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireUser, unauthorized } from '@/lib/api-auth'
 
 interface GeoResult {
   found: true
@@ -22,6 +23,9 @@ function matchCtx(text: string, ciudad: string, estado: string) {
 }
 
 export async function GET(req: NextRequest) {
+  const user = await requireUser(req)
+  if (!user) return unauthorized()
+
   const cp        = req.nextUrl.searchParams.get('cp') ?? ''
   const ciudad    = req.nextUrl.searchParams.get('ciudad') ?? ''
   const estado    = req.nextUrl.searchParams.get('estado') ?? ''

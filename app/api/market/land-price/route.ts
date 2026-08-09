@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireUser, unauthorized } from '@/lib/api-auth'
 import { calcularPrecioCierre, type ZonaReferencia } from '@/lib/geo/landPrice'
 
 const SUPABASE_URL = process.env.SUPABASE_URL!
@@ -13,6 +14,9 @@ function sbHeaders() {
 }
 
 export async function POST(req: NextRequest) {
+  const user = await requireUser(req)
+  if (!user) return unauthorized()
+
   const { lat, lng } = await req.json() as { lat: number; lng: number }
 
   if (lat == null || lng == null) {

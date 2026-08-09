@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireUser, unauthorized } from '@/lib/api-auth'
 
 function extractCoords(url: string): { lat: number; lng: number } | null {
   // @lat,lng (standard maps URL)
@@ -23,6 +24,9 @@ function extractCoords(url: string): { lat: number; lng: number } | null {
 }
 
 export async function GET(req: NextRequest) {
+  const user = await requireUser(req)
+  if (!user) return unauthorized()
+
   const url = req.nextUrl.searchParams.get('url')
   if (!url) return NextResponse.json({ error: 'url requerido' }, { status: 400 })
 

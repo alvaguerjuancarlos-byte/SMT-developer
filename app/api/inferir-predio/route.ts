@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireUser, unauthorized } from '@/lib/api-auth'
 
 // Maps OSM highway tags → our classification
 function mapHighway(tag: string): string {
@@ -60,6 +61,9 @@ function estimateSlope(elevations: number[]): { pendiente: string; delta: number
 }
 
 export async function GET(req: NextRequest) {
+  const user = await requireUser(req)
+  if (!user) return unauthorized()
+
   const { searchParams } = new URL(req.url)
   const lat = parseFloat(searchParams.get('lat') ?? '')
   const lng = parseFloat(searchParams.get('lng') ?? '')

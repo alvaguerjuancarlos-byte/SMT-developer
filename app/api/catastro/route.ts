@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireUser, unauthorized } from '@/lib/api-auth'
 
 // ── Municipios NL: nombre normalizado → código interno del portal egobierno ──
 // Código verificado: San Pedro = 31 (del URL de ejemplo del portal)
@@ -328,6 +329,9 @@ async function scrapeSinaloa(cuentaPredial: string) {
 
 // ── Handler principal ─────────────────────────────────────────────────────────
 export async function POST(req: NextRequest) {
+  const user = await requireUser(req)
+  if (!user) return unauthorized()
+
   const body = await req.json()
   const { cuentaPredial, ciudad, estado } = body
 
