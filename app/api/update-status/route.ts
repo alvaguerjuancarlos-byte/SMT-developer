@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'status inválido' }, { status: 400 })
   }
 
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/proyectos?id=eq.${id}`, {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/proyectos?id=eq.${id}&usuario_id=eq.${user.id}`, {
     method: 'PATCH',
     headers: {
       'apikey': SERVICE_KEY,

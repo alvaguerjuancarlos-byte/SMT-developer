@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
   const pdfUrl = `${SUPABASE_URL}/storage/v1/object/public/propuestas/${path}`
 
   // Save URL in proyectos record
-  const updateRes = await fetch(`${SUPABASE_URL}/rest/v1/proyectos?id=eq.${proyectoId}`, {
+  const updateRes = await fetch(`${SUPABASE_URL}/rest/v1/proyectos?id=eq.${proyectoId}&usuario_id=eq.${user.id}`, {
     method: 'PATCH',
     headers: {
       'apikey':        SERVICE_KEY,

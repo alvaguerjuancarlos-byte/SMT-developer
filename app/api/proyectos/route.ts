@@ -10,7 +10,7 @@ export async function GET(req: NextRequest) {
 
   const fetchProyectos = async (withPdfUrl: boolean) =>
     fetch(
-      `${SUPABASE_URL}/rest/v1/proyectos?select=id,nombre,status,flujo,datos${withPdfUrl ? ',pdf_url' : ''},created_at&order=created_at.desc`,
+      `${SUPABASE_URL}/rest/v1/proyectos?usuario_id=eq.${user.id}&select=id,nombre,status,flujo,datos${withPdfUrl ? ',pdf_url' : ''},created_at&order=created_at.desc`,
       {
         headers: {
           'apikey': SERVICE_KEY,
