@@ -90,9 +90,14 @@ export default function LoginPage() {
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <label className="text-[11px] font-semibold text-[#5a7065] uppercase tracking-[0.1em]">
-                Contraseña
-              </label>
+              <div className="flex items-center justify-between">
+                <label className="text-[11px] font-semibold text-[#5a7065] uppercase tracking-[0.1em]">
+                  Contraseña
+                </label>
+                <a href="/recuperar" className="text-[11px] font-semibold text-[#1D9E75] hover:text-[#0F6E56] transition-colors">
+                  ¿Olvidaste tu contraseña?
+                </a>
+              </div>
               <input
                 type="password"
                 value={password}

@@ -12,11 +12,18 @@ export default function PerfilPage() {
   const [error, setError] = useState('')
   const [ok, setOk] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [esRecuperacion, setEsRecuperacion] = useState(false)
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setEmail(session?.user?.email || '')
     })
+    // Supabase manda el token de recuperación en el hash de la URL (no en query)
+    // y dispara este evento al establecer la sesión temporal desde ese link.
+    const { data: sub } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'PASSWORD_RECOVERY') setEsRecuperacion(true)
+    })
+    return () => sub.subscription.unsubscribe()
   }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -52,7 +59,9 @@ export default function PerfilPage() {
       <div className="w-full max-w-[400px]">
 
         <div className="bg-white rounded-2xl border border-[#E2E8E4] shadow-sm p-8">
-          <h2 className="text-[18px] font-bold text-[#111d17] mb-1">Mi cuenta</h2>
+          <h2 className="text-[18px] font-bold text-[#111d17] mb-1">
+            {esRecuperacion ? 'Establece tu nueva contraseña' : 'Mi cuenta'}
+          </h2>
           <p className="text-[13px] text-[#9aab9f] mb-6">{email}</p>
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">

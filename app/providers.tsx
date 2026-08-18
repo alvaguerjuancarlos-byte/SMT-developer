@@ -5,7 +5,7 @@ import { useRouter, usePathname } from 'next/navigation'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
 
-const PUBLIC_ROUTES = ['/login', '/registro']
+const PUBLIC_ROUTES = ['/login', '/registro', '/recuperar']
 
 export type TerrainData = {
   nombre: string
