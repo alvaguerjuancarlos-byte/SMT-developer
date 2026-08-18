@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireUser, unauthorized } from '@/lib/api-auth'
 import { calcularEnvolvente, validarMix, validarSuperficieConstruida } from '@/lib/analisis/envolventeYAreas'
 import type { EntradaEnvolvente, SalidaEnvolvente } from '@/lib/analisis/envolventeYAreas'
+import { callClaudeJson } from '@/lib/llmJson'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -205,15 +206,11 @@ ${densidadMaxUnidades ? `- El total de unidades habitacionales propuestas debe a
 - Retorna ÚNICAMENTE el JSON, sin markdown, sin texto extra`
 
   try {
-    const message = await client.messages.create({
+    const parsed = await callClaudeJson(client, {
       model: 'claude-sonnet-4-6',
       max_tokens: 8000,
       messages: [{ role: 'user', content: prompt }],
     })
-    const text = message.content[0].type === 'text' ? message.content[0].text : ''
-    const match = text.match(/\{[\s\S]*\}/)
-    if (!match) throw new Error('No JSON in response')
-    const parsed = JSON.parse(match[0])
 
     // Mismo patrón que ya usaba el Agente de Construcción: el modelo a veces no mantiene
     // consistencia entre los campos raíz y su propia bitácora — se sobrescribe la raíz con

@@ -3,6 +3,7 @@ import { requireUser, unauthorized } from '@/lib/api-auth'
 import Anthropic from '@anthropic-ai/sdk'
 import { validarComparableVenta, evaluarPlausibilidadBanda } from '@/lib/mercado/validarComparableVenta'
 import type { ComparableVenta } from '@/lib/mercado/validarComparableVenta'
+import { callClaudeJson } from '@/lib/llmJson'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -76,15 +77,11 @@ Reglas:
 - Máximo 8 comparables
 - Retorna ÚNICAMENTE un array JSON válido, sin markdown`
 
-    const response = await client.messages.create({
+    const comparablesRaw: ComparableVenta[] = await callClaudeJson(client, {
       model: 'claude-haiku-4-5-20251001',
       max_tokens: 2000,
       messages: [{ role: 'user', content: prompt }],
-    })
-
-    const text = (response.content[0] as any).text ?? ''
-    const match = text.match(/\[[\s\S]*\]/)
-    const comparablesRaw: ComparableVenta[] = match ? JSON.parse(match[0]) : []
+    }, /\[[\s\S]*\]/)
 
     const comparables = comparablesRaw
       .map(validarComparableVenta)

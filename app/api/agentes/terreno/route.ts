@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { NextRequest, NextResponse } from 'next/server'
 import { requireUser, unauthorized } from '@/lib/api-auth'
+import { callClaudeJson } from '@/lib/llmJson'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -271,20 +272,11 @@ REGLAS:
   }
 
   try {
-    const response = await client.messages.create({
+    const parsed = await callClaudeJson(client, {
       model: 'claude-sonnet-4-6',
       max_tokens: 8000,
       messages: [{ role: 'user', content: prompt + serperContext }],
     })
-
-    const finalText = (response.content as any[])
-      .filter((b: any) => b.type === 'text')
-      .map((b: any) => b.text)
-      .join('')
-
-    const match = finalText.match(/\{[\s\S]*\}/)
-    if (!match) throw new Error('No JSON in response')
-    const parsed = JSON.parse(match[0])
 
     // Mismo problema de consistencia raíz↔bitácora visto y corregido en el Agente Construcción:
     // el modelo a veces no logra mantener costoTerreno/costoTerrenoM2 (raíz, lo que lee el resto

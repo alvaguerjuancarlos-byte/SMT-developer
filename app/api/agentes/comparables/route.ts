@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireUser, unauthorized } from '@/lib/api-auth'
 import Anthropic from '@anthropic-ai/sdk'
+import { callClaudeJson } from '@/lib/llmJson'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -75,15 +76,11 @@ Reglas:
 - Máximo 8 comparables
 - Retorna ÚNICAMENTE un array JSON válido, sin markdown`
 
-    const response = await client.messages.create({
+    const comparablesRaw: Comparable[] = await callClaudeJson(client, {
       model: 'claude-haiku-4-5-20251001',
       max_tokens: 2000,
       messages: [{ role: 'user', content: prompt }],
-    })
-
-    const text = (response.content[0] as any).text ?? ''
-    const match = text.match(/\[[\s\S]*\]/)
-    const comparablesRaw: Comparable[] = match ? JSON.parse(match[0]) : []
+    }, /\[[\s\S]*\]/)
 
     const comparables = comparablesRaw
       .map(validarComparable)

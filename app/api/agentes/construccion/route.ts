@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { NextRequest, NextResponse } from 'next/server'
 import { requireUser, unauthorized } from '@/lib/api-auth'
+import { callClaudeJson } from '@/lib/llmJson'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -258,15 +259,11 @@ REGLAS:
 - Retorna ÚNICAMENTE el JSON, sin markdown, sin texto extra`
 
   try {
-    const message = await client.messages.create({
+    const parsed = await callClaudeJson(client, {
       model: 'claude-sonnet-4-6',
       max_tokens: 10000,
       messages: [{ role: 'user', content: prompt }],
     })
-    const text = message.content[0].type === 'text' ? message.content[0].text : ''
-    const match = text.match(/\{[\s\S]*\}/)
-    if (!match) throw new Error('No JSON in response')
-    const parsed = JSON.parse(match[0])
 
     // El modelo a veces no logra mantener consistencia entre los campos raíz (resumen que lee
     // el resto del pipeline) y su propia bitácora (donde hace el cálculo zona por zona) — visto

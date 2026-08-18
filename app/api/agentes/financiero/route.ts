@@ -5,6 +5,7 @@ import { DESCUENTOS_CANCELACIONES, PORCENTAJE_COMERCIALIZACION, RANGOS_HONORARIO
 import { calcularFlujoFinanciero } from '@/lib/analisis/flujoFinanciero'
 import { validarIndirectos, escalarCostoPorMix } from '@/lib/analisis/validacionFinanciera'
 import { evaluarPlausibilidadBanda } from '@/lib/mercado/validarComparableVenta'
+import { callClaudeJson } from '@/lib/llmJson'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -272,15 +273,11 @@ REGLAS:
 - Retorna ÚNICAMENTE el JSON, sin markdown, sin texto extra`
 
   try {
-    const message = await client.messages.create({
+    const parsed = await callClaudeJson(client, {
       model: 'claude-sonnet-4-6',
       max_tokens: 12000,
       messages: [{ role: 'user', content: prompt }],
     })
-    const text = message.content[0].type === 'text' ? message.content[0].text : ''
-    const match = text.match(/\{[\s\S]*\}/)
-    if (!match) throw new Error('No JSON in response')
-    const parsed = JSON.parse(match[0])
 
     // ingresosProyectados/inversionTotal/utilidadBruta/margenBruto son multiplicaciones y
     // sumas simples (ver instrucciones 2-6 arriba) que el modelo debería calcular bien, pero
