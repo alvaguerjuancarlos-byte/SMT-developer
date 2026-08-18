@@ -12,6 +12,13 @@ interface AlertaLegal { tipo: string; descripcion: string; impacto: string; stat
 interface Comparable { nombre: string; direccion: string; fechaReferencia: string; precioM2: number | null; avanceObra: string; unidades: number; tipologia: string }
 interface SegmentoUnidad { tipo: string; absorcionMensual: string; precioM2: number; participacion: string; perfilComprador: string }
 interface PricingFase { fase: string; precioM2: number; descuento: string; meta: string }
+interface EstructuraCapital {
+  equity: number; deuda: number; montoEquity: number; montoDeuda: number
+  tipoDeuda: string; tasaDeuda: string; costoFinanciero: number
+  preventa: { unidadesMinimas: number; porcentajeMinimo: string; montoMinimo: number; condicion: string }
+  tasaDescuento: string; isrEstimado: number; utilidadNeta: number; descripcion: string
+}
+interface FlujoMes { mes: number; fase: string; egresos: number; ingresos: number; acumulado: number; nota: string }
 
 interface AnalisisData {
   proyecto?: string
@@ -45,6 +52,8 @@ interface AnalisisData {
   score: { total: number; solidezFinanciera: number; riesgoRegulatorio: number; exposicionMercado: number }
   stressTest: StressItem[]
   puntoQuiebre: { desviacionMaxCostos: string; absorcionMinViable: string; precioVentaMinimo: string; resumen: string }
+  estructuraCapital?: EstructuraCapital
+  flujoMensual?: FlujoMes[]
 }
 
 interface FormData {
@@ -68,6 +77,93 @@ const FALLBACK_A: AnalisisData = {
 
 function fmt(n: number) { return `$${n.toLocaleString('es-MX')}` }
 function fmtM(n: number) { return `$${(n / 1_000_000).toFixed(1)} M` }
+
+function MetricRow({ label, value, valueClass = 'text-[#111d17]', border = true }: { label: string; value: React.ReactNode; valueClass?: string; border?: boolean }) {
+  return (
+    <div className={`flex items-center justify-between py-3 ${border ? 'border-b border-[#F0F4F2]' : ''} last:border-0`}>
+      <p className="text-[13px] text-[#5a7065]">{label}</p>
+      <p className={`text-[13px] font-semibold ${valueClass}`}>{value}</p>
+    </div>
+  )
+}
+
+// Portado de app/analisis/page.tsx (CashFlowChart) — SVG a mano, sin librería de gráficas.
+function CashFlowChart({ data }: { data: FlujoMes[] }) {
+  const W = 680, H = 220
+  const pad = { top: 24, right: 16, bottom: 36, left: 72 }
+  const iW = W - pad.left - pad.right
+  const iH = H - pad.top - pad.bottom
+
+  const maxEgreso  = Math.max(...data.map(d => d.egresos),  1)
+  const maxIngreso = Math.max(...data.map(d => d.ingresos), 1)
+  const maxBar     = Math.max(maxEgreso, maxIngreso)
+  const minAcum    = Math.min(...data.map(d => d.acumulado))
+  const maxAcum    = Math.max(...data.map(d => d.acumulado))
+  const acumRange  = maxAcum - minAcum || 1
+
+  const barW  = Math.max(4, iW / data.length - 3)
+  const xPos  = (i: number) => pad.left + (i + 0.5) * (iW / data.length)
+  const yLine = (v: number) => pad.top + ((maxAcum - v) / acumRange) * iH
+
+  const zeroY = yLine(0)
+  const linePts = data.map((d, i) => `${xPos(i)},${yLine(d.acumulado)}`).join(' ')
+
+  const fmtCompacto = (n: number) =>
+    Math.abs(n) >= 1_000_000 ? `$${(n / 1_000_000).toFixed(1)}M` : `$${(n / 1_000).toFixed(0)}k`
+
+  const ticks = [minAcum, minAcum + acumRange * 0.25, minAcum + acumRange * 0.5, minAcum + acumRange * 0.75, maxAcum]
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} width="100%" className="overflow-visible">
+      {ticks.map((t, i) => (
+        <g key={i}>
+          <line x1={pad.left} y1={yLine(t)} x2={W - pad.right} y2={yLine(t)} stroke="#F0F4F2" strokeWidth="1" />
+          <text x={pad.left - 6} y={yLine(t) + 4} textAnchor="end" fontSize="9" fill="#b0bdb6">{fmtCompacto(t)}</text>
+        </g>
+      ))}
+
+      {minAcum < 0 && maxAcum > 0 && (
+        <line x1={pad.left} y1={zeroY} x2={W - pad.right} y2={zeroY} stroke="#E2E8E4" strokeWidth="1.5" strokeDasharray="4 3" />
+      )}
+
+      {data.map((d, i) => {
+        const cx   = xPos(i)
+        const half = barW / 2
+        const hE   = (d.egresos  / maxBar) * (iH * 0.45)
+        const hI   = (d.ingresos / maxBar) * (iH * 0.45)
+        const midY = pad.top + iH * 0.5
+        return (
+          <g key={i}>
+            {d.egresos  > 0 && <rect x={cx - half} y={midY}          width={barW} height={hE} rx="2" fill="#FCA5A5" />}
+            {d.ingresos > 0 && <rect x={cx - half} y={midY - hI}     width={barW} height={hI} rx="2" fill="#6EE7B7" />}
+          </g>
+        )
+      })}
+
+      <polyline points={linePts} fill="none" stroke="#1D9E75" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
+
+      {data.map((d, i) => (
+        <circle key={i} cx={xPos(i)} cy={yLine(d.acumulado)} r="3"
+          fill={d.acumulado >= 0 ? '#1D9E75' : '#DC2626'} stroke="white" strokeWidth="1.5" />
+      ))}
+
+      {data.map((d, i) => (
+        (i === 0 || (i + 1) % Math.ceil(data.length / 8) === 0 || i === data.length - 1) && (
+          <text key={i} x={xPos(i)} y={H - 6} textAnchor="middle" fontSize="9" fill="#9aab9f">M{d.mes}</text>
+        )
+      ))}
+
+      <g transform={`translate(${pad.left}, ${H - 8})`}>
+        <rect x="0" y="-7" width="8" height="8" rx="1" fill="#6EE7B7" />
+        <text x="11" y="0" fontSize="9" fill="#5a7065">Ingresos</text>
+        <rect x="64" y="-7" width="8" height="8" rx="1" fill="#FCA5A5" />
+        <text x="75" y="0" fontSize="9" fill="#5a7065">Egresos</text>
+        <line x1="128" y1="-3" x2="140" y2="-3" stroke="#1D9E75" strokeWidth="2.5" />
+        <text x="143" y="0" fontSize="9" fill="#5a7065">Acumulado</text>
+      </g>
+    </svg>
+  )
+}
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
@@ -139,6 +235,30 @@ function StressRow({ titulo, escenario, impacto, status }: StressItem) {
   )
 }
 
+// Colapsa contenido de "detalle" en la versión condensada (Camino corto) — mismo look que
+// SectionTitle (líneas + etiqueta) pero interactivo, con chevron. `forzarAbierto` permite que
+// el botón "Ver todo el detalle" del header expanda todas las secciones a la vez sin perder
+// el estado individual de cada una (si el usuario ya la abrió, se queda abierta al des-forzar).
+function Colapsable({ titulo, forzarAbierto, children }: { titulo: string; forzarAbierto: boolean; children: React.ReactNode }) {
+  const [abierto, setAbierto] = useState(false)
+  const mostrar = forzarAbierto || abierto
+  return (
+    <div>
+      <button onClick={() => setAbierto(v => !v)} className="w-full flex items-center gap-3 mb-4 cursor-pointer">
+        <span className="flex-1 border-t border-[rgba(0,0,0,0.08)]" />
+        <span className="text-[11px] font-bold text-[#1A7A6E] tracking-[0.14em] uppercase flex items-center gap-1.5">
+          {titulo}
+          <svg width="10" height="10" viewBox="0 0 14 14" fill="none" style={{ transform: mostrar ? 'rotate(90deg)' : 'none', transition: 'transform 150ms' }}>
+            <path d="M5 3l4 4-4 4" stroke="#1A7A6E" strokeWidth="1.6" strokeLinecap="round"/>
+          </svg>
+        </span>
+        <span className="flex-1 border-t border-[rgba(0,0,0,0.08)]" />
+      </button>
+      {mostrar && children}
+    </div>
+  )
+}
+
 const USOS_LABEL: Record<string, string> = {
   habitacional: 'Habitacional', comercial: 'Comercial', mixto: 'Mixto',
   industrial: 'Industrial', agricola: 'Agrícola', 'sin-uso': 'Sin uso definido',
@@ -155,9 +275,11 @@ function PropuestaContent() {
   const today = new Date().toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' })
 
   const [d, setD] = useState<AnalisisData>(FALLBACK_A)
-  const [form, setForm] = useState<FormData | null>(null)
+  const [form, setForm] = useState<(FormData & { _modoRapido?: boolean }) | null>(null)
   const [aiGenerated, setAiGenerated] = useState(false)
   const [pdfLoading, setPdfLoading] = useState(false)
+  const [todoExpandido, setTodoExpandido] = useState(false)
+  const modoRapido = form?._modoRapido === true
 
   const handleDownloadPDF = async () => {
     setPdfLoading(true)
@@ -218,10 +340,20 @@ function PropuestaContent() {
           <span className="block text-[10px] text-[#6b7c74] tracking-[0.12em] uppercase">Inteligencia inmobiliaria</span>
         </div>
         <div className="ml-auto flex items-center gap-2">
+          {modoRapido && (
+            <span className="text-[10px] font-bold tracking-[0.12em] uppercase bg-[#FBF1DC] border border-[#E6C97A] text-[#8A6508] px-3 py-1 rounded-full">
+              ⚡ Camino corto
+            </span>
+          )}
           {aiGenerated && (
             <span className="text-[10px] font-bold tracking-[0.12em] uppercase bg-[#E1F5EE] border border-[#9FE1CB] text-[#0F6E56] px-3 py-1 rounded-full">
               IA generado
             </span>
+          )}
+          {modoRapido && !todoExpandido && (
+            <button onClick={() => setTodoExpandido(true)} className="no-print flex items-center gap-1.5 text-[13px] font-medium text-[#5C7186] hover:text-[#111d17] border border-[rgba(0,0,0,0.08)] hover:border-[#C8D5CF] px-3 py-1.5 rounded-xl transition-colors mr-1">
+              Ver todo el detalle
+            </button>
           )}
           <button onClick={() => router.push('/dashboard')} className="flex items-center gap-1.5 text-[13px] text-[#5C7186] hover:text-[#111d17] border border-[rgba(0,0,0,0.08)] hover:border-[#C8D5CF] px-3 py-1.5 rounded-xl transition-colors mr-1">
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
@@ -340,9 +472,8 @@ function PropuestaContent() {
           </div>
 
           {/* 3 · El Terreno */}
-          {form && (
-            <div>
-              <SectionTitle>El Terreno</SectionTitle>
+          {form && (() => {
+            const contenido = (
               <Card className="p-0 overflow-hidden">
                 <table className="w-full">
                   <tbody>
@@ -356,13 +487,18 @@ function PropuestaContent() {
                   </tbody>
                 </table>
               </Card>
-            </div>
-          )}
+            )
+            return modoRapido ? (
+              <Colapsable titulo="El Terreno" forzarAbierto={todoExpandido}>{contenido}</Colapsable>
+            ) : (
+              <div><SectionTitle>El Terreno</SectionTitle>{contenido}</div>
+            )
+          })()}
 
           {/* 4 · Marco Legal y Normativo */}
-          <div>
-            <SectionTitle>Marco Legal y Normativo</SectionTitle>
-            <Card className="p-6">
+          {(() => {
+            const contenido = (
+              <Card className="p-6">
               {/* Uso de suelo actual vs. permitido */}
               {(d.fichaLegal.usoSueloActual || d.fichaLegal.usoSueloPermitido) && (
                 <div className="mb-5">
@@ -482,8 +618,25 @@ function PropuestaContent() {
                   </div>
                 </div>
               )}
-            </Card>
-          </div>
+              </Card>
+            )
+            return (
+              <div>
+                {/* En Camino corto, el riesgo Alto se asoma aunque el bloque legal esté colapsado */}
+                {modoRapido && d.fichaLegal.nivelRiesgo === 'Alto' && (
+                  <div className="mb-4 flex items-center gap-2 bg-[#FEE2E2] border border-[#FECACA] rounded-xl px-4 py-3">
+                    <span className="w-2 h-2 rounded-full bg-[#DC2626] shrink-0" />
+                    <p className="text-[12px] font-semibold text-[#991B1B]">Riesgo legal Alto — revisa el detalle antes de avanzar.</p>
+                  </div>
+                )}
+                {modoRapido ? (
+                  <Colapsable titulo="Marco Legal y Normativo" forzarAbierto={todoExpandido}>{contenido}</Colapsable>
+                ) : (
+                  <><SectionTitle>Marco Legal y Normativo</SectionTitle>{contenido}</>
+                )}
+              </div>
+            )
+          })()}
 
           {/* 6 · Recomendación Estratégica */}
           <div>
@@ -506,29 +659,145 @@ function PropuestaContent() {
             </Card>
           </div>
 
-          {/* 7 · Estructura Financiera — wait, renumber later */}
-          {/* 5 was already renumbered; this comment is unused */}
-          {/* Estructura Financiera */}
-          <div>
-            <SectionTitle>Estructura Financiera</SectionTitle>
-            <Card className="p-0 overflow-hidden">
-              <table className="w-full">
-                <tbody>
-                  <TableRow label="Costo del terreno" value={fmt(f.costoTerreno)} sub={`${fmt(f.costoTerrenoM2)} / m²`} />
-                  <TableRow label="Construcción por m²" value={`${fmt(f.construccionM2)} / m²`} />
-                  <TableRow label="Costo total de construcción" value={fmt(f.costoTotalConstruccion)} sub={f.escaladoPorMix && f.escaladoPorMix.factorEscalaMix < 1 ? `Ajustado al ${f.escaladoPorMix.eficienciaMixPct}% que aprovecha el mix de unidades` : undefined} alerta={!!(f.escaladoPorMix && f.escaladoPorMix.factorEscalaMix < 1)} />
-                  <TableRow label="Indirectos y administración" value={fmt(f.indirectos)} sub={`${f.costoTotalConstruccion > 0 ? ((f.indirectos / f.costoTotalConstruccion) * 100).toFixed(1) : '0'}% sobre costo de obra`} alerta={!!f.validacionIndirectos?.indirectosFueraDeRango} />
-                  <TableRow label="Honorarios y diseño" value={fmt(f.honorarios)} sub={`${f.costoTotalConstruccion > 0 ? ((f.honorarios / f.costoTotalConstruccion) * 100).toFixed(1) : '0'}% sobre costo de obra`} alerta={!!f.validacionIndirectos?.honorariosFueraDeRango} />
-                  <TableRow label="Imprevistos (5%)" value={fmt(f.imprevistos)} sub="Reserva de contingencia" />
-                  <TableRow label="Inversión Total" value={fmt(f.inversionTotal)} highlight />
-                  <TableRow label="Precio de venta estimado / m²" value={`${fmt(f.precioVentaM2)} / m²`} sub={f.precioVentaAjustadoPorBanda ? 'Ajustado a un valor representativo de tu banda de construcción' : `Mercado ${d.mercado.zona}`} alerta={!!f.precioVentaAjustadoPorBanda} />
-                  <TableRow label="Ingresos proyectados (100%)" value={fmt(f.ingresosProyectados)} />
-                  <TableRow label="Utilidad bruta" value={fmt(f.utilidadBruta)} />
-                  <TableRow label="Margen bruto sobre inversión" value={`${f.margenBruto}%`} highlight />
-                </tbody>
-              </table>
-            </Card>
-          </div>
+          {/* 7 · Estructura Financiera */}
+          {(() => {
+            const contenido = (
+              <Card className="p-0 overflow-hidden">
+                <table className="w-full">
+                  <tbody>
+                    <TableRow label="Costo del terreno" value={fmt(f.costoTerreno)} sub={`${fmt(f.costoTerrenoM2)} / m²`} />
+                    <TableRow label="Construcción por m²" value={`${fmt(f.construccionM2)} / m²`} />
+                    <TableRow label="Costo total de construcción" value={fmt(f.costoTotalConstruccion)} sub={f.escaladoPorMix && f.escaladoPorMix.factorEscalaMix < 1 ? `Ajustado al ${f.escaladoPorMix.eficienciaMixPct}% que aprovecha el mix de unidades` : undefined} alerta={!!(f.escaladoPorMix && f.escaladoPorMix.factorEscalaMix < 1)} />
+                    <TableRow label="Indirectos y administración" value={fmt(f.indirectos)} sub={`${f.costoTotalConstruccion > 0 ? ((f.indirectos / f.costoTotalConstruccion) * 100).toFixed(1) : '0'}% sobre costo de obra`} alerta={!!f.validacionIndirectos?.indirectosFueraDeRango} />
+                    <TableRow label="Honorarios y diseño" value={fmt(f.honorarios)} sub={`${f.costoTotalConstruccion > 0 ? ((f.honorarios / f.costoTotalConstruccion) * 100).toFixed(1) : '0'}% sobre costo de obra`} alerta={!!f.validacionIndirectos?.honorariosFueraDeRango} />
+                    <TableRow label="Imprevistos (5%)" value={fmt(f.imprevistos)} sub="Reserva de contingencia" />
+                    <TableRow label="Inversión Total" value={fmt(f.inversionTotal)} highlight />
+                    <TableRow label="Precio de venta estimado / m²" value={`${fmt(f.precioVentaM2)} / m²`} sub={f.precioVentaAjustadoPorBanda ? 'Ajustado a un valor representativo de tu banda de construcción' : `Mercado ${d.mercado.zona}`} alerta={!!f.precioVentaAjustadoPorBanda} />
+                    <TableRow label="Ingresos proyectados (100%)" value={fmt(f.ingresosProyectados)} />
+                    <TableRow label="Utilidad bruta" value={fmt(f.utilidadBruta)} />
+                    <TableRow label="Margen bruto sobre inversión" value={`${f.margenBruto}%`} highlight />
+                  </tbody>
+                </table>
+              </Card>
+            )
+            return modoRapido ? (
+              <Colapsable titulo="Estructura Financiera" forzarAbierto={todoExpandido}>{contenido}</Colapsable>
+            ) : (
+              <div><SectionTitle>Estructura Financiera</SectionTitle>{contenido}</div>
+            )
+          })()}
+
+          {/* 7b · Estructura de Capital — cómo se financia el proyecto (equity/deuda) */}
+          {d.estructuraCapital && (() => {
+            const ec = d.estructuraCapital
+            const contenido = (
+              <Card>
+                <div className="mb-5">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-[11px] font-bold text-[#0F6E56]">Equity {ec.equity}%</span>
+                    <span className="text-[11px] font-bold text-[#4F46E5]">Deuda {ec.deuda}%</span>
+                  </div>
+                  <div className="flex h-3 rounded-full overflow-hidden">
+                    <div className="bg-[#1D9E75]" style={{ width: `${ec.equity}%` }} />
+                    <div className="bg-[#4F46E5]" style={{ width: `${ec.deuda}%` }} />
+                  </div>
+                  <div className="flex justify-between mt-1">
+                    <span className="text-[11px] text-[#5C7186]">{fmt(ec.montoEquity)}</span>
+                    <span className="text-[11px] text-[#5C7186]">{fmt(ec.montoDeuda)}</span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-x-8 mb-5 divide-y divide-[#F0F4F2]">
+                  <MetricRow label="Tipo de deuda" value={ec.tipoDeuda} />
+                  <MetricRow label="Tasa de interés" value={ec.tasaDeuda} />
+                  <MetricRow label="Costo financiero" value={fmt(ec.costoFinanciero)} />
+                  <MetricRow label="TIR — tipo" value={ec.tasaDescuento} />
+                  <MetricRow label="ISR estimado (30%)" value={fmt(ec.isrEstimado)} />
+                  <MetricRow label="Utilidad neta" value={fmt(ec.utilidadNeta)} valueClass="text-[#0F6E56] font-bold" />
+                </div>
+
+                <div className="bg-[#EEF2FF] border border-[#C7D2FE] rounded-xl px-4 py-4">
+                  <p className="text-[11px] font-bold text-[#3730A3] uppercase tracking-wide mb-2">Preventa mínima para crédito puente</p>
+                  <div className="flex items-center gap-6 mb-2">
+                    <div>
+                      <p className="text-[28px] font-black text-[#4F46E5] leading-none">{ec.preventa.unidadesMinimas}</p>
+                      <p className="text-[11px] text-[#6366F1]">unidades · {ec.preventa.porcentajeMinimo}</p>
+                    </div>
+                    <div>
+                      <p className="text-[18px] font-bold text-[#4F46E5] leading-none">{fmt(ec.preventa.montoMinimo)}</p>
+                      <p className="text-[11px] text-[#6366F1]">ingreso mínimo en preventa</p>
+                    </div>
+                  </div>
+                  <p className="text-[12px] text-[#4338CA]">{ec.preventa.condicion}</p>
+                </div>
+
+                {ec.descripcion && (
+                  <p className="text-[12px] text-[#5C7186] mt-4 px-1 leading-relaxed">{ec.descripcion}</p>
+                )}
+              </Card>
+            )
+            return modoRapido ? (
+              <Colapsable titulo="Estructura de Capital" forzarAbierto={todoExpandido}>{contenido}</Colapsable>
+            ) : (
+              <div><SectionTitle>Estructura de Capital</SectionTitle>{contenido}</div>
+            )
+          })()}
+
+          {/* 7c · Flujo de Caja Proyectado */}
+          {d.flujoMensual && d.flujoMensual.length > 0 && (() => {
+            const contenido = (
+              <>
+                <Card className="pb-4 mb-0">
+                  <CashFlowChart data={d.flujoMensual!} />
+                </Card>
+                <Card className="p-0 overflow-hidden mt-3">
+                  <table className="w-full text-[12px]">
+                    <thead>
+                      <tr className="bg-[#F7F8F6] border-b border-[rgba(0,0,0,0.08)]">
+                        <th className="px-4 py-3 text-left text-[10px] font-bold text-[#9aab9f] uppercase tracking-wide w-12">Mes</th>
+                        <th className="px-4 py-3 text-left text-[10px] font-bold text-[#9aab9f] uppercase tracking-wide">Fase</th>
+                        <th className="px-4 py-3 text-right text-[10px] font-bold text-[#DC2626] uppercase tracking-wide">Egresos</th>
+                        <th className="px-4 py-3 text-right text-[10px] font-bold text-[#0F6E56] uppercase tracking-wide">Ingresos</th>
+                        <th className="px-4 py-3 text-right text-[10px] font-bold text-[#9aab9f] uppercase tracking-wide">Acumulado</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {d.flujoMensual!.map((row, i) => {
+                        const positivo = row.acumulado >= 0
+                        return (
+                          <tr key={i} className={`border-b border-[rgba(0,0,0,0.06)] last:border-0 ${i % 2 === 0 ? 'bg-white' : 'bg-[#FAFBFA]'}`}>
+                            <td className="px-4 py-3 text-center">
+                              <span className="text-[11px] font-bold text-[#9aab9f]">{row.mes}</span>
+                            </td>
+                            <td className="px-4 py-3">
+                              <p className="text-[12px] font-semibold text-[#111d17]">{row.fase}</p>
+                              <p className="text-[10px] text-[#9aab9f] leading-snug">{row.nota}</p>
+                            </td>
+                            <td className="px-4 py-3 text-right">
+                              {row.egresos > 0 && <span className="text-[12px] font-semibold text-[#DC2626]">−{fmt(row.egresos)}</span>}
+                            </td>
+                            <td className="px-4 py-3 text-right">
+                              {row.ingresos > 0 && <span className="text-[12px] font-semibold text-[#0F6E56]">+{fmt(row.ingresos)}</span>}
+                            </td>
+                            <td className="px-4 py-3 text-right">
+                              <span className={`text-[12px] font-bold ${positivo ? 'text-[#0F6E56]' : 'text-[#DC2626]'}`}>
+                                {positivo ? '+' : ''}{fmt(row.acumulado)}
+                              </span>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </Card>
+              </>
+            )
+            return modoRapido ? (
+              <Colapsable titulo="Flujo de Caja Proyectado" forzarAbierto={todoExpandido}>{contenido}</Colapsable>
+            ) : (
+              <div><SectionTitle>Flujo de Caja Proyectado</SectionTitle>{contenido}</div>
+            )
+          })()}
 
           {/* 7 · Análisis de Mercado */}
           <div>
@@ -560,6 +829,9 @@ function PropuestaContent() {
                 <p className="text-[15px] font-bold text-[#111d17]">{d.mercado.productoRecomendado}</p>
               </div>
 
+              {(() => {
+              const detalleMercado = (
+                <>
               {/* Comparables */}
               {d.mercado.comparables && d.mercado.comparables.length > 0 && (
                 <div className="mb-5">
@@ -624,6 +896,12 @@ function PropuestaContent() {
                   </div>
                 </div>
               )}
+                </>
+              )
+              return modoRapido ? (
+                <Colapsable titulo="Ver comparables, segmentación y pricing" forzarAbierto={todoExpandido}>{detalleMercado}</Colapsable>
+              ) : detalleMercado
+              })()}
             </Card>
           </div>
 
@@ -657,6 +935,9 @@ function PropuestaContent() {
                 </div>
               </div>
 
+              {(() => {
+              const detalleResiliencia = (
+                <>
               <p className="text-[10px] font-bold text-[#9aab9f] tracking-[0.12em] uppercase mb-2">Stress Test — Escenarios Adversos</p>
               <div>{d.stressTest.map((s, i) => <StressRow key={i} {...s} />)}</div>
 
@@ -672,31 +953,43 @@ function PropuestaContent() {
                   </div>
                 ))}
               </div>
+                </>
+              )
+              return modoRapido ? (
+                <Colapsable titulo="Ver stress test y punto de quiebre" forzarAbierto={todoExpandido}>{detalleResiliencia}</Colapsable>
+              ) : detalleResiliencia
+              })()}
             </Card>
           </div>
 
           {/* 8 · Próximos Pasos */}
-          <div>
-            <SectionTitle>Próximos Pasos</SectionTitle>
-            <Card className="p-6">
-              <div className="flex flex-col gap-4">
-                {[
-                  { n: '01', title: 'Completar debida diligencia', desc: 'Obtener escrituras notariales, constancia de uso de suelo, estudio de suelo y factibilidad de servicios. Plazo estimado: 3–4 semanas.', color: '#1D9E75' },
-                  { n: '02', title: 'Estructurar esquema de capital', desc: 'Definir la mezcla equity / crédito puente (propuesta: 40% / 60%). Contactar instituciones financieras para carta de intención de crédito.', color: '#1D9E75' },
-                  { n: '03', title: 'Formalizar adquisición del terreno', desc: 'Firma de promesa de compraventa con condicionantes de debida diligencia. Depósito en garantía: 5% del precio de adquisición.', color: '#D97706' },
-                  { n: '04', title: 'Iniciar diseño arquitectónico y permisos', desc: 'Contratar despacho de arquitectura para proyecto ejecutivo. Gestionar licencia de construcción ante municipio. Plazo estimado: 2–3 meses.', color: '#D97706' },
-                ].map(s => (
-                  <div key={s.n} className="flex items-start gap-4">
-                    <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 font-black text-[13px] text-white" style={{ backgroundColor: s.color }}>{s.n}</div>
-                    <div className="flex-1 pt-0.5">
-                      <p className="text-[14px] font-bold text-[#111d17] mb-1">{s.title}</p>
-                      <p className="text-[13px] text-[#5C7186] leading-relaxed">{s.desc}</p>
+          {(() => {
+            const contenido = (
+              <Card className="p-6">
+                <div className="flex flex-col gap-4">
+                  {[
+                    { n: '01', title: 'Completar debida diligencia', desc: 'Obtener escrituras notariales, constancia de uso de suelo, estudio de suelo y factibilidad de servicios. Plazo estimado: 3–4 semanas.', color: '#1D9E75' },
+                    { n: '02', title: 'Estructurar esquema de capital', desc: 'Definir la mezcla equity / crédito puente (propuesta: 40% / 60%). Contactar instituciones financieras para carta de intención de crédito.', color: '#1D9E75' },
+                    { n: '03', title: 'Formalizar adquisición del terreno', desc: 'Firma de promesa de compraventa con condicionantes de debida diligencia. Depósito en garantía: 5% del precio de adquisición.', color: '#D97706' },
+                    { n: '04', title: 'Iniciar diseño arquitectónico y permisos', desc: 'Contratar despacho de arquitectura para proyecto ejecutivo. Gestionar licencia de construcción ante municipio. Plazo estimado: 2–3 meses.', color: '#D97706' },
+                  ].map(s => (
+                    <div key={s.n} className="flex items-start gap-4">
+                      <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 font-black text-[13px] text-white" style={{ backgroundColor: s.color }}>{s.n}</div>
+                      <div className="flex-1 pt-0.5">
+                        <p className="text-[14px] font-bold text-[#111d17] mb-1">{s.title}</p>
+                        <p className="text-[13px] text-[#5C7186] leading-relaxed">{s.desc}</p>
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            </Card>
-          </div>
+                  ))}
+                </div>
+              </Card>
+            )
+            return modoRapido ? (
+              <Colapsable titulo="Próximos Pasos" forzarAbierto={todoExpandido}>{contenido}</Colapsable>
+            ) : (
+              <div><SectionTitle>Próximos Pasos</SectionTitle>{contenido}</div>
+            )
+          })()}
 
           {/* 9 · Footer */}
           <div className="rounded-2xl overflow-hidden border border-[rgba(0,0,0,0.08)]">

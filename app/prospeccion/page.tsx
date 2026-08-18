@@ -12,6 +12,8 @@ export default function FlowSelector() {
     if (!selected) return
     if (selected === 'a') {
       router.push('/prospeccion/flujo-a')
+    } else if (selected === 'a-rapido') {
+      router.push('/prospeccion/flujo-a?modo=rapido')
     } else {
       router.push('/prospeccion/flujo-b')
     }
@@ -69,7 +71,7 @@ export default function FlowSelector() {
             </p>
           </div>
 
-          <div className="grid grid-cols-2 gap-4 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
             <button
               onClick={() => setSelected('a')}
               onMouseEnter={() => setHovering('a')}
@@ -148,6 +150,41 @@ export default function FlowSelector() {
                 <span className="text-[11px] px-2.5 py-1 rounded-full bg-[#E6F1FB] text-[#185FA5] border border-[#85B7EB]/40">Búsqueda activa</span>
               </div>
             </button>
+
+            <button
+              onClick={() => setSelected('a-rapido')}
+              onMouseEnter={() => setHovering('a-rapido')}
+              onMouseLeave={() => setHovering(null)}
+              className={`relative text-left rounded-2xl border p-6 transition-all duration-200 ${
+                selected === 'a-rapido'
+                  ? 'bg-white border-[#B8860B] shadow-[0_0_0_2px_#B8860B]'
+                  : hovering === 'a-rapido'
+                  ? 'bg-white border-[#E6C97A] shadow-sm'
+                  : 'bg-white border-[#E2E8E4]'
+              }`}
+            >
+              <div className={`absolute top-4 right-4 w-5 h-5 rounded-full flex items-center justify-center transition-all duration-150 ${selected === 'a-rapido' ? 'bg-[#B8860B]' : 'border border-[#D0DDD5] opacity-60'}`}>
+                {selected === 'a-rapido' && (
+                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                    <polyline points="2,5 4,7 8,3" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                )}
+              </div>
+              <div className="w-11 h-11 rounded-xl bg-[#FBF1DC] flex items-center justify-center mb-4">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                  <path d="M13 2L4 14H11L10 22L20 9H13L13 2Z" stroke="#B8860B" strokeWidth="1.5" strokeLinejoin="round"/>
+                </svg>
+              </div>
+              <p className="text-[10px] font-semibold text-[#8A6508] tracking-[0.12em] uppercase mb-1">Flujo A · Camino corto</p>
+              <h2 className="text-[16px] font-semibold text-[#111d17] mb-2">Ya tengo un terreno, quiero ir rápido</h2>
+              <p className="text-[13px] text-[#5a7065] leading-relaxed mb-4">
+                Mismos agentes de IA corriendo en vivo, con menos preguntas y sin pausas manuales — ideal para una demo rápida.
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                <span className="text-[11px] px-2.5 py-1 rounded-full bg-[#FBF1DC] text-[#8A6508] border border-[#E6C97A]/60">3 pantallas</span>
+                <span className="text-[11px] px-2.5 py-1 rounded-full bg-[#FBF1DC] text-[#8A6508] border border-[#E6C97A]/60">Sin pausas</span>
+              </div>
+            </button>
           </div>
 
           <button
@@ -161,11 +198,14 @@ export default function FlowSelector() {
           >
             {!selected && 'Selecciona una opción para continuar'}
             {selected === 'a' && 'Continuar → Captura del terreno'}
+            {selected === 'a-rapido' && 'Continuar → Captura rápida del terreno'}
             {selected === 'b' && 'Continuar → Definir intención de búsqueda'}
           </button>
 
           <p className="text-center text-[12px] text-[#9aab9f] mt-4">
-            El análisis toma entre 2 y 4 horas · Recibirás notificación al completarse
+            {selected === 'a-rapido'
+              ? 'Corre los mismos agentes de IA en vivo, con menos preguntas'
+              : 'El análisis toma entre 2 y 4 horas · Recibirás notificación al completarse'}
           </p>
         </div>
       </main>

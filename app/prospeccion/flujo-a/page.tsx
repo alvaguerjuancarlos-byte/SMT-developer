@@ -253,6 +253,94 @@ function InferredRow({ label, children, ai }: { label: string; children: React.R
   )
 }
 
+// ─── Bloques de campos reutilizables (usados en el wizard normal y en el combinado del modo rápido) ──
+
+function SuperficieCampos({ form, set }: { form: FormData; set: (patch: Partial<FormData>) => void }) {
+  return (
+    <div>
+      <div className="relative">
+        <input autoFocus type="number" value={form.superficie}
+          onChange={e => set({ superficie: e.target.value })}
+          placeholder="0"
+          className="w-full border-2 border-[#E2E8E4] rounded-2xl px-4 py-4 text-[20px] text-[#111d17] bg-white focus:outline-none focus:border-[#1D9E75] placeholder:text-[#c5d0cb] transition-colors pr-14"
+        />
+        <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[14px] text-[#9aab9f] font-medium pointer-events-none">m²</span>
+      </div>
+
+      {Number(form.superficie) > 0 && (
+        <div className="mt-5">
+          <p className="text-[12px] font-bold text-[#9aab9f] uppercase tracking-wider mb-2">Frente del predio (opcional)</p>
+          <div className="relative">
+            <input type="number" value={form.frente} onChange={e => set({ frente: e.target.value })}
+              placeholder="0"
+              className="w-full border-2 border-[#E2E8E4] rounded-2xl px-4 py-3.5 text-[16px] text-[#111d17] bg-white focus:outline-none focus:border-[#1D9E75] placeholder:text-[#c5d0cb] transition-colors pr-10"
+            />
+            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[13px] text-[#9aab9f] font-medium pointer-events-none">m</span>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function TipoDesarrolloCampos({ form, set }: { form: FormData; set: (patch: Partial<FormData>) => void }) {
+  return (
+    <div className="flex flex-col gap-3">
+      {TIPOS_DESARROLLO.map(t => (
+        <Chip key={t.id} label={t.label} sub={t.sub}
+          selected={form.tiposDesarrollo.includes(t.id)}
+          onClick={() => set({
+            tiposDesarrollo: form.tiposDesarrollo.includes(t.id)
+              ? form.tiposDesarrollo.filter(x => x !== t.id)
+              : [...form.tiposDesarrollo, t.id],
+          })}
+        />
+      ))}
+      {form.tiposDesarrollo.includes('otro') && (
+        <textarea
+          autoFocus
+          value={form.tipoOtroTexto}
+          onChange={e => set({ tipoOtroTexto: e.target.value })}
+          placeholder="Describe tu idea: tipo de inmueble, concepto, perfil de usuario, lo que tengas en mente…"
+          rows={3}
+          className="w-full border-2 border-[#1D9E75] bg-[#F0FBF6] rounded-2xl px-4 py-3.5 text-[14px] text-[#111d17] focus:outline-none placeholder:text-[#9aab9f] resize-none transition-colors"
+        />
+      )}
+    </div>
+  )
+}
+
+function PresupuestoBandaCampos({ form, set }: { form: FormData; set: (patch: Partial<FormData>) => void }) {
+  return (
+    <div>
+      <p className="text-[13px] font-bold text-[#111d17] mb-3">¿Cuánto presupuesto tienes para invertir?</p>
+      <div className="grid grid-cols-2 gap-2.5 mb-7">
+        {RANGOS_PRESUPUESTO.map(r => (
+          <Chip key={r.id} label={r.label} selected={form.presupuesto === r.id} onClick={() => set({ presupuesto: r.id })} />
+        ))}
+      </div>
+
+      <p className="text-[13px] font-bold text-[#111d17] mb-3">¿Qué nivel de acabados buscas?</p>
+      <div className="flex flex-col gap-2.5">
+        {BANDAS.map(b => (
+          <button key={b.id} onClick={() => set({ bandaConstruccion: b.id })}
+            className={`w-full text-left flex items-center justify-between gap-3 px-4 py-3.5 rounded-2xl border-2 transition-all ${
+              form.bandaConstruccion === b.id ? 'border-[#1D9E75] bg-[#F0FBF6]' : 'border-[#E2E8E4] bg-white hover:border-[#9FE1CB]'
+            }`}>
+            <div>
+              <p className={`text-[14px] font-bold ${form.bandaConstruccion === b.id ? 'text-[#0F6E56]' : 'text-[#111d17]'}`}>{b.label}</p>
+              <p className="text-[11px] text-[#9aab9f] mt-0.5">{b.sub}</p>
+            </div>
+            <span className={`text-[10px] font-bold px-2 py-1 rounded-lg shrink-0 ${
+              form.bandaConstruccion === b.id ? 'bg-[#1D9E75] text-white' : 'bg-[#F0F4F2] text-[#5a7065]'
+            }`}>{b.rango}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 // ─── Address history (localStorage) ──────────────────────────────────────────
 
 const HISTORY_KEY = 'smt_addr_history'
@@ -279,9 +367,15 @@ function useFieldHistory(field: string) {
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
-const TOTAL = 6
-
-function canAdvance(step: number, form: FormData): boolean {
+function canAdvance(step: number, form: FormData, modoRapido: boolean): boolean {
+  if (modoRapido) {
+    switch (step) {
+      case 0: return form.nombreProyecto.trim().length >= 2
+      case 1: return !!(form.lat && form.lng)
+      case 2: return Number(form.superficie) > 0 && form.tiposDesarrollo.length > 0 && form.presupuesto !== '' && form.bandaConstruccion !== ''
+      default: return true
+    }
+  }
   switch (step) {
     case 0: return form.nombreProyecto.trim().length >= 2
     case 1: return !!(form.lat && form.lng)
@@ -296,6 +390,8 @@ function canAdvance(step: number, form: FormData): boolean {
 function FluidoAContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const modoRapido = searchParams.get('modo') === 'rapido'
+  const TOTAL = modoRapido ? 3 : 6
   const [step, setStep] = useState(0)
   const [visible, setVisible] = useState(true)
   const [dir, setDir] = useState<'fwd' | 'bck'>('fwd')
@@ -512,7 +608,7 @@ function FluidoAContent() {
   const back = () => { if (step > 0) goTo(step - 1) }
 
   const submit = () => {
-    localStorage.setItem('smt_flujo_a_data', JSON.stringify(form))
+    localStorage.setItem('smt_flujo_a_data', JSON.stringify({ ...form, _modoRapido: modoRapido }))
     router.push(`/analisis/analizando?proyecto=${encodeURIComponent(form.nombreProyecto || 'Proyecto')}`)
   }
 
@@ -771,92 +867,42 @@ function FluidoAContent() {
         </div>
       )
 
-      // 2 — Superficie
-      case 2: return (
-        <div>
-          <Q title="¿Cuántos m² tiene el terreno?" sub="Superficie total del predio (sin contar construcción existente)." />
-          <div className="relative">
-            <input autoFocus type="number" value={form.superficie}
-              onChange={e => set({ superficie: e.target.value })}
-              placeholder="0"
-              className="w-full border-2 border-[#E2E8E4] rounded-2xl px-4 py-4 text-[20px] text-[#111d17] bg-white focus:outline-none focus:border-[#1D9E75] placeholder:text-[#c5d0cb] transition-colors pr-14"
-            />
-            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[14px] text-[#9aab9f] font-medium pointer-events-none">m²</span>
-          </div>
-
-          {Number(form.superficie) > 0 && (
-            <div className="mt-5">
-              <p className="text-[12px] font-bold text-[#9aab9f] uppercase tracking-wider mb-2">Frente del predio (opcional)</p>
-              <div className="relative">
-                <input type="number" value={form.frente} onChange={e => set({ frente: e.target.value })}
-                  placeholder="0"
-                  className="w-full border-2 border-[#E2E8E4] rounded-2xl px-4 py-3.5 text-[16px] text-[#111d17] bg-white focus:outline-none focus:border-[#1D9E75] placeholder:text-[#c5d0cb] transition-colors pr-10"
-                />
-                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[13px] text-[#9aab9f] font-medium pointer-events-none">m</span>
-              </div>
+      // 2 — Superficie (modo normal) / pantalla combinada (modo rápido)
+      case 2:
+        if (modoRapido) return (
+          <div>
+            <Q title="Cuéntanos del terreno y tu idea" sub="Unas preguntas rápidas para calibrar el análisis — el resto lo ajustan los agentes de IA." />
+            <div className="mb-8">
+              <p className="text-[13px] font-bold text-[#111d17] mb-3">¿Cuántos m² tiene el terreno?</p>
+              <SuperficieCampos form={form} set={set} />
             </div>
-          )}
-        </div>
-      )
+            <div className="mb-8">
+              <p className="text-[13px] font-bold text-[#111d17] mb-3">¿Qué tipo de desarrollo tienes en mente?</p>
+              <TipoDesarrolloCampos form={form} set={set} />
+            </div>
+            <PresupuestoBandaCampos form={form} set={set} />
+          </div>
+        )
+        return (
+          <div>
+            <Q title="¿Cuántos m² tiene el terreno?" sub="Superficie total del predio (sin contar construcción existente)." />
+            <SuperficieCampos form={form} set={set} />
+          </div>
+        )
 
-      // 3 — Tipo de desarrollo
+      // 3 — Tipo de desarrollo (solo modo normal)
       case 3: return (
         <div>
           <Q title="¿Qué tipo de desarrollo tienes en mente?" sub="Puedes elegir más de uno. El análisis evaluará cada opción." />
-          <div className="flex flex-col gap-3">
-            {TIPOS_DESARROLLO.map(t => (
-              <Chip key={t.id} label={t.label} sub={t.sub}
-                selected={form.tiposDesarrollo.includes(t.id)}
-                onClick={() => set({
-                  tiposDesarrollo: form.tiposDesarrollo.includes(t.id)
-                    ? form.tiposDesarrollo.filter(x => x !== t.id)
-                    : [...form.tiposDesarrollo, t.id],
-                })}
-              />
-            ))}
-            {form.tiposDesarrollo.includes('otro') && (
-              <textarea
-                autoFocus
-                value={form.tipoOtroTexto}
-                onChange={e => set({ tipoOtroTexto: e.target.value })}
-                placeholder="Describe tu idea: tipo de inmueble, concepto, perfil de usuario, lo que tengas en mente…"
-                rows={3}
-                className="w-full border-2 border-[#1D9E75] bg-[#F0FBF6] rounded-2xl px-4 py-3.5 text-[14px] text-[#111d17] focus:outline-none placeholder:text-[#9aab9f] resize-none transition-colors"
-              />
-            )}
-          </div>
+          <TipoDesarrolloCampos form={form} set={set} />
         </div>
       )
 
-      // 4 — Presupuesto + Banda
+      // 4 — Presupuesto + Banda (solo modo normal)
       case 4: return (
         <div>
           <Q title="Presupuesto y nivel de acabados" sub="Dos preguntas rápidas para calibrar el modelo financiero." />
-
-          <p className="text-[13px] font-bold text-[#111d17] mb-3">¿Cuánto presupuesto tienes para invertir?</p>
-          <div className="grid grid-cols-2 gap-2.5 mb-7">
-            {RANGOS_PRESUPUESTO.map(r => (
-              <Chip key={r.id} label={r.label} selected={form.presupuesto === r.id} onClick={() => set({ presupuesto: r.id })} />
-            ))}
-          </div>
-
-          <p className="text-[13px] font-bold text-[#111d17] mb-3">¿Qué nivel de acabados buscas?</p>
-          <div className="flex flex-col gap-2.5">
-            {BANDAS.map(b => (
-              <button key={b.id} onClick={() => set({ bandaConstruccion: b.id })}
-                className={`w-full text-left flex items-center justify-between gap-3 px-4 py-3.5 rounded-2xl border-2 transition-all ${
-                  form.bandaConstruccion === b.id ? 'border-[#1D9E75] bg-[#F0FBF6]' : 'border-[#E2E8E4] bg-white hover:border-[#9FE1CB]'
-                }`}>
-                <div>
-                  <p className={`text-[14px] font-bold ${form.bandaConstruccion === b.id ? 'text-[#0F6E56]' : 'text-[#111d17]'}`}>{b.label}</p>
-                  <p className="text-[11px] text-[#9aab9f] mt-0.5">{b.sub}</p>
-                </div>
-                <span className={`text-[10px] font-bold px-2 py-1 rounded-lg shrink-0 ${
-                  form.bandaConstruccion === b.id ? 'bg-[#1D9E75] text-white' : 'bg-[#F0F4F2] text-[#5a7065]'
-                }`}>{b.rango}</span>
-              </button>
-            ))}
-          </div>
+          <PresupuestoBandaCampos form={form} set={set} />
         </div>
       )
 
@@ -975,7 +1021,7 @@ function FluidoAContent() {
           </div>
 
           <div className="shrink-0 text-right">
-            <p className="text-[11px] text-white/40 leading-none mb-0.5">Flujo A</p>
+            <p className="text-[11px] text-white/40 leading-none mb-0.5">{modoRapido ? 'Flujo A · Camino corto' : 'Flujo A'}</p>
             <p className="text-[13px] font-bold text-white leading-none tabular-nums">
               {step + 1}<span className="text-white/40 font-normal"> / {TOTAL}</span>
             </p>
@@ -998,8 +1044,8 @@ function FluidoAContent() {
       {/* Footer */}
       <footer className="sticky bottom-0 bg-[#0A0C0B] border-t border-white/10 px-5 py-4">
         <div className="max-w-[600px] mx-auto flex items-center justify-between gap-3">
-          {/* Skip on last step */}
-          {isLast ? (
+          {/* Skip on last step — solo aplica al paso de "Ajuste fino", que no existe en modo rápido */}
+          {isLast && !modoRapido ? (
             <button onClick={next} className="text-[13px] text-[#9aab9f] hover:text-[#5a7065] transition-colors px-2 py-2">
               Omitir ajuste →
             </button>
@@ -1015,9 +1061,9 @@ function FluidoAContent() {
               Iniciar análisis
             </button>
           ) : (
-            <button onClick={next} disabled={!canAdvance(step, form)}
+            <button onClick={next} disabled={!canAdvance(step, form, modoRapido)}
               className={`flex items-center gap-2 px-7 py-3 rounded-xl text-[14px] font-bold transition-all ${
-                canAdvance(step, form)
+                canAdvance(step, form, modoRapido)
                   ? 'bg-[#1D9E75] hover:bg-[#0F6E56] text-white'
                   : 'bg-white/10 text-white/30 cursor-not-allowed'
               }`}>

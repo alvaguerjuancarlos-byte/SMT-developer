@@ -845,7 +845,7 @@ function AnalisisContent() {
               </div>
             )}
 
-            <p className="text-[10px] text-[#9aab9f] italic">Boceto ilustrativo generado a partir del programa arquitectónico propuesto por el Agente Construcción. No sustituye un plano arquitectónico ni asume distribución real por nivel — es una aproximación de volumetría para evaluar la propuesta antes de diseño.</p>
+            <p className="text-[10px] text-[#9aab9f] italic">Boceto ilustrativo generado a partir del programa arquitectónico propuesto por el Agente de Costos de Construcción. No sustituye un plano arquitectónico ni asume distribución real por nivel — es una aproximación de volumetría para evaluar la propuesta antes de diseño.</p>
           </div>
         </div>
       </div>

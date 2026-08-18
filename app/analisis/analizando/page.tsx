@@ -115,6 +115,39 @@ function Spinner({ color = '#1D9E75', size = 18 }: { color?: string; size?: numb
   )
 }
 
+// Indicador "agente trabajando" — barrido de radar/sonar: una manecilla gira y deja una estela
+// que se desvanece detrás de ella (conic-gradient rotando), como una pantalla de sonar real, en
+// vez del ping de anillos genérico. Cada agente tiene su propio color (ver AGENTE_COLOR más
+// abajo) para poder distinguir de un vistazo cuál está corriendo cuando varios corren en paralelo.
+function Sonar({ color = '#1D9E75', size = 36 }: { color?: string; size?: number }) {
+  return (
+    <span className="relative inline-flex items-center justify-center shrink-0" style={{ width: size, height: size }}>
+      {/* Aro base de la pantalla de radar */}
+      <span className="absolute inline-block rounded-full" style={{ width: size, height: size, border: `1.5px solid ${color}33` }} />
+      {/* Manecilla giratoria — la estela es el propio degradado cónico desvaneciéndose */}
+      <span
+        className="absolute inline-block rounded-full animate-spin"
+        style={{
+          width: size, height: size,
+          background: `conic-gradient(from 0deg, transparent 0deg, transparent 260deg, ${color}4D 320deg, ${color} 360deg)`,
+        }}
+      />
+      {/* Centro fijo */}
+      <span className="relative inline-block rounded-full" style={{ width: size * 0.14, height: size * 0.14, backgroundColor: color }} />
+    </span>
+  )
+}
+
+// Un color por agente, consistente en toda la pantalla del pipeline.
+const AGENTE_COLOR = {
+  terreno: '#1D9E75',
+  legal: '#378ADD',
+  mercado: '#B8860B',
+  arquitectura: '#8B5CF6',
+  construccion: '#EA580C',
+  financiero: '#DB2777',
+} as const
+
 function CheckIcon({ size = 16 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 16 16" fill="none">
@@ -224,33 +257,81 @@ function RangoConstruccionCard({
   )
 }
 
+// Pasos de ajuste rápido en % — no acumulativos: cada botón calcula desde `value` (lo que
+// calculó el agente), nunca desde el override anterior. Volver a pulsar el mismo % activo
+// lo apaga y regresa al valor del agente — evita el problema de "por unidad" (subir $8,000/m²
+// de uno en uno) sin perder la opción de escribir un número exacto en el input de al lado.
+const PASOS_AJUSTE_PCT = [-20, -15, -10, -5, 5, 10, 15, 20]
+
 function EditableM2({
-  label, value, override, onOverride, unit = '/m²',
+  label, value, override, onOverride, unit = '/m²', prefix = '$',
 }: {
-  label: string; value: number; override: string; onOverride: (v: string) => void; unit?: string
+  label: string; value: number; override: string; onOverride: (v: string) => void; unit?: string; prefix?: string
 }) {
-  const display = override !== '' ? Number(override) : value
+  const pctActivo = override !== '' && value !== 0 ? Math.round(((Number(override) - value) / value) * 100) : null
+  const aplicarPct = (p: number) => {
+    if (pctActivo === p) { onOverride(''); return }
+    onOverride(String(Math.round(value * (1 + p / 100))))
+  }
   return (
-    <div className="bg-[#F7F8F6] rounded-xl px-4 py-3 flex items-center justify-between gap-3">
-      <div>
-        <p className="text-[10px] text-[#9aab9f] uppercase tracking-wide font-semibold">{label}</p>
-        <div className="flex items-center gap-2 mt-0.5">
-          <span className="text-[11px] text-[#9aab9f]">$</span>
-          <input
-            type="number"
-            value={override !== '' ? override : value}
-            onChange={e => onOverride(e.target.value)}
-            className="w-28 text-[17px] font-bold text-[#111d17] bg-transparent border-b border-dashed border-[#C0CDC7] focus:outline-none focus:border-[#1D9E75]"
-          />
-          <span className="text-[12px] text-[#9aab9f]">{unit}</span>
+    <div className="bg-[#F7F8F6] rounded-xl px-4 py-3">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <p className="text-[10px] text-[#9aab9f] uppercase tracking-wide font-semibold">{label}</p>
+          <div className="flex items-center gap-2 mt-0.5">
+            {prefix && <span className="text-[11px] text-[#9aab9f]">{prefix}</span>}
+            <input
+              type="number"
+              value={override !== '' ? override : value}
+              onChange={e => onOverride(e.target.value)}
+              className="w-24 text-[17px] font-bold text-[#111d17] bg-transparent border-b border-dashed border-[#C0CDC7] focus:outline-none focus:border-[#1D9E75]"
+            />
+            <span className="text-[12px] text-[#9aab9f]">{unit}</span>
+          </div>
         </div>
+        {override !== '' && Number(override) !== value && (
+          <div className="text-right shrink-0">
+            <p className="text-[9px] text-[#9aab9f]">Agente calculó</p>
+            <p className="text-[11px] text-[#b0bdb6] line-through">{prefix}{value.toLocaleString('es-MX')}{unit}</p>
+          </div>
+        )}
       </div>
-      {override !== '' && Number(override) !== value && (
-        <div className="text-right">
-          <p className="text-[9px] text-[#9aab9f]">Agente calculó</p>
-          <p className="text-[11px] text-[#b0bdb6] line-through">${value.toLocaleString('es-MX')}{unit}</p>
-        </div>
-      )}
+      <div className="flex flex-wrap gap-1 mt-2">
+        {PASOS_AJUSTE_PCT.map(p => (
+          <button
+            key={p}
+            type="button"
+            onClick={() => aplicarPct(p)}
+            className={`px-1.5 py-0.5 rounded-md text-[10px] font-bold transition-colors ${
+              pctActivo === p ? 'bg-[#1D9E75] text-white' : 'bg-white border border-[#E2E8E4] text-[#5a7065] hover:border-[#1D9E75]'
+            }`}
+          >
+            {p > 0 ? `+${p}%` : `${p}%`}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// Toggle chico "Ver detalle" — a diferencia del patrón pastilla oscura de ancho completo que
+// ya usan SelectorCorridas/AjustarBandaConstruccion/AjustarSupuestos*, este es un link inline
+// para colgarlo junto a una etiqueta o cifra puntual, sin ocupar una fila entera.
+function VerDetalle({ label = 'Ver detalle', ocultarLabel = 'Ocultar', children }: { label?: string; ocultarLabel?: string; children: React.ReactNode }) {
+  const [abierto, setAbierto] = useState(false)
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => setAbierto(v => !v)}
+        className="text-[11px] font-semibold text-[#1D9E75] hover:text-[#0F6E56] inline-flex items-center gap-1 cursor-pointer"
+      >
+        {abierto ? ocultarLabel : label}
+        <svg width="9" height="9" viewBox="0 0 14 14" fill="none" style={{ transform: abierto ? 'rotate(90deg)' : 'none', transition: 'transform 150ms' }}>
+          <path d="M5 3l4 4-4 4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
+        </svg>
+      </button>
+      {abierto && <div className="mt-2">{children}</div>}
     </div>
   )
 }
@@ -958,10 +1039,10 @@ function SectionHeader({ n, label }: { n: number; label: string }) {
 
 // ─── Step Cards ──────────────────────────────────────────────────────────────
 
-function RunningCard({ label, hint }: { label: string; hint: string }) {
+function RunningCard({ label, hint, color = '#1D9E75' }: { label: string; hint: string; color?: string }) {
   return (
     <div className="bg-white rounded-2xl border border-[#E2E8E4] shadow-sm p-6 flex items-center gap-5">
-      <Spinner size={36} />
+      <Sonar color={color} size={36} />
       <div>
         <p className="text-[14px] font-semibold text-[#111d17]">{label}</p>
         <p className="text-[12px] text-[#9aab9f] mt-0.5">{hint}</p>
@@ -1155,6 +1236,314 @@ function AgentChat({ agentKey, agentData }: { agentKey: string; agentData: any }
   )
 }
 
+// Panel de alertas consolidado del checkpoint post-Construcción (Step 6) — junta señales
+// amarillo/rojo que ya calculan los agentes pero que hoy viven dispersas (o, en el caso de
+// validacionEnvolvente, nunca se muestran en ningún lado). Solo lista lo que hay que revisar,
+// no un reporte de estado completo — si todo está en verde, un solo banner de éxito.
+interface AlertaItem { severidad: 'amber' | 'red'; titulo: string; detalle: string }
+
+function AlertasResumen({ terreno, legal, arquitectura, construccion, spreadBajo, margenBruto }: {
+  terreno?: any; legal?: any; arquitectura?: any; construccion?: any
+  spreadBajo: boolean; margenBruto: number
+}) {
+  const items: AlertaItem[] = []
+
+  const icTerreno = terreno?.indiceConfiabilidad
+  if (icTerreno?.semaforo && icTerreno.semaforo !== 'VERDE') {
+    items.push({
+      severidad: icTerreno.semaforo === 'ROJO' ? 'red' : 'amber',
+      titulo: 'Terreno — confiabilidad',
+      detalle: icTerreno.accionRecomendada || icTerreno.interpretacion || 'Revisar la valuación del terreno.',
+    })
+  }
+  const vpTerreno = terreno?.validacionPrecioSolicitado
+  if (vpTerreno?.aplica && vpTerreno.semaforo && vpTerreno.semaforo !== 'VERDE') {
+    items.push({
+      severidad: vpTerreno.semaforo === 'ROJO' ? 'red' : 'amber',
+      titulo: 'Terreno — precio solicitado',
+      detalle: vpTerreno.interpretacion || 'El precio solicitado se aleja del valor calculado.',
+    })
+  }
+
+  const nivelRiesgo = legal?.fichaLegal?.nivelRiesgo
+  if (nivelRiesgo === 'Medio' || nivelRiesgo === 'Alto') {
+    items.push({
+      severidad: nivelRiesgo === 'Alto' ? 'red' : 'amber',
+      titulo: 'Riesgo legal',
+      detalle: `Nivel de riesgo ${nivelRiesgo} según la Ficha Legal.`,
+    })
+  }
+  const alertasLegales = legal?.fichaLegal?.alertasLegales as Array<{ tipo: string; descripcion: string; impacto: string; status: string }> | undefined
+  alertasLegales?.forEach(a => {
+    if (a.status === 'amber' || a.status === 'red') {
+      items.push({ severidad: a.status as 'amber' | 'red', titulo: `Legal — ${a.tipo}`, detalle: a.impacto || a.descripcion })
+    }
+  })
+
+  const validSup = arquitectura?.validacionSuperficieConstruida
+  if (validSup?.excedeAreaMaxConstruible) {
+    items.push({ severidad: 'red', titulo: 'Superficie excede el máximo legal', detalle: 'El diseño propuesto rebasa el área máxima construible por COS/CUS.' })
+  } else if (validSup?.fueraDeRangoPiso || validSup?.fueraDeRangoTecho) {
+    items.push({ severidad: 'amber', titulo: 'Superficie fuera de rango esperado', detalle: 'La superficie construida propuesta cae fuera del rango piso–techo calculado.' })
+  }
+
+  const validMix = arquitectura?.validacionEnvolvente
+  if (validMix?.sobredensifica) {
+    items.push({ severidad: 'amber', titulo: 'Mix sobredensifica el predio', detalle: `${validMix.nUnidades} unidades exceden la densidad máxima autorizada.` })
+  } else if (validMix?.subdensifica) {
+    items.push({ severidad: 'amber', titulo: 'Mix subdensifica el predio', detalle: `${validMix.nUnidades} unidades aprovechan menos del 70% de la densidad autorizada.` })
+  }
+
+  const icConstruccion = construccion?.indiceConfiabilidad
+  if (icConstruccion?.semaforo && icConstruccion.semaforo !== 'VERDE') {
+    items.push({
+      severidad: icConstruccion.semaforo === 'ROJO' ? 'red' : 'amber',
+      titulo: 'Construcción — confiabilidad',
+      detalle: icConstruccion.accionRecomendada || icConstruccion.interpretacion || 'Revisar el costeo de construcción.',
+    })
+  }
+
+  if (spreadBajo) {
+    items.push({ severidad: 'red', titulo: 'Spread venta/construcción bajo', detalle: 'Por debajo de 1.6x — señal temprana de que el proyecto puede no ser viable.' })
+  }
+  if (margenBruto < 12) {
+    items.push({ severidad: margenBruto < 0 ? 'red' : 'amber', titulo: 'Margen bruto bajo', detalle: `${margenBruto.toFixed(1)}% — por debajo del 12% de referencia.` })
+  }
+
+  items.sort((a, b) => (a.severidad === b.severidad ? 0 : a.severidad === 'red' ? -1 : 1))
+
+  if (items.length === 0) {
+    return (
+      <div className="mx-5 mb-4 flex items-center gap-2 bg-[#F0FBF6] border border-[#9FE1CB] rounded-xl px-4 py-3">
+        <span className="w-2 h-2 rounded-full bg-[#1D9E75] shrink-0" />
+        <p className="text-[12px] font-semibold text-[#0F6E56]">Sin alertas — todo dentro de rango.</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="mx-5 mb-4">
+      <p className="text-[10px] font-bold text-[#9aab9f] uppercase tracking-wide mb-2">Alertas a revisar ({items.length})</p>
+      <div className="flex flex-col gap-1.5">
+        {items.map((it, i) => (
+          <div key={i} className={`flex items-start gap-2.5 rounded-xl px-3.5 py-2.5 border ${it.severidad === 'red' ? 'bg-[#FFF5F5] border-[#FECACA]' : 'bg-[#FFFBEB] border-[#F5D97A]'}`}>
+            <span className="w-2 h-2 rounded-full mt-1 shrink-0" style={{ backgroundColor: it.severidad === 'red' ? '#DC2626' : '#D97706' }} />
+            <div className="min-w-0">
+              <p className={`text-[12px] font-bold ${it.severidad === 'red' ? 'text-[#991B1B]' : 'text-[#92600A]'}`}>{it.titulo}</p>
+              <p className="text-[11px] text-[#5C7186] mt-0.5 leading-snug">{it.detalle}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// Consolida en un solo bloque compacto de pestañas los chats "Preguntar al agente" (antes uno
+// por sección, mismo AgentChat de siempre, solo reubicado) y el único ajuste que sigue teniendo
+// sentido en este punto del pipeline: la banda de construcción (Terreno/Arquitectura/Mercado
+// necesitan re-correrse ANTES de Construcción para no dejar el pipeline inconsistente — esos
+// tres "Ajustar parámetros" se quedan en su propia sección, ver analizando/page.tsx).
+function AgentesQA({
+  terreno, legal, mercado, arquitectura, construccion, bandaActual, onAjustarBanda,
+}: {
+  terreno: any; legal: any; mercado: any; arquitectura: any; construccion: any
+  bandaActual: number | string | undefined; onAjustarBanda: (banda: string) => void
+}) {
+  const tabs = [
+    { key: 'terreno', label: 'Terreno', data: terreno },
+    { key: 'legal', label: 'Legal', data: legal },
+    { key: 'mercado', label: 'Mercado', data: mercado },
+    { key: 'arquitectura', label: 'Arquitectura', data: arquitectura },
+    { key: 'construccion', label: 'Construcción', data: construccion },
+  ]
+  const [activo, setActivo] = useState(tabs[0].key)
+  return (
+    <div className="px-5 pb-2">
+      <VerDetalle label="Preguntar a los agentes / ajustar banda de construcción">
+        <div className="rounded-xl border border-[#E2E8E4] overflow-hidden bg-white">
+          <div className="flex overflow-x-auto bg-[#F7F8F6] border-b border-[#E2E8E4]">
+            {tabs.map(t => (
+              <button
+                key={t.key}
+                type="button"
+                onClick={() => setActivo(t.key)}
+                className={`shrink-0 px-3.5 py-2 text-[11px] font-bold transition-colors cursor-pointer ${
+                  activo === t.key ? 'text-[#0F6E56] border-b-2 border-[#1D9E75] bg-white' : 'text-[#9aab9f] hover:text-[#5a7065]'
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+          {activo === 'construccion' && (
+            <div className="px-5 pt-4 border-b border-[#F0F4F2]">
+              {/* El diseño (niveles/mix/amenidades) ya lo fijó Arquitectura — aquí solo se
+                  puede volver a costear el mismo diseño con otra banda de acabados. */}
+              <AjustarBandaConstruccion bandaActual={bandaActual} onAplicar={onAjustarBanda} />
+            </div>
+          )}
+          {tabs.map(t => activo === t.key && <AgentChat key={t.key} agentKey={t.key} agentData={t.data} />)}
+        </div>
+      </VerDetalle>
+    </div>
+  )
+}
+
+// Portado de app/propuesta/page.tsx (CashFlowChart, ahí portado a su vez de app/analisis/
+// page.tsx) — SVG a mano, sin librería de gráficas. Usado en el checkpoint de Financiero
+// (Step 7) para no obligar a salir de esta pantalla a ver el flujo de caja proyectado.
+interface FlujoMesPipeline { mes: number; fase: string; egresos: number; ingresos: number; acumulado: number; nota: string }
+
+function CashFlowChart({ data }: { data: FlujoMesPipeline[] }) {
+  const W = 680, H = 220
+  const pad = { top: 24, right: 16, bottom: 36, left: 72 }
+  const iW = W - pad.left - pad.right
+  const iH = H - pad.top - pad.bottom
+
+  const maxEgreso  = Math.max(...data.map(d => d.egresos),  1)
+  const maxIngreso = Math.max(...data.map(d => d.ingresos), 1)
+  const maxBar     = Math.max(maxEgreso, maxIngreso)
+  const minAcum    = Math.min(...data.map(d => d.acumulado))
+  const maxAcum    = Math.max(...data.map(d => d.acumulado))
+  const acumRange  = maxAcum - minAcum || 1
+
+  const barW  = Math.max(4, iW / data.length - 3)
+  const xPos  = (i: number) => pad.left + (i + 0.5) * (iW / data.length)
+  const yLine = (v: number) => pad.top + ((maxAcum - v) / acumRange) * iH
+
+  const zeroY = yLine(0)
+  const linePts = data.map((d, i) => `${xPos(i)},${yLine(d.acumulado)}`).join(' ')
+
+  const fmtCompacto = (n: number) =>
+    Math.abs(n) >= 1_000_000 ? `$${(n / 1_000_000).toFixed(1)}M` : `$${(n / 1_000).toFixed(0)}k`
+
+  const ticks = [minAcum, minAcum + acumRange * 0.25, minAcum + acumRange * 0.5, minAcum + acumRange * 0.75, maxAcum]
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} width="100%" className="overflow-visible">
+      {ticks.map((t, i) => (
+        <g key={i}>
+          <line x1={pad.left} y1={yLine(t)} x2={W - pad.right} y2={yLine(t)} stroke="#F0F4F2" strokeWidth="1" />
+          <text x={pad.left - 6} y={yLine(t) + 4} textAnchor="end" fontSize="9" fill="#b0bdb6">{fmtCompacto(t)}</text>
+        </g>
+      ))}
+
+      {minAcum < 0 && maxAcum > 0 && (
+        <line x1={pad.left} y1={zeroY} x2={W - pad.right} y2={zeroY} stroke="#E2E8E4" strokeWidth="1.5" strokeDasharray="4 3" />
+      )}
+
+      {data.map((d, i) => {
+        const cx   = xPos(i)
+        const half = barW / 2
+        const hE   = (d.egresos  / maxBar) * (iH * 0.45)
+        const hI   = (d.ingresos / maxBar) * (iH * 0.45)
+        const midY = pad.top + iH * 0.5
+        return (
+          <g key={i}>
+            {d.egresos  > 0 && <rect x={cx - half} y={midY}          width={barW} height={hE} rx="2" fill="#FCA5A5" />}
+            {d.ingresos > 0 && <rect x={cx - half} y={midY - hI}     width={barW} height={hI} rx="2" fill="#6EE7B7" />}
+          </g>
+        )
+      })}
+
+      <polyline points={linePts} fill="none" stroke="#1D9E75" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
+
+      {data.map((d, i) => (
+        <circle key={i} cx={xPos(i)} cy={yLine(d.acumulado)} r="3"
+          fill={d.acumulado >= 0 ? '#1D9E75' : '#DC2626'} stroke="white" strokeWidth="1.5" />
+      ))}
+
+      {data.map((d, i) => (
+        (i === 0 || (i + 1) % Math.ceil(data.length / 8) === 0 || i === data.length - 1) && (
+          <text key={i} x={xPos(i)} y={H - 6} textAnchor="middle" fontSize="9" fill="#9aab9f">M{d.mes}</text>
+        )
+      ))}
+
+      <g transform={`translate(${pad.left}, ${H - 8})`}>
+        <rect x="0" y="-7" width="8" height="8" rx="1" fill="#6EE7B7" />
+        <text x="11" y="0" fontSize="9" fill="#5a7065">Ingresos</text>
+        <rect x="64" y="-7" width="8" height="8" rx="1" fill="#FCA5A5" />
+        <text x="75" y="0" fontSize="9" fill="#5a7065">Egresos</text>
+        <line x1="128" y1="-3" x2="140" y2="-3" stroke="#1D9E75" strokeWidth="2.5" />
+        <text x="143" y="0" fontSize="9" fill="#5a7065">Acumulado</text>
+      </g>
+    </svg>
+  )
+}
+
+// Resumen compacto de resiliencia para el checkpoint de Financiero — score por dimensión +
+// stress test + punto de quiebre, mismo dato que ya usa /propuesta pero en versión chica.
+function ResilienciaResumen({ score, stressTest, puntoQuiebre }: { score: any; stressTest: any[]; puntoQuiebre: any }) {
+  const STATUS_CFG: Record<string, { dot: string; label: string; badge: string }> = {
+    green: { dot: '#1D9E75', label: 'Tolerable', badge: 'bg-[#E1F5EE] text-[#0F6E56]' },
+    amber: { dot: '#D97706', label: 'Monitorear', badge: 'bg-[#FEF3C7] text-[#92600A]' },
+    red:   { dot: '#DC2626', label: 'Crítico', badge: 'bg-[#FEE2E2] text-[#991B1B]' },
+  }
+  return (
+    <div className="flex flex-col gap-4">
+      {score && (
+        <div className="grid grid-cols-3 gap-2">
+          {[
+            { label: 'Solidez financiera', v: score.solidezFinanciera },
+            { label: 'Riesgo regulatorio', v: score.riesgoRegulatorio },
+            { label: 'Exposición mercado', v: score.exposicionMercado },
+          ].map(item => {
+            const color = item.v >= 70 ? '#1D9E75' : item.v >= 50 ? '#D97706' : '#DC2626'
+            return (
+              <div key={item.label} className="bg-[#F7F8F6] rounded-xl p-3 border border-[#E2E8E4]">
+                <p className="text-[10px] text-[#9aab9f] mb-1.5">{item.label}</p>
+                <div className="h-1.5 bg-[#E2E8E4] rounded-full overflow-hidden mb-1">
+                  <div className="h-full rounded-full" style={{ width: `${item.v}%`, backgroundColor: color }} />
+                </div>
+                <p className="text-[11px] font-bold" style={{ color }}>{item.v}/100</p>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {stressTest?.length > 0 && (
+        <div>
+          <p className="text-[10px] font-bold text-[#9aab9f] uppercase tracking-wide mb-2">Stress test — escenarios adversos</p>
+          <div className="flex flex-col gap-1.5">
+            {stressTest.map((s: any, i: number) => {
+              const cfg = STATUS_CFG[s.status] ?? STATUS_CFG.amber
+              return (
+                <div key={i} className="flex items-start gap-2.5 bg-[#F7F8F6] border border-[#E2E8E4] rounded-xl px-3.5 py-2.5">
+                  <span className="w-2 h-2 rounded-full mt-1 shrink-0" style={{ backgroundColor: cfg.dot }} />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <p className="text-[12px] font-bold text-[#111d17]">{s.titulo}</p>
+                      <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${cfg.badge}`}>{cfg.label}</span>
+                    </div>
+                    <p className="text-[11px] text-[#5a7065] mt-0.5">{s.impacto}</p>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {puntoQuiebre && (
+        <div className="grid grid-cols-3 gap-2">
+          {[
+            { label: 'Desviación máx. costos', value: puntoQuiebre.desviacionMaxCostos },
+            { label: 'Absorción mínima viable', value: puntoQuiebre.absorcionMinViable },
+            { label: 'Precio venta mínimo', value: puntoQuiebre.precioVentaMinimo },
+          ].map(b => (
+            <div key={b.label} className="bg-[#F7F8F6] border border-[#E2E8E4] rounded-xl p-3 text-center">
+              <p className="text-[9px] text-[#9aab9f] uppercase tracking-wide mb-1">{b.label}</p>
+              <p className="text-[14px] font-black text-[#111d17]">{b.value}</p>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Main pipeline ───────────────────────────────────────────────────────────
 
 function PipelineContent() {
@@ -1163,6 +1552,7 @@ function PipelineContent() {
   const proyecto = params.get('proyecto') || ''
 
   const [formData, setFormData] = useState<any>(null)
+  const [modoRapido, setModoRapido] = useState(false)
   const [pipe, setPipe] = useState<PipelineState>({
     comparables: { status: 'waiting', data: [] },
     comparablesVenta: { status: 'waiting', data: [] },
@@ -1203,6 +1593,7 @@ function PipelineContent() {
     if (!raw) { router.push('/prospeccion/flujo-a'); return }
     const fd = JSON.parse(raw)
     setFormData(fd)
+    setModoRapido(!!fd._modoRapido)
 
     // Si venimos de vuelta de Mastermind 1, restaura el pipeline completo en vez de arrancar
     // desde cero — evita re-correr Terreno/Legal/Mercado/Arquitectura/Construcción (cada uno con
@@ -1219,6 +1610,11 @@ function PipelineContent() {
     console.log('[ubicacion] lat:', fd.lat, 'lng:', fd.lng, 'zonaGeo:', fd.zonaGeo)
     runUbicacion(fd)
     if (fd.cuentaPredial?.trim()) runCatastro(fd)
+    // Legal y Mercado no dependen de Terreno (solo de formData) — se disparan aquí mismo,
+    // en paralelo con la cadena Ubicación→Comparables→Terreno, en vez de esperar a que
+    // Terreno termine. Arquitectura sigue esperando a Legal (sí lo necesita, ver runArquitectura).
+    runLegal(fd)
+    runMercado(undefined, fd)
   }, [])
 
   // Aplica la calibración de Mastermind 1 (si venimos de ahí) una vez que el pipeline
@@ -1380,18 +1776,19 @@ function PipelineContent() {
   }
 
   // ── Comparables reales de VENTA (Serper) — para el Agente Mercado, no Terreno ──
-  // Se dispara dentro de runMercado() (no en el bootstrap junto a los de terreno) porque
-  // Mercado corre mucho después en el pipeline (Terreno → Construcción → Legal+Mercado) — más
-  // simple mantenerlo contenido ahí que agregar otra rama al bootstrap temprano.
-  const runComparablesVenta = async (): Promise<ComparableVentaItem[]> => {
+  // Se dispara dentro de runMercado(), que ahora corre desde el bootstrap en paralelo con
+  // Terreno — recibe `fd` explícito porque en ese punto el estado `formData` todavía no se
+  // actualizó (setFormData es asíncrono), igual que ya hacían runTerreno/runCatastro.
+  const runComparablesVenta = async (fd?: any): Promise<ComparableVentaItem[]> => {
+    const input = fd || formData
     setPipe(p => ({ ...p, comparablesVenta: { status: 'running', data: [] } }))
     try {
       const res = await authedFetch('/api/agentes/comparables-venta', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          colonia: formData.colonia, ciudad: formData.ciudad, estado: formData.estado,
-          codigoPostal: formData.codigoPostal, tiposDesarrollo: formData.tiposDesarrollo,
-          bandaConstruccion: formData.bandaConstruccion,
+          colonia: input.colonia, ciudad: input.ciudad, estado: input.estado,
+          codigoPostal: input.codigoPostal, tiposDesarrollo: input.tiposDesarrollo,
+          bandaConstruccion: input.bandaConstruccion,
         }),
       })
       const json = await res.json()
@@ -1483,11 +1880,16 @@ function PipelineContent() {
     }
   }
 
-  // ── Step 2: Legal (guardarraíl) — corre apenas termina Terreno, antes de Construcción ──
-  const runLegal = async () => {
+  // ── Step 2: Legal (guardarraíl) — solo necesita formData, corre desde el bootstrap en
+  // paralelo con Terreno (antes esperaba a que Terreno terminara sin usar su resultado en
+  // nada — verificado leyendo legal/route.ts, no lee ubicación/comparables/terreno).
+  // `fd` explícito porque se llama desde el bootstrap antes de que `formData` (estado) se
+  // actualice — mismo patrón que runTerreno/runCatastro.
+  const runLegal = async (fd?: any) => {
+    const input = fd || formData
     setPipe(p => ({ ...p, legal: { status: 'running', data: null } }))
     try {
-      const res = await authedFetch('/api/agentes/legal', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(formData) })
+      const res = await authedFetch('/api/agentes/legal', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) })
       const json = await res.json()
       if (json.error) throw new Error(json.error)
       setPipe(p => ({ ...p, legal: { status: 'done', data: json } }))
@@ -1496,23 +1898,8 @@ function PipelineContent() {
     }
   }
 
-  // Legal y Mercado corren en paralelo apenas Terreno termina, sin esperar a que el
-  // usuario apruebe y continúe — así COS/CUS y demanda/absorción ya están listos para
-  // cuando el usuario llegue al paso interactivo de Construcción, que ahora los necesita
-  // para no proponer más unidades de las que el mercado puede absorber. Ninguno de los
-  // dos depende del otro ni de Construcción, así que corren sin condición de carrera.
-  useEffect(() => {
-    if (pipe.terreno.status === 'done' && pipe.legal.status === 'waiting') {
-      runLegal()
-    }
-    if (pipe.terreno.status === 'done' && pipe.mercado.status === 'waiting') {
-      runMercado()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pipe.terreno.status])
-
   // Arquitectura necesita fichaLegal (COS/CUS) para diseñar al máximo normativo, así que
-  // espera a Legal en vez de a Terreno — corre en paralelo con Mercado, sin depender de él.
+  // espera a Legal — corre en paralelo con Mercado, sin depender de él.
   useEffect(() => {
     if (pipe.legal.status === 'done' && pipe.arquitectura.status === 'waiting') {
       runArquitectura()
@@ -1520,7 +1907,11 @@ function PipelineContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pipe.legal.status])
 
-  const runMercado = async (overrides?: { precioVentaObjetivo?: string; absorcionObjetivoManual?: string }) => {
+  // Mercado tampoco depende de Terreno (verificado en mercado/route.ts — solo lee formData;
+  // costoTerrenoM2/construccionM2 se mencionan en el prompt pero runMercado nunca los envía).
+  // Corre desde el bootstrap, en paralelo con Terreno y Legal.
+  const runMercado = async (overrides?: { precioVentaObjetivo?: string; absorcionObjetivoManual?: string }, fd?: any) => {
+    const input = fd || formData
     const precioVentaObjetivo = overrides?.precioVentaObjetivo ?? pipe.mercado.overridePrecioVenta
     const absorcionObjetivoManual = overrides?.absorcionObjetivoManual ?? pipe.mercado.overrideAbsorcion
     const mixUnidadesResumen = resumenMixUnidades(arquitecturaActual?.bitacoraArquitectura?.tipologiaPropuesta)
@@ -1528,13 +1919,13 @@ function PipelineContent() {
     // Los comparables reales no cambian entre corridas de "Ajustar parámetros" — se buscan
     // solo la primera vez y se reutilizan en corridas siguientes del mismo predio.
     const comparablesVenta = pipe.comparablesVenta.status === 'waiting'
-      ? await runComparablesVenta()
+      ? await runComparablesVenta(input)
       : pipe.comparablesVenta.data
     try {
       const res = await authedFetch('/api/agentes/mercado', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ...formData,
+          ...input,
           precioVentaObjetivo: precioVentaObjetivo || undefined,
           absorcionObjetivoManual: absorcionObjetivoManual || undefined,
           mixUnidadesResumen: mixUnidadesResumen || undefined,
@@ -1711,11 +2102,38 @@ function PipelineContent() {
       localStorage.setItem('smt_analisis_data', JSON.stringify(fullResult))
       saveProyecto({ nombre: proyecto, datos: { ...fullResult, _inputData: formData }, flujo: 'A' })
         .then(r => { if (r.ok && r.id) localStorage.setItem('smt_proyecto_id', r.id) })
-      setTimeout(() => router.push(`/analisis?proyecto=${encodeURIComponent(proyecto)}`), 1200)
+      // Ya NO redirige solo — el Análisis Financiero se queda visible en pantalla (Step 7) para
+      // darle su peso antes de pasar al informe, en vez de saltar de un golpe. El usuario avanza
+      // a mano con el botón "Ver reporte final" (ver irAlReporte más abajo).
     } catch {
       setPipe(p => ({ ...p, financiero: { ...p.financiero, status: 'error', data: null } }))
     }
   }
+
+  // Camino corto salta directo a la propuesta ejecutiva (ya autosuficiente vía smt_analisis_data)
+  // en vez de pasar por el dashboard completo de /analisis. Se dispara con el botón "Ver reporte
+  // final" del Step 7, no automáticamente.
+  const irAlReporte = () => {
+    const destino = modoRapido ? '/propuesta' : '/analisis'
+    router.push(`${destino}?proyecto=${encodeURIComponent(proyecto)}`)
+  }
+
+  // ── Camino corto: auto-disparar Construcción apenas está listo (misma condición que el botón
+  // "Aprobar y continuar con Construcción", ya no exige Mercado — ver Parte 1 del pipeline).
+  // Financiero YA NO se auto-dispara — el panel "Resumen: Costos e Ingresos" (Step 6, más abajo)
+  // es una pausa funcional real: ahí se revisan/ajustan costo terreno, costo construcción, precio
+  // de venta y unidades objetivo, más el panel de alertas, antes de aprobar Financiero a mano —
+  // igual en Camino corto que en Flujo A normal.
+  const autoConstruccionRef = useRef(false)
+  useEffect(() => {
+    if (!modoRapido || autoConstruccionRef.current) return
+    if (pipe.legal.status === 'done' && pipe.arquitectura.status === 'done'
+      && pipe.terreno.seleccionada !== null && pipe.arquitectura.seleccionada !== null
+      && pipe.construccion.status === 'waiting') {
+      autoConstruccionRef.current = true
+      runConstruccion()
+    }
+  }, [modoRapido, pipe.legal.status, pipe.arquitectura.status, pipe.construccion.status, pipe.terreno.seleccionada, pipe.arquitectura.seleccionada])
 
   const efectivoTerrenoM2 = () => {
     const t = terrenoActual
@@ -1756,12 +2174,19 @@ function PipelineContent() {
           <span className="text-[15px] font-medium text-white tracking-wide">SMT Developer</span>
           <span className="block text-[10px] text-white/40 tracking-[0.12em] uppercase">Pipeline de análisis</span>
         </div>
-        {proyecto && (
-          <div className="ml-auto px-3 py-1.5 bg-[#1D9E75] rounded-lg">
-            <p className="text-[10px] font-bold text-[#9FE1CB] tracking-wide uppercase leading-none">Proyecto</p>
-            <p className="text-[13px] font-bold text-white leading-tight">{proyecto}</p>
-          </div>
-        )}
+        <div className="ml-auto flex items-center gap-2">
+          {modoRapido && (
+            <div className="px-3 py-1.5 bg-[#B8860B] rounded-lg">
+              <p className="text-[13px] font-bold text-white leading-tight whitespace-nowrap">⚡ Camino corto</p>
+            </div>
+          )}
+          {proyecto && (
+            <div className="px-3 py-1.5 bg-[#1D9E75] rounded-lg">
+              <p className="text-[10px] font-bold text-[#9FE1CB] tracking-wide uppercase leading-none">Proyecto</p>
+              <p className="text-[13px] font-bold text-white leading-tight">{proyecto}</p>
+            </div>
+          )}
+        </div>
       </header>
 
       {/* Progress bar */}
@@ -1799,40 +2224,43 @@ function PipelineContent() {
                 <RunningCard
                   label="Preparando contexto de ubicación…"
                   hint="Obteniendo precio de zona y accesibilidad — el agente Terreno arranca al terminar"
+                  color={AGENTE_COLOR.terreno}
                 />
               )}
 
               {/* Comparables reales */}
               {pipe.comparables.status === 'running' && (
-                <RunningCard label="Buscando referencias de mercado…" hint="Consultando Lamudi, Inmuebles24 y más portales en tiempo real" />
+                <RunningCard label="Buscando referencias de mercado…" hint="Consultando Lamudi, Inmuebles24 y más portales en tiempo real" color={AGENTE_COLOR.terreno} />
               )}
               {pipe.comparables.status === 'done' && pipe.comparables.data.length > 0 && (
-                <div className="bg-white rounded-2xl border border-[#E2E8E4] p-5">
-                  <div className="flex items-center gap-2 mb-3">
-                    <span className="w-2 h-2 rounded-full bg-[#1D9E75]" />
-                    <p className="text-[12px] font-bold text-[#111d17]">Referencias reales encontradas ({pipe.comparables.data.length})</p>
-                    <span className="text-[10px] text-[#9aab9f] ml-auto">Serper · Google Search</span>
-                  </div>
-                  <div className="flex flex-col gap-1.5">
-                    {pipe.comparables.data.map((c, i) => (
-                      <div key={i} className="flex items-center justify-between bg-[#F0FAF5] border border-[#5DCAA5]/30 rounded-xl px-3 py-2">
-                        <div className="min-w-0">
-                          <p className="text-[11px] font-semibold text-[#111d17] truncate">{c.colonia || c.titulo}</p>
-                          <p className="text-[10px] text-[#9aab9f]">{c.portal} · {c.superficieM2 ? `${c.superficieM2} m²` : '—'} · {c.distanciaRef}</p>
+                <div className="bg-white rounded-2xl border border-[#E2E8E4] px-5 py-3">
+                  <VerDetalle label={`Ver comparables encontrados (${pipe.comparables.data.length})`}>
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="w-2 h-2 rounded-full bg-[#1D9E75]" />
+                      <p className="text-[12px] font-bold text-[#111d17]">Referencias reales encontradas ({pipe.comparables.data.length})</p>
+                      <span className="text-[10px] text-[#9aab9f] ml-auto">Serper · Google Search</span>
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      {pipe.comparables.data.map((c, i) => (
+                        <div key={i} className="flex items-center justify-between bg-[#F0FAF5] border border-[#5DCAA5]/30 rounded-xl px-3 py-2">
+                          <div className="min-w-0">
+                            <p className="text-[11px] font-semibold text-[#111d17] truncate">{c.colonia || c.titulo}</p>
+                            <p className="text-[10px] text-[#9aab9f]">{c.portal} · {c.superficieM2 ? `${c.superficieM2} m²` : '—'} · {c.distanciaRef}</p>
+                          </div>
+                          <div className="text-right shrink-0 ml-3">
+                            {c.precioM2 && <p className="text-[12px] font-bold text-[#111d17]">${c.precioM2.toLocaleString()}/m²</p>}
+                            {c.precioTotal && !c.precioM2 && <p className="text-[12px] font-bold text-[#111d17]">${c.precioTotal.toLocaleString()}</p>}
+                          </div>
                         </div>
-                        <div className="text-right shrink-0 ml-3">
-                          {c.precioM2 && <p className="text-[12px] font-bold text-[#111d17]">${c.precioM2.toLocaleString()}/m²</p>}
-                          {c.precioTotal && !c.precioM2 && <p className="text-[12px] font-bold text-[#111d17]">${c.precioTotal.toLocaleString()}</p>}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  <p className="text-[10px] text-[#9aab9f] mt-2 italic">Estas referencias se pasan al Agente Terreno para calibrar la valuación.</p>
+                      ))}
+                    </div>
+                    <p className="text-[10px] text-[#9aab9f] mt-2 italic">Estas referencias se pasan al Agente Terreno para calibrar la valuación.</p>
+                  </VerDetalle>
                 </div>
               )}
 
               {pipe.terreno.status === 'running' && (
-                <RunningCard label="Agente Terreno analizando…" hint="Clasificando banda, aplicando factores de ajuste sobre referencias reales" />
+                <RunningCard label="Agente Terreno analizando…" hint="Clasificando banda, aplicando factores de ajuste sobre referencias reales" color={AGENTE_COLOR.terreno} />
               )}
 
               {pipe.terreno.status === 'error' && (
@@ -1928,25 +2356,31 @@ function PipelineContent() {
                         {/* Ajustes aplicados */}
                         {t.bitacoraTerreno.ajustes?.length > 0 && (
                           <div className="rounded-xl border border-[#E2E8E4] overflow-hidden">
-                            <div className="px-4 py-2 bg-[#F7F8F6] border-b border-[#E2E8E4]">
-                              <p className="text-[10px] font-bold text-[#9aab9f] uppercase tracking-wide">Factores aplicados</p>
+                            <div className="px-4 py-2 bg-[#F7F8F6] border-b border-[#E2E8E4] flex items-center justify-between gap-2">
+                              <p className="text-[10px] font-bold text-[#9aab9f] uppercase tracking-wide">Factores aplicados ({t.bitacoraTerreno.ajustes.length})</p>
                             </div>
-                            {t.bitacoraTerreno.ajustes.map((a: any, i: number) => (
-                              <div key={i} className="px-4 py-2.5 border-b border-[#F0F4F2] last:border-0 flex items-start justify-between gap-3 bg-white">
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-[11px] font-semibold text-[#111d17] leading-tight">{a.concepto}</p>
-                                  <p className="text-[10px] text-[#9aab9f] mt-0.5 leading-snug">{a.descripcion}</p>
+                            <div className="px-4 py-2.5 bg-white">
+                              <VerDetalle label="Ver factores">
+                                <div className="flex flex-col gap-0 -mx-4 -mt-2.5">
+                                  {t.bitacoraTerreno.ajustes.map((a: any, i: number) => (
+                                    <div key={i} className="px-4 py-2.5 border-t border-[#F0F4F2] flex items-start justify-between gap-3">
+                                      <div className="flex-1 min-w-0">
+                                        <p className="text-[11px] font-semibold text-[#111d17] leading-tight">{a.concepto}</p>
+                                        <p className="text-[10px] text-[#9aab9f] mt-0.5 leading-snug">{a.descripcion}</p>
+                                      </div>
+                                      <div className="text-right shrink-0">
+                                        <p className={`text-[12px] font-bold ${String(a.factorAjuste).startsWith('+') ? 'text-[#0F6E56]' : 'text-[#DC2626]'}`}>
+                                          {a.factorAjuste}
+                                        </p>
+                                        <p className="text-[10px] text-[#9aab9f]">
+                                          {a.impactoM2 > 0 ? '+' : ''}{Number(a.impactoM2).toLocaleString('es-MX')}/m²
+                                        </p>
+                                      </div>
+                                    </div>
+                                  ))}
                                 </div>
-                                <div className="text-right shrink-0">
-                                  <p className={`text-[12px] font-bold ${String(a.factorAjuste).startsWith('+') ? 'text-[#0F6E56]' : 'text-[#DC2626]'}`}>
-                                    {a.factorAjuste}
-                                  </p>
-                                  <p className="text-[10px] text-[#9aab9f]">
-                                    {a.impactoM2 > 0 ? '+' : ''}{Number(a.impactoM2).toLocaleString('es-MX')}/m²
-                                  </p>
-                                </div>
-                              </div>
-                            ))}
+                              </VerDetalle>
+                            </div>
                             <div className="px-4 py-3 bg-[#F0FBF6] flex items-center justify-between">
                               <p className="text-[11px] font-bold text-[#0F6E56]">Precio final ajustado</p>
                               <p className="text-[15px] font-black text-[#0F6E56]">
@@ -2005,9 +2439,7 @@ function PipelineContent() {
                         {/* Comparables */}
                         {t.bitacoraTerreno.fuentesComparables?.length > 0 ? (
                           <div>
-                            <p className="text-[10px] font-bold text-[#9aab9f] uppercase tracking-wide mb-2">
-                              Comparables encontrados ({t.bitacoraTerreno.fuentesComparables.length})
-                            </p>
+                            <VerDetalle label={`Ver comparables encontrados (${t.bitacoraTerreno.fuentesComparables.length})`}>
                             <div className="flex flex-col gap-1.5">
                               {t.bitacoraTerreno.fuentesComparables.map((c: any, i: number) => {
                                 const esWeb = c.origen === 'web_search'
@@ -2032,6 +2464,7 @@ function PipelineContent() {
                                 )
                               })}
                             </div>
+                            </VerDetalle>
                           </div>
                         ) : (
                           <p className="text-[11px] text-[#9aab9f] italic">
@@ -2079,8 +2512,6 @@ function PipelineContent() {
                         />
                       </div>
                     )}
-
-                    <AgentChat agentKey="terreno" agentData={terrenoActual} />
 
                     {/* Accesibilidad ORS — contexto usado por el agente */}
                     {pipe.ubicacion.status !== 'waiting' && (
@@ -2211,7 +2642,7 @@ function PipelineContent() {
                 <SectionHeader n={2} label="Agente Legal · Guardarraíl normativo" />
 
                 {pipe.legal.status === 'running' && (
-                  <RunningCard label="Agente Legal…" hint="Verificando PDU, uso de suelo, factibilidades" />
+                  <RunningCard label="Agente Legal…" hint="Verificando PDU, uso de suelo, factibilidades" color={AGENTE_COLOR.legal} />
                 )}
                 {pipe.legal.status === 'error' && (
                   <ErrorCard label="Agente Legal" onRetry={runLegal} />
@@ -2252,7 +2683,6 @@ function PipelineContent() {
                       <p className="px-4 pb-3 text-[10px] text-[#9aab9f] leading-snug">
                         Estos valores de COS/CUS alimentan los guardarraíles del paso de Construcción.
                       </p>
-                      <AgentChat agentKey="legal" agentData={pipe.legal.data} />
                     </DoneCard>
                   )
                 })()}
@@ -2265,38 +2695,40 @@ function PipelineContent() {
                 <SectionHeader n={3} label="Agente Mercado" />
 
                 {pipe.comparablesVenta.status === 'running' && (
-                  <RunningCard label="Buscando referencias de venta…" hint="Consultando Lamudi, Inmuebles24 y más portales en tiempo real" />
+                  <RunningCard label="Buscando referencias de venta…" hint="Consultando Lamudi, Inmuebles24 y más portales en tiempo real" color={AGENTE_COLOR.mercado} />
                 )}
                 {pipe.comparablesVenta.status === 'done' && pipe.comparablesVenta.data.length > 0 && (
-                  <div className="bg-white rounded-2xl border border-[#E2E8E4] p-5">
-                    <div className="flex items-center gap-2 mb-3">
-                      <span className="w-2 h-2 rounded-full bg-[#1D9E75]" />
-                      <p className="text-[12px] font-bold text-[#111d17]">Referencias reales de venta ({pipe.comparablesVenta.data.length})</p>
-                      <span className="text-[10px] text-[#9aab9f] ml-auto">Serper · Google Search</span>
-                    </div>
-                    <div className="flex flex-col gap-1.5">
-                      {pipe.comparablesVenta.data.map((c, i) => (
-                        <div key={i} className={`flex items-center justify-between rounded-xl px-3 py-2 ${c.sospechosoPorBanda ? 'bg-[#FEF3C7] border border-[#F59E0B]/40' : 'bg-[#F0FAF5] border border-[#5DCAA5]/30'}`}>
-                          <div className="min-w-0">
-                            <p className="text-[11px] font-semibold text-[#111d17] truncate">{c.nombre}</p>
-                            <p className="text-[10px] text-[#9aab9f]">{c.tipologia || '—'} · {c.avanceObra || '—'}</p>
-                            {c.sospechosoPorBanda && (
-                              <p className="text-[9px] text-[#92400E] font-medium mt-0.5">Posible desface con tu banda de construcción — revisa si es representativo</p>
-                            )}
+                  <div className="bg-white rounded-2xl border border-[#E2E8E4] px-5 py-3">
+                    <VerDetalle label={`Ver referencias de venta (${pipe.comparablesVenta.data.length})`}>
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="w-2 h-2 rounded-full bg-[#1D9E75]" />
+                        <p className="text-[12px] font-bold text-[#111d17]">Referencias reales de venta ({pipe.comparablesVenta.data.length})</p>
+                        <span className="text-[10px] text-[#9aab9f] ml-auto">Serper · Google Search</span>
+                      </div>
+                      <div className="flex flex-col gap-1.5">
+                        {pipe.comparablesVenta.data.map((c, i) => (
+                          <div key={i} className={`flex items-center justify-between rounded-xl px-3 py-2 ${c.sospechosoPorBanda ? 'bg-[#FEF3C7] border border-[#F59E0B]/40' : 'bg-[#F0FAF5] border border-[#5DCAA5]/30'}`}>
+                            <div className="min-w-0">
+                              <p className="text-[11px] font-semibold text-[#111d17] truncate">{c.nombre}</p>
+                              <p className="text-[10px] text-[#9aab9f]">{c.tipologia || '—'} · {c.avanceObra || '—'}</p>
+                              {c.sospechosoPorBanda && (
+                                <p className="text-[9px] text-[#92400E] font-medium mt-0.5">Posible desface con tu banda de construcción — revisa si es representativo</p>
+                              )}
+                            </div>
+                            <div className="text-right shrink-0 ml-3">
+                              {c.precioM2 && <p className={`text-[12px] font-bold ${c.sospechosoPorBanda ? 'text-[#92400E]' : 'text-[#111d17]'}`}>${c.precioM2.toLocaleString()}/m²</p>}
+                              {c.precioTotal && !c.precioM2 && <p className={`text-[12px] font-bold ${c.sospechosoPorBanda ? 'text-[#92400E]' : 'text-[#111d17]'}`}>${c.precioTotal.toLocaleString()}</p>}
+                            </div>
                           </div>
-                          <div className="text-right shrink-0 ml-3">
-                            {c.precioM2 && <p className={`text-[12px] font-bold ${c.sospechosoPorBanda ? 'text-[#92400E]' : 'text-[#111d17]'}`}>${c.precioM2.toLocaleString()}/m²</p>}
-                            {c.precioTotal && !c.precioM2 && <p className={`text-[12px] font-bold ${c.sospechosoPorBanda ? 'text-[#92400E]' : 'text-[#111d17]'}`}>${c.precioTotal.toLocaleString()}</p>}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                    <p className="text-[10px] text-[#9aab9f] mt-2 italic">Estas referencias se pasan al Agente Mercado para calibrar precio de venta y absorción.</p>
+                        ))}
+                      </div>
+                      <p className="text-[10px] text-[#9aab9f] mt-2 italic">Estas referencias se pasan al Agente Mercado para calibrar precio de venta y absorción.</p>
+                    </VerDetalle>
                   </div>
                 )}
 
                 {pipe.mercado.status === 'running' && (
-                  <RunningCard label="Agente Mercado…" hint="Buscando comparables, analizando absorción y pricing" />
+                  <RunningCard label="Agente Mercado…" hint="Buscando comparables, analizando absorción y pricing" color={AGENTE_COLOR.mercado} />
                 )}
                 {pipe.mercado.status === 'error' && (
                   <ErrorCard label="Agente Mercado" onRetry={runMercado} />
@@ -2350,8 +2782,6 @@ function PipelineContent() {
                           onAplicar={(precio, absorcion) => runMercado({ precioVentaObjetivo: precio, absorcionObjetivoManual: absorcion })}
                         />
                       </div>
-
-                      <AgentChat agentKey="mercado" agentData={mercadoActual} />
                     </DoneCard>
                   )
                 })()}
@@ -2365,7 +2795,7 @@ function PipelineContent() {
                 <SectionHeader n={4} label="Agente de Arquitectura" />
 
                 {pipe.arquitectura.status === 'running' && (
-                  <RunningCard label="Agente Arquitectura…" hint="Calculando envolvente legal, zonas y tipología de unidades" />
+                  <RunningCard label="Agente Arquitectura…" hint="Calculando envolvente legal, zonas y tipología de unidades" color={AGENTE_COLOR.arquitectura} />
                 )}
                 {pipe.arquitectura.status === 'error' && (
                   <ErrorCard label="Agente Arquitectura" onRetry={() => runArquitectura()} />
@@ -2423,24 +2853,25 @@ function PipelineContent() {
 
                       {zonas && zonas.length > 0 && (
                         <div className="px-5 pb-3">
-                          <p className="text-[10px] font-bold text-[#9aab9f] uppercase tracking-widest mb-2">Desglose de áreas por zona</p>
-                          <div className="rounded-xl border border-[#E2E8E4] overflow-hidden">
-                            <div className="grid grid-cols-[2fr_1fr_1fr] bg-[#F0F4F2] px-3 py-1.5">
-                              {['Zona', 'm²', 'Participación'].map(h => (
-                                <span key={h} className="text-[9px] font-bold text-[#9aab9f] uppercase tracking-wider">{h}</span>
+                          <VerDetalle label={`Ver desglose de áreas por zona (${zonas.length})`}>
+                            <div className="rounded-xl border border-[#E2E8E4] overflow-hidden">
+                              <div className="grid grid-cols-[2fr_1fr_1fr] bg-[#F0F4F2] px-3 py-1.5">
+                                {['Zona', 'm²', 'Participación'].map(h => (
+                                  <span key={h} className="text-[9px] font-bold text-[#9aab9f] uppercase tracking-wider">{h}</span>
+                                ))}
+                              </div>
+                              {zonas.map((z: any, i: number) => (
+                                <div key={i} className={`grid grid-cols-[2fr_1fr_1fr] px-3 py-2 ${i % 2 === 0 ? 'bg-white' : 'bg-[#FAFBFA]'} border-t border-[#F0F4F2]`}>
+                                  <div>
+                                    <p className="text-[11px] font-semibold text-[#111d17]">{z.zona}</p>
+                                    <p className="text-[9px] text-[#9aab9f] leading-tight">{z.concepto}</p>
+                                  </div>
+                                  <span className="text-[11px] text-[#5a7065] self-center">{z.m2?.toLocaleString()} m²</span>
+                                  <span className="text-[11px] text-[#5a7065] self-center">{z.participacion}</span>
+                                </div>
                               ))}
                             </div>
-                            {zonas.map((z: any, i: number) => (
-                              <div key={i} className={`grid grid-cols-[2fr_1fr_1fr] px-3 py-2 ${i % 2 === 0 ? 'bg-white' : 'bg-[#FAFBFA]'} border-t border-[#F0F4F2]`}>
-                                <div>
-                                  <p className="text-[11px] font-semibold text-[#111d17]">{z.zona}</p>
-                                  <p className="text-[9px] text-[#9aab9f] leading-tight">{z.concepto}</p>
-                                </div>
-                                <span className="text-[11px] text-[#5a7065] self-center">{z.m2?.toLocaleString()} m²</span>
-                                <span className="text-[11px] text-[#5a7065] self-center">{z.participacion}</span>
-                              </div>
-                            ))}
-                          </div>
+                          </VerDetalle>
                         </div>
                       )}
 
@@ -2564,8 +2995,6 @@ function PipelineContent() {
                           </div>
                         )}
                       </div>
-
-                      <AgentChat agentKey="arquitectura" agentData={arquitecturaActual} />
                     </DoneCard>
                   )
                 })()}
@@ -2573,12 +3002,15 @@ function PipelineContent() {
             )}
 
             {/* ══ STEP 5 — CONSTRUCCIÓN (costea el diseño que ya aprobó Arquitectura) ══ */}
-            {/* Exige selección (no solo "done") en Terreno, Mercado y Arquitectura — con "Ajustar
-                parámetros" puede haber varias corridas y Construcción necesita saber cuál usar. */}
-            {pipe.legal.status === 'done' && pipe.mercado.status === 'done' && pipe.arquitectura.status === 'done'
-              && pipe.terreno.seleccionada !== null && pipe.mercado.seleccionada !== null && pipe.arquitectura.seleccionada !== null && (
+            {/* Exige selección (no solo "done") en Terreno y Arquitectura — con "Ajustar
+                parámetros" puede haber varias corridas y Construcción necesita saber cuál usar.
+                Ya NO exige Mercado: construccion/route.ts nunca lee ese dato (verificado), el
+                requisito era artificial y frenaba Construcción sin necesidad — Mercado sigue
+                siendo obligatorio más adelante, para Financiero (ver Step 6 abajo). */}
+            {pipe.legal.status === 'done' && pipe.arquitectura.status === 'done'
+              && pipe.terreno.seleccionada !== null && pipe.arquitectura.seleccionada !== null && (
               <section>
-                <SectionHeader n={5} label="Agente de Construcción" />
+                <SectionHeader n={5} label="Agente de Costos de Construcción" />
 
                 {/* El diseño (niveles/mix/zonas) ya lo resolvió Arquitectura — sea vía IA o
                     manual, Construcción siempre lo costea vía IA. Ya no hay un modo
@@ -2598,11 +3030,11 @@ function PipelineContent() {
                 )}
 
                 {pipe.construccion.status === 'running' && (
-                  <RunningCard label="Agente Construcción analizando…" hint="Consultando índices CMIC, calculando partidas y materiales principales" />
+                  <RunningCard label="Agente de Costos de Construcción analizando…" hint="Consultando índices CMIC, calculando partidas y materiales principales" color={AGENTE_COLOR.construccion} />
                 )}
 
                 {pipe.construccion.status === 'error' && (
-                  <ErrorCard label="Agente Construcción" onRetry={runConstruccion} />
+                  <ErrorCard label="Agente de Costos de Construcción" onRetry={runConstruccion} />
                 )}
 
                 {pipe.construccion.status === 'done' && construccionActual && (() => {
@@ -2632,7 +3064,7 @@ function PipelineContent() {
                       <div className="px-5 py-4 border-b border-[#F0F4F2] flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <CheckIcon />
-                          <span className="text-[13px] font-bold text-[#0F6E56]">Agente Construcción</span>
+                          <span className="text-[13px] font-bold text-[#0F6E56]">Agente de Costos de Construcción</span>
                           <span className="text-[11px] text-[#9aab9f]">Banda {c.bitacoraConstruccion?.bandaElegida} · {c.superficieConstruida?.toLocaleString()} m² brutos</span>
                         </div>
                         <div className="flex items-center gap-2">
@@ -2643,40 +3075,41 @@ function PipelineContent() {
                       {/* Zona breakdown table */}
                       {desglose?.zonas && desglose.zonas.length > 0 && (
                         <div className="px-5 pb-3">
-                          <p className="text-[10px] font-bold text-[#9aab9f] uppercase tracking-widest mb-2">Desglose por zona</p>
-                          <div className="rounded-xl border border-[#E2E8E4] overflow-hidden">
-                            <div className="grid grid-cols-[2fr_1fr_1fr_1fr] bg-[#F0F4F2] px-3 py-1.5">
-                              {['Zona', 'm²', 'Costo/m²', 'Total'].map(h => (
-                                <span key={h} className="text-[9px] font-bold text-[#9aab9f] uppercase tracking-wider">{h}</span>
+                          <VerDetalle label={`Ver desglose por zona (${desglose.zonas.length})`}>
+                            <div className="rounded-xl border border-[#E2E8E4] overflow-hidden">
+                              <div className="grid grid-cols-[2fr_1fr_1fr_1fr] bg-[#F0F4F2] px-3 py-1.5">
+                                {['Zona', 'm²', 'Costo/m²', 'Total'].map(h => (
+                                  <span key={h} className="text-[9px] font-bold text-[#9aab9f] uppercase tracking-wider">{h}</span>
+                                ))}
+                              </div>
+                              {desglose.zonas.map((z: any, i: number) => (
+                                <div key={i} className={`grid grid-cols-[2fr_1fr_1fr_1fr] px-3 py-2 ${i % 2 === 0 ? 'bg-white' : 'bg-[#FAFBFA]'} border-t border-[#F0F4F2]`}>
+                                  <div>
+                                    <p className="text-[11px] font-semibold text-[#111d17]">{z.zona}</p>
+                                    <p className="text-[9px] text-[#9aab9f] leading-tight">{z.concepto}</p>
+                                  </div>
+                                  <span className="text-[11px] text-[#5a7065] self-center">{z.m2?.toLocaleString()} m²</span>
+                                  <div className="self-center">
+                                    <span className="text-[11px] text-[#5a7065]">${z.costoM2?.toLocaleString()}</span>
+                                    <span className="text-[9px] text-[#c0cdc7] block">{z.factorRespectoBanda}</span>
+                                  </div>
+                                  <span className="text-[11px] font-semibold text-[#111d17] self-center">{fmt(z.costoTotal)}</span>
+                                </div>
                               ))}
+                              {desglose.areaVerdeYLibre?.costoUrbanizacion > 0 && (
+                                <div className="grid grid-cols-[2fr_1fr_1fr_1fr] px-3 py-2 bg-[#F0FBF6] border-t border-[#E2E8E4]">
+                                  <div>
+                                    <p className="text-[11px] font-semibold text-[#0F6E56]">Área verde / urbanización</p>
+                                    <p className="text-[9px] text-[#9aab9f] leading-tight">{desglose.areaVerdeYLibre.descripcion?.split(':')[0]}</p>
+                                  </div>
+                                  <span className="text-[11px] text-[#5a7065] self-center">{desglose.areaVerdeYLibre.m2?.toLocaleString()} m²</span>
+                                  <span className="text-[11px] text-[#5a7065] self-center">${desglose.areaVerdeYLibre.costoUrbanizacionM2?.toLocaleString()}</span>
+                                  <span className="text-[11px] font-semibold text-[#0F6E56] self-center">{fmt(desglose.areaVerdeYLibre.costoUrbanizacion)}</span>
+                                </div>
+                              )}
                             </div>
-                            {desglose.zonas.map((z: any, i: number) => (
-                              <div key={i} className={`grid grid-cols-[2fr_1fr_1fr_1fr] px-3 py-2 ${i % 2 === 0 ? 'bg-white' : 'bg-[#FAFBFA]'} border-t border-[#F0F4F2]`}>
-                                <div>
-                                  <p className="text-[11px] font-semibold text-[#111d17]">{z.zona}</p>
-                                  <p className="text-[9px] text-[#9aab9f] leading-tight">{z.concepto}</p>
-                                </div>
-                                <span className="text-[11px] text-[#5a7065] self-center">{z.m2?.toLocaleString()} m²</span>
-                                <div className="self-center">
-                                  <span className="text-[11px] text-[#5a7065]">${z.costoM2?.toLocaleString()}</span>
-                                  <span className="text-[9px] text-[#c0cdc7] block">{z.factorRespectoBanda}</span>
-                                </div>
-                                <span className="text-[11px] font-semibold text-[#111d17] self-center">{fmt(z.costoTotal)}</span>
-                              </div>
-                            ))}
-                            {desglose.areaVerdeYLibre?.costoUrbanizacion > 0 && (
-                              <div className="grid grid-cols-[2fr_1fr_1fr_1fr] px-3 py-2 bg-[#F0FBF6] border-t border-[#E2E8E4]">
-                                <div>
-                                  <p className="text-[11px] font-semibold text-[#0F6E56]">Área verde / urbanización</p>
-                                  <p className="text-[9px] text-[#9aab9f] leading-tight">{desglose.areaVerdeYLibre.descripcion?.split(':')[0]}</p>
-                                </div>
-                                <span className="text-[11px] text-[#5a7065] self-center">{desglose.areaVerdeYLibre.m2?.toLocaleString()} m²</span>
-                                <span className="text-[11px] text-[#5a7065] self-center">${desglose.areaVerdeYLibre.costoUrbanizacionM2?.toLocaleString()}</span>
-                                <span className="text-[11px] font-semibold text-[#0F6E56] self-center">{fmt(desglose.areaVerdeYLibre.costoUrbanizacion)}</span>
-                              </div>
-                            )}
-                          </div>
-                          <p className="text-[9px] text-[#c0cdc7] mt-1.5">Área vendible: {c.superficieVendible?.toLocaleString() || desglose.zonas[0]?.m2?.toLocaleString()} m² — diseño fijado por Arquitectura</p>
+                            <p className="text-[9px] text-[#c0cdc7] mt-1.5">Área vendible: {c.superficieVendible?.toLocaleString() || desglose.zonas[0]?.m2?.toLocaleString()} m² — diseño fijado por Arquitectura</p>
+                          </VerDetalle>
                         </div>
                       )}
 
@@ -2720,18 +3153,6 @@ function PipelineContent() {
                         </div>
                       )}
 
-                      {/* El diseño (niveles/mix/amenidades) ya lo fijó Arquitectura — aquí solo se
-                          puede volver a costear el mismo diseño con otra banda de acabados. */}
-                      <div className="px-5 pb-4 border-t border-[#F0F4F2] pt-4">
-                        <AjustarBandaConstruccion
-                          bandaActual={c.bitacoraConstruccion?.bandaElegida}
-                          onAplicar={(banda) => runConstruccion({
-                            bandaConstruccion: banda !== String(c.bitacoraConstruccion?.bandaElegida ?? '') ? banda : undefined,
-                          })}
-                        />
-                      </div>
-
-                      <AgentChat agentKey="construccion" agentData={construccionActual} />
                     </DoneCard>
                   )
                 })()}
@@ -2742,13 +3163,27 @@ function PipelineContent() {
             {/* ══ STEP 6 — RESUMEN: COSTOS E INGRESOS (antesala a Financiero) ══ */}
             {/* Mismo motor que Mastermind 1 (calcularMastermindCore) leyendo el pipeline en vivo
                 — siempre refleja lo que Financiero va a usar, sea el dato crudo de los agentes
-                o lo calibrado a mano en Mastermind 1 (ver mastermindCoreInputsActuales arriba). */}
-            {pipe.construccion.status === 'done' && pipe.construccion.seleccionada !== null && pipe.financiero.status === 'waiting' && (() => {
+                o lo calibrado a mano en Mastermind 1 (ver mastermindCoreInputsActuales arriba).
+                Exige Mercado explícito (antes lo garantizaba de rebote el viejo gate de
+                Construcción, que ya no espera a Mercado) — Financiero lee pipe.mercado directo. */}
+            {pipe.construccion.status === 'done' && pipe.construccion.seleccionada !== null && pipe.financiero.status === 'waiting'
+              && pipe.mercado.status === 'done' && pipe.mercado.seleccionada !== null && (() => {
               const coreInputs = mastermindCoreInputsActuales()
               const resumen = calcularMastermindCore(coreInputs)
               const spreadBajo = resumen.spreadVentaConstruccion !== null && resumen.spreadVentaConstruccion < 1.6
               const hayCalibracion = pipe.terreno.overrideM2 !== '' || pipe.construccion.overrideM2 !== ''
                 || !!pipe.financiero.precioVentaObjetivo || !!pipe.financiero.unidadesObjetivo
+              // Valores "crudos" (sin override) para el comparativo tachado de EditableM2 — el
+              // mismo snapshot que usa mastermindCoreInputsActuales, pero sin aplicarle overrides.
+              const snapshotRaw = construirSnapshotAnalisis()
+              const mercadoRaw = { ...DEFAULTS.mercado, ...extractMercadoContext(snapshotRaw) }
+              const proyectoRaw = { ...DEFAULTS.proyecto, ...extractProyectoContext(snapshotRaw) }
+              const restablecerTodo = () => setPipe(p => ({
+                ...p,
+                terreno: { ...p.terreno, overrideM2: '' },
+                construccion: { ...p.construccion, overrideM2: '' },
+                financiero: { ...p.financiero, precioVentaObjetivo: '', unidadesObjetivo: '' },
+              }))
               return (
                 <section>
                   <SectionHeader n={6} label="Resumen: Costos e Ingresos" />
@@ -2756,35 +3191,56 @@ function PipelineContent() {
                     <div className="px-5 py-4 border-b border-[#F0F4F2] flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <CheckIcon />
-                        <span className="text-[13px] font-bold text-[#0F6E56]">Antes de correr el plan financiero completo</span>
+                        <span className="text-[13px] font-bold text-[#0F6E56]">Revisa y ajusta antes de correr el plan financiero completo</span>
                       </div>
-                      {hayCalibracion && (
-                        <span className="text-[10px] font-bold text-[#1D9E75] bg-[#F0FBF6] border border-[#9FE1CB] px-2 py-0.5 rounded-full uppercase tracking-wide">
-                          ● Calibrado en Mastermind 1
-                        </span>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {hayCalibracion && (
+                          <>
+                            <span className="text-[10px] font-bold text-[#1D9E75] bg-[#F0FBF6] border border-[#9FE1CB] px-2 py-0.5 rounded-full uppercase tracking-wide">
+                              ● Ajustado
+                            </span>
+                            <button onClick={restablecerTodo} className="text-[11px] font-semibold text-[#9aab9f] hover:text-[#5a7065] underline underline-offset-2">
+                              Restablecer
+                            </button>
+                          </>
+                        )}
+                      </div>
                     </div>
 
-                    <div className="px-5 py-4 grid grid-cols-4 gap-2">
-                      <div className="bg-[#F7F8F6] rounded-xl px-3 py-2.5 text-center">
-                        <p className="text-[10px] text-[#9aab9f] uppercase tracking-wide font-semibold">Costo terreno</p>
-                        <p className="text-[13px] font-bold text-[#111d17] mt-0.5">${Math.round(coreInputs.terreno.costoTerrenoM2).toLocaleString('es-MX')}/m²</p>
-                      </div>
-                      <div className="bg-[#F7F8F6] rounded-xl px-3 py-2.5 text-center">
-                        <p className="text-[10px] text-[#9aab9f] uppercase tracking-wide font-semibold">Costo construcción</p>
-                        <p className="text-[13px] font-bold text-[#111d17] mt-0.5">${resumen.costos.m2Construidos > 0 ? Math.round(resumen.costos.costoDirectoConstruccion / resumen.costos.m2Construidos).toLocaleString('es-MX') : '—'}/m²</p>
-                      </div>
-                      <div className="bg-[#F7F8F6] rounded-xl px-3 py-2.5 text-center">
-                        <p className="text-[10px] text-[#9aab9f] uppercase tracking-wide font-semibold">Precio de venta</p>
-                        <p className="text-[13px] font-bold text-[#111d17] mt-0.5">${coreInputs.mercado.precioVentaDepasM2.toLocaleString('es-MX')}/m²</p>
-                      </div>
+                    <div className="px-5 py-4 grid grid-cols-2 md:grid-cols-4 gap-2">
+                      <EditableM2
+                        label="Costo terreno"
+                        value={Math.round(terrenoActual?.costoTerrenoM2 ?? coreInputs.terreno.costoTerrenoM2)}
+                        override={pipe.terreno.overrideM2}
+                        onOverride={v => setPipe(p => ({ ...p, terreno: { ...p.terreno, overrideM2: v } }))}
+                      />
+                      <EditableM2
+                        label="Costo construcción"
+                        value={Math.round(construccionActual?.construccionM2 ?? 0)}
+                        override={pipe.construccion.overrideM2}
+                        onOverride={v => setPipe(p => ({ ...p, construccion: { ...p.construccion, overrideM2: v } }))}
+                      />
+                      <EditableM2
+                        label="Precio de venta"
+                        value={Math.round(mercadoRaw.precioVentaDepasM2)}
+                        override={pipe.financiero.precioVentaObjetivo}
+                        onOverride={v => setPipe(p => ({ ...p, financiero: { ...p.financiero, precioVentaObjetivo: v } }))}
+                      />
                       <div className="rounded-xl px-3 py-2.5 text-center" style={{ backgroundColor: resumen.utilidad.margenBruto >= 12 ? '#E1F5EE' : '#FEE2E2' }}>
                         <p className="text-[10px] uppercase tracking-wide font-semibold" style={{ color: resumen.utilidad.margenBruto >= 12 ? '#0F6E56' : '#991B1B' }}>Margen bruto</p>
                         <p className="text-[13px] font-bold mt-0.5" style={{ color: resumen.utilidad.margenBruto >= 12 ? '#0F6E56' : '#991B1B' }}>{resumen.utilidad.margenBruto.toFixed(1)}%</p>
                       </div>
                     </div>
 
-                    <div className="px-5 pb-4 grid grid-cols-4 gap-2">
+                    <div className="px-5 pb-4 grid grid-cols-2 md:grid-cols-4 gap-2">
+                      <EditableM2
+                        label="Unidades objetivo"
+                        value={Math.round(proyectoRaw.unidadesHabitacionales)}
+                        override={pipe.financiero.unidadesObjetivo}
+                        onOverride={v => setPipe(p => ({ ...p, financiero: { ...p.financiero, unidadesObjetivo: v } }))}
+                        unit="uds"
+                        prefix=""
+                      />
                       <div className="bg-[#F7F8F6] rounded-xl px-3 py-2.5 text-center">
                         <p className="text-[10px] text-[#9aab9f] uppercase tracking-wide font-semibold">Costo / m² vendible</p>
                         <p className="text-[13px] font-bold text-[#111d17] mt-0.5">{fmt(resumen.costoPorM2Vendible)}</p>
@@ -2797,24 +3253,42 @@ function PipelineContent() {
                         <p className="text-[10px] text-[#9aab9f] uppercase tracking-wide font-semibold">Punto de equilibrio</p>
                         <p className="text-[13px] font-bold text-[#111d17] mt-0.5">{resumen.puntoEquilibrioUnidades} uds</p>
                       </div>
+                    </div>
+
+                    <div className="px-5 pb-2">
                       <div className="bg-[#F7F8F6] rounded-xl px-3 py-2.5 text-center">
                         <p className="text-[10px] text-[#9aab9f] uppercase tracking-wide font-semibold">Utilidad bruta</p>
                         <p className="text-[13px] font-bold text-[#111d17] mt-0.5">{fmt(resumen.utilidad.utilidadAntesImpuestos)}</p>
                       </div>
                     </div>
 
-                    {spreadBajo && (
-                      <div className="px-5 pb-3">
-                        <p className="text-[11px] text-[#991B1B] leading-snug">⚠ Spread por debajo de 1.6x — señal temprana de que el proyecto puede no ser viable, antes de correr el plan financiero completo.</p>
-                      </div>
-                    )}
+                    <AlertasResumen
+                      terreno={terrenoActual?.bitacoraTerreno}
+                      legal={pipe.legal.data}
+                      arquitectura={arquitecturaActual?.bitacoraArquitectura}
+                      construccion={construccionActual?.bitacoraConstruccion}
+                      spreadBajo={spreadBajo}
+                      margenBruto={resumen.utilidad.margenBruto}
+                    />
+
+                    <AgentesQA
+                      terreno={terrenoActual}
+                      legal={pipe.legal.data}
+                      mercado={mercadoActual}
+                      arquitectura={arquitecturaActual}
+                      construccion={construccionActual}
+                      bandaActual={construccionActual?.bitacoraConstruccion?.bandaElegida}
+                      onAjustarBanda={banda => runConstruccion({
+                        bandaConstruccion: banda !== String(construccionActual?.bitacoraConstruccion?.bandaElegida ?? '') ? banda : undefined,
+                      })}
+                    />
 
                     <div className="px-5 pb-5">
                       <button
                         onClick={abrirMastermind1}
                         className="w-full bg-white border border-[#E2E8E4] text-[#111d17] rounded-xl py-3 text-[13px] font-semibold hover:border-[#1D9E75] hover:text-[#0F6E56] transition-colors cursor-pointer flex items-center justify-center gap-2 mb-2.5"
                       >
-                        {hayCalibracion ? 'Volver a calibrar con Mastermind 1' : 'Calibrar con Mastermind 1 (costos e ingresos)'}
+                        Ajustes más finos en Mastermind 1 (indirectos, honorarios, mix…)
                         <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                           <path d="M5 3l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
                         </svg>
@@ -2845,7 +3319,7 @@ function PipelineContent() {
                 <SectionHeader n={7} label="Agente Financiero" />
 
                 {pipe.financiero.status === 'running' && (
-                  <RunningCard label="Agente Financiero modelando…" hint="Calculando TIR, flujo de caja, stress test y score de resiliencia" />
+                  <RunningCard label="Agente Financiero modelando…" hint="Calculando TIR, flujo de caja, stress test y score de resiliencia" color={AGENTE_COLOR.financiero} />
                 )}
 
                 {pipe.financiero.status === 'error' && (
@@ -2854,12 +3328,15 @@ function PipelineContent() {
 
                 {pipe.financiero.status === 'done' && pipe.financiero.data && (() => {
                   const f = pipe.financiero.data.financiero
+                  const ec = pipe.financiero.data.estructuraCapital
+                  const score = pipe.financiero.data.score
                   return (
                     <DoneCard>
                       <div className="px-5 py-4 border-b border-[#F0F4F2] flex items-center gap-2">
                         <CheckIcon />
-                        <span className="text-[13px] font-bold text-[#0F6E56]">Análisis completo</span>
+                        <span className="text-[13px] font-bold text-[#0F6E56]">Análisis financiero completo</span>
                       </div>
+
                       <div className="px-5 py-4 grid grid-cols-3 gap-3">
                         <div className="text-center">
                           <p className="text-[10px] text-[#9aab9f] uppercase tracking-wide">TIR Socio</p>
@@ -2875,12 +3352,67 @@ function PipelineContent() {
                           <p className="text-[10px] text-[#9aab9f] uppercase tracking-wide">Inversión</p>
                           <p className="text-[22px] font-black text-[#111d17]">{fmt(f?.inversionTotal || 0)}</p>
                         </div>
-                      </div>
-                      <div className="px-5 pb-5">
-                        <div className="bg-[#F0FBF6] border border-[#1D9E75]/30 rounded-xl px-4 py-3 text-center">
-                          <p className="text-[12px] text-[#5a9078]">Redirigiendo al reporte completo…</p>
-                          <Spinner color="#1D9E75" size={20} />
+                        <div className="text-center">
+                          <p className="text-[10px] text-[#9aab9f] uppercase tracking-wide">Utilidad bruta</p>
+                          <p className="text-[16px] font-bold text-[#111d17]">{fmt(f?.utilidadBruta || 0)}</p>
                         </div>
+                        <div className="text-center">
+                          <p className="text-[10px] text-[#9aab9f] uppercase tracking-wide">Ingresos</p>
+                          <p className="text-[16px] font-bold text-[#111d17]">{fmt(f?.ingresosProyectados || 0)}</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-[10px] text-[#9aab9f] uppercase tracking-wide">Score resiliencia</p>
+                          <p className={`text-[16px] font-bold ${score?.total >= 70 ? 'text-[#0F6E56]' : score?.total >= 50 ? 'text-[#92600A]' : 'text-[#991B1B]'}`}>
+                            {score?.total ?? '—'}/100
+                          </p>
+                        </div>
+                      </div>
+
+                      {ec && (
+                        <div className="px-5 pb-4">
+                          <p className="text-[10px] font-bold text-[#9aab9f] uppercase tracking-wide mb-1.5">Cómo se financia</p>
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-[11px] font-bold text-[#0F6E56]">Equity {ec.equity}%</span>
+                            <span className="text-[11px] font-bold text-[#4F46E5]">Deuda {ec.deuda}%</span>
+                          </div>
+                          <div className="flex h-2.5 rounded-full overflow-hidden">
+                            <div className="bg-[#1D9E75]" style={{ width: `${ec.equity}%` }} />
+                            <div className="bg-[#4F46E5]" style={{ width: `${ec.deuda}%` }} />
+                          </div>
+                          <div className="flex justify-between mt-1">
+                            <span className="text-[10px] text-[#9aab9f]">{fmt(ec.montoEquity)}</span>
+                            <span className="text-[10px] text-[#9aab9f]">{fmt(ec.montoDeuda)} · {ec.tasaDeuda}</span>
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="px-5 pb-4 flex flex-col gap-3">
+                        {pipe.financiero.data.flujoMensual?.length > 0 && (
+                          <VerDetalle label="Ver flujo de caja proyectado">
+                            <CashFlowChart data={pipe.financiero.data.flujoMensual} />
+                          </VerDetalle>
+                        )}
+                        {(score || pipe.financiero.data.stressTest?.length > 0) && (
+                          <VerDetalle label="Ver indicadores de resiliencia">
+                            <ResilienciaResumen
+                              score={score}
+                              stressTest={pipe.financiero.data.stressTest}
+                              puntoQuiebre={pipe.financiero.data.puntoQuiebre}
+                            />
+                          </VerDetalle>
+                        )}
+                      </div>
+
+                      <div className="px-5 pb-5">
+                        <button
+                          onClick={irAlReporte}
+                          className="w-full bg-[#1D9E75] text-white rounded-xl py-3 text-[13px] font-semibold hover:bg-[#0F6E56] transition-colors cursor-pointer flex items-center justify-center gap-2"
+                        >
+                          Ver reporte final
+                          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                            <path d="M5 3l4 4-4 4" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
+                          </svg>
+                        </button>
                       </div>
                     </DoneCard>
                   )
