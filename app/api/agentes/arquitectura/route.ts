@@ -7,6 +7,11 @@ import { callClaudeJson } from '@/lib/llmJson'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
+const ESTACIONAMIENTO_LABELS: Record<string, string> = {
+  subterraneo: 'Subterráneo (uno o más niveles bajo el nivel de banqueta, requiere excavación)',
+  nivel: 'A nivel / superficie (planta baja, sin excavación)',
+}
+
 // Mapeo pragmático de tiposDesarrollo (intake) a la tipología de eficiencia vendible del
 // módulo determinístico — no hay categoría 1:1 para "industrial"/"no-definido"/"otro", se
 // tratan como 'vertical' (el fallback más conservador de los tres perfiles definidos).
@@ -70,6 +75,7 @@ ${data.nivelesOverride ? `- Niveles FIJADOS por el usuario: ${data.nivelesOverri
 ${data.totalDeptosOverride ? `- Total de departamentos FIJADO por el usuario: ${data.totalDeptosOverride} — no lo cambies` : ''}
 ${data.totalLocalesOverride ? `- Total de locales comerciales FIJADO por el usuario: ${data.totalLocalesOverride} — no lo cambies` : ''}
 ${data.amenidadesNivelOverride ? `- Tamaño de amenidades FIJADO por el usuario: nivel ${data.amenidadesNivelOverride} de 3 — no lo cambies` : ''}
+${data.estacionamientoOverride ? `- Tipo de estacionamiento FIJADO por el usuario: ${ESTACIONAMIENTO_LABELS[data.estacionamientoOverride] || data.estacionamientoOverride} — no propongas otro tipo, refleja esta decisión en el concepto de la Zona 2 y en supuestos` : ''}
 
 CONTEXTO DE VALUACIÓN DEL TERRENO:
 - Uso de suelo: ${data.usoSuelo}
@@ -114,6 +120,9 @@ ${envolvente ? `Las zonas 2–5 (estacionamiento, circulaciones, áreas comunes,
 ZONA 2 — ESTACIONAMIENTO
   Participación: ${envolvente ? '~55% del área NO vendible (ver arriba)' : '15–25% de superficie bruta (cajones cubiertos o semienterrados)'}
   Cajones requeridos: estima 1.0–1.5 cajones/unidad; área 25–30 m²/cajón incluyendo circulación vehicular
+  ${data.estacionamientoOverride
+    ? `Tipo FIJADO por el usuario: ${ESTACIONAMIENTO_LABELS[data.estacionamientoOverride] || data.estacionamientoOverride}. El campo "concepto" de esta zona DEBE describir explícitamente esta solución (ej. si es subterráneo, menciona que requiere excavación/muros de contención/impermeabilización; si es a nivel, que ocupa planta baja sin excavación). Ajusta m²/cajón si el tipo lo justifica (subterráneo suele requerir más circulación por rampas: 28-32 m²/cajón; a nivel puede ser más eficiente: 24-27 m²/cajón).`
+    : 'Si no hay tipo fijado por el usuario, propón tú el más razonable según niveles del edificio y superficie del lote (a nivel/planta baja para pocos niveles con lote amplio; semisótano o subterráneo cuando el lote es más ajustado o hay más niveles) y descríbelo en "concepto".'}
 
 ZONA 3 — CIRCULACIONES Y NÚCLEOS VERTICALES
   Participación: ${envolvente ? '~25% del área NO vendible (ver arriba)' : '8–12% de superficie bruta'}
@@ -219,6 +228,10 @@ ${densidadMaxUnidades ? `- El total de unidades habitacionales propuestas debe a
       const ba = parsed.bitacoraArquitectura
       if (typeof ba.superficieConstruida === 'number') parsed.superficieConstruida = ba.superficieConstruida
       if (typeof ba.superficieVendible === 'number') parsed.superficieVendible = ba.superficieVendible
+      // Se echa de vuelta el override tal cual lo mandó el cliente (en vez de confiar en que el
+      // modelo lo repita) para que la UI sepa con certeza qué botón de tipo de estacionamiento
+      // está activo, sin tener que parsear el texto libre de "concepto".
+      ba.tipoEstacionamientoFijado = data.estacionamientoOverride || null
     }
 
     // Validación de mix contra el envolvente determinístico (lib/analisis/envolventeYAreas.ts)

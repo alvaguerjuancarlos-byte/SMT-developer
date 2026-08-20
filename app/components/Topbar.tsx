@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 
 function inicialesDe(email: string | undefined) {
@@ -13,6 +13,7 @@ function inicialesDe(email: string | undefined) {
 
 export default function Topbar() {
   const router = useRouter()
+  const pathname = usePathname()
   const [email, setEmail] = useState<string | undefined>(undefined)
 
   useEffect(() => {
@@ -25,6 +26,9 @@ export default function Topbar() {
     await supabase.auth.signOut()
     router.push('/login')
   }
+
+  // PREFORMA es una pantalla completa aparte, sin el chrome verde de SMT Developer.
+  if (pathname?.startsWith('/preforma')) return null
 
   return (
     <header className="bg-[#085041] shadow-lg">

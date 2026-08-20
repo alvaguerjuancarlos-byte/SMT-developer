@@ -16,6 +16,9 @@ export default function ContextBar() {
 
   const activeStep = steps.find(s => pathname.startsWith(s.href))?.step ?? 1
 
+  // PREFORMA es una pantalla completa aparte, sin el breadcrumb de pasos de SMT Developer.
+  if (pathname?.startsWith('/preforma')) return null
+
   return (
     <div className="bg-[#0a6b52] border-b border-[#085041]/50">
       <div className="max-w-7xl mx-auto px-6 h-12 flex items-center justify-between">

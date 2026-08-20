@@ -12,6 +12,7 @@ import { extractMercadoContext, extractProyectoContext, extractTerrenoContext } 
 import { calcularMastermindCore } from '@/lib/mastermind/motor'
 import { DEFAULTS } from '@/lib/mastermind/catalogo'
 import type { MastermindCoreInputs } from '@/lib/mastermind/tipos'
+import Panel from '@/app/mastermind/components/cockpit/Panel'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -332,6 +333,19 @@ function VerDetalle({ label = 'Ver detalle', ocultarLabel = 'Ocultar', children 
         </svg>
       </button>
       {abierto && <div className="mt-2">{children}</div>}
+    </div>
+  )
+}
+
+// Fila de solo lectura para el sidebar "Resumen en vivo" — sobre fondo oscuro, a diferencia de
+// EditableM2 (pensado para tarjetas blancas). `pendiente` atenúa la fila mientras el agente que
+// la produce todavía no termina, para que se sienta como "se va llenando" en vez de aparecer de golpe.
+function MiniStat({ label, value, pendiente = false, highlight }: { label: string; value: React.ReactNode; pendiente?: boolean; highlight?: 'green' | 'red' }) {
+  const color = pendiente ? 'text-white/25' : highlight === 'green' ? 'text-[#5DCAA5]' : highlight === 'red' ? 'text-[#F87171]' : 'text-white'
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <span className={`text-[11px] ${pendiente ? 'text-white/25' : 'text-white/50'}`}>{label}</span>
+      <span className={`text-[12px] font-bold tabular-nums ${color}`}>{pendiente ? '—' : value}</span>
     </div>
   )
 }
@@ -1553,6 +1567,7 @@ function PipelineContent() {
 
   const [formData, setFormData] = useState<any>(null)
   const [modoRapido, setModoRapido] = useState(false)
+  const [sidebarColapsado, setSidebarColapsado] = useState(false)
   const [pipe, setPipe] = useState<PipelineState>({
     comparables: { status: 'waiting', data: [] },
     comparablesVenta: { status: 'waiting', data: [] },
@@ -2160,8 +2175,19 @@ function PipelineContent() {
   ].filter(Boolean).length
   const pct = (stepsDone / 5) * 100
 
+  // Resumen en vivo del sidebar — mismo motor que el checkpoint del Step 6
+  // (calcularMastermindCore), llamado aquí también para que se vaya llenando desde el
+  // arranque del pipeline, no solo después de Construcción. Los extractores ya usan optional
+  // chaining, así que devuelven ceros/defaults con gracia mientras no hay dato todavía.
+  const coreInputsSidebar = mastermindCoreInputsActuales()
+  const resumenSidebar = calcularMastermindCore(coreInputsSidebar)
+  const snapshotRawSidebar = construirSnapshotAnalisis()
+  const mercadoRawSidebar = { ...DEFAULTS.mercado, ...extractMercadoContext(snapshotRawSidebar) }
+  const ecSidebar = pipe.financiero.data?.estructuraCapital
+  const tirSidebar = pipe.financiero.data?.financiero?.tir
+
   return (
-    <div className="min-h-screen bg-[#0C0F0E] flex flex-col">
+    <div className="h-screen bg-[#0C0F0E] flex flex-col overflow-hidden">
       {/* Header */}
       <header className="px-8 py-5 flex items-center gap-3 border-b border-white/10 bg-[#0C0F0E]">
         <div className="w-8 h-8 rounded-lg bg-[#1D9E75] flex items-center justify-center shrink-0">
@@ -2199,17 +2225,207 @@ function PipelineContent() {
         </span>
       </div>
 
-      <main className="flex-1 flex gap-0 overflow-hidden">
-        {/* Left sidebar — step indicators */}
-        <aside className="hidden md:flex flex-col gap-6 w-52 shrink-0 px-6 py-8 border-r border-white/10 bg-[#0C0F0E]">
-          <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest">Agentes</p>
-          <StepBadge n={1} status={pipe.terreno.status} label="Terreno" />
-          <StepBadge n={2} status={pipe.legal.status} label="Legal (guardarraíl)" />
-          <StepBadge n={3} status={pipe.mercado.status} label="Mercado" />
-          <StepBadge n={4} status={pipe.arquitectura.status} label="Arquitectura" />
-          <StepBadge n={5} status={pipe.construccion.status} label="Construcción" />
-          <StepBadge n={6} status={pipe.construccion.status === 'done' ? 'done' : 'waiting'} label="Costos e Ingresos" />
-          <StepBadge n={7} status={pipe.financiero.status} label="Financiero" />
+      <main className="flex-1 min-h-0 flex gap-0 overflow-hidden">
+        {/* Left sidebar — step indicators + resumen en vivo tipo Mastermind, se va llenando
+            conforme cada agente termina. No reemplaza a Mastermind 1/2 (siguen para calibración
+            profunda) — esto es un vistazo permanente, sin scrollear, de lo que ya se sabe. */}
+        <aside className={`hidden md:flex flex-col shrink-0 border-r border-white/10 bg-[#0C0F0E] overflow-y-auto transition-[width] duration-200 ${sidebarColapsado ? 'w-14 px-3 py-8' : 'w-72 px-5 py-8'}`}>
+          <button
+            type="button"
+            onClick={() => setSidebarColapsado(v => !v)}
+            className="w-8 h-8 rounded-lg bg-white/5 hover:bg-white/10 flex items-center justify-center shrink-0 mb-6 cursor-pointer"
+            title={sidebarColapsado ? 'Mostrar resumen en vivo' : 'Ocultar resumen en vivo'}
+          >
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ transform: sidebarColapsado ? 'none' : 'rotate(180deg)' }}>
+              <path d="M5 3l4 4-4 4" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </button>
+
+          {sidebarColapsado ? (
+            <div className="flex flex-col gap-4 items-center">
+              {[pipe.terreno, pipe.legal, pipe.mercado, pipe.arquitectura, pipe.construccion, pipe.financiero].map((p, i) => (
+                <span key={i} className={`w-2 h-2 rounded-full ${p.status === 'done' ? 'bg-[#1D9E75]' : p.status === 'running' ? 'bg-white/60' : 'bg-white/15'}`} />
+              ))}
+            </div>
+          ) : (
+            <>
+              <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest mb-4">Agentes</p>
+              <div className="flex flex-col gap-4">
+                <StepBadge n={1} status={pipe.terreno.status} label="Terreno" />
+                <StepBadge n={2} status={pipe.legal.status} label="Legal (guardarraíl)" />
+                <StepBadge n={3} status={pipe.mercado.status} label="Mercado" />
+                <StepBadge n={4} status={pipe.arquitectura.status} label="Arquitectura" />
+                <StepBadge n={5} status={pipe.construccion.status} label="Construcción" />
+                <StepBadge n={6} status={pipe.construccion.status === 'done' ? 'done' : 'waiting'} label="Costos e Ingresos" />
+                <StepBadge n={7} status={pipe.financiero.status} label="Financiero" />
+              </div>
+
+              <div className="border-t border-white/10 mt-6 pt-5 flex flex-col gap-4">
+                <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest">Resumen en vivo</p>
+
+                {/* Ajustes rápidos — mismo dato que el checkpoint del Step 6, sincronizado */}
+                <div className="flex flex-col gap-2.5">
+                  {terrenoActual ? (
+                    <EditableM2
+                      label="Costo terreno"
+                      value={Math.round(terrenoActual.costoTerrenoM2)}
+                      override={pipe.terreno.overrideM2}
+                      onOverride={v => setPipe(p => ({ ...p, terreno: { ...p.terreno, overrideM2: v } }))}
+                    />
+                  ) : <MiniStat label="Costo terreno" value="" pendiente />}
+
+                  {construccionActual ? (
+                    <EditableM2
+                      label="Costo construcción"
+                      value={Math.round(construccionActual.construccionM2)}
+                      override={pipe.construccion.overrideM2}
+                      onOverride={v => setPipe(p => ({ ...p, construccion: { ...p.construccion, overrideM2: v } }))}
+                    />
+                  ) : <MiniStat label="Costo construcción" value="" pendiente />}
+
+                  {mercadoActual ? (
+                    <EditableM2
+                      label="Precio de venta"
+                      value={Math.round(mercadoRawSidebar.precioVentaDepasM2)}
+                      override={pipe.financiero.precioVentaObjetivo}
+                      onOverride={v => setPipe(p => ({ ...p, financiero: { ...p.financiero, precioVentaObjetivo: v } }))}
+                    />
+                  ) : <MiniStat label="Precio de venta" value="" pendiente />}
+                </div>
+
+                {/* Costos — mismo panel visual que CostosGaugeCore en Mastermind 1 */}
+                <Panel titulo="Costos" accent="#DC2626">
+                  <div className="text-center mb-3">
+                    <div className="font-mono text-[24px] font-black text-white leading-none">
+                      {terrenoActual ? fmt(resumenSidebar.costos.costoTotal) : '—'}
+                    </div>
+                    <div className="text-[9px] text-white/30 mt-1 uppercase tracking-wider">
+                      {arquitecturaActual ? `${resumenSidebar.costos.m2Construidos.toLocaleString('es-MX')} m² construidos` : 'Esperando diseño'}
+                    </div>
+                  </div>
+                  {resumenSidebar.costos.costoTotal > 0 && (() => {
+                    const cs = resumenSidebar.costos
+                    const filas: [string, number, string][] = [
+                      ['Terreno', cs.costoTerreno, '#0F6E56'],
+                      ['Construcción', cs.costoDirectoConstruccion, '#1D9E75'],
+                      ['Administrativo', cs.indirectos + cs.honorarios + cs.imprevistos + cs.comercializacion, '#5DCAA5'],
+                    ]
+                    return (
+                      <>
+                        <div className="flex h-2 rounded-full overflow-hidden bg-white/5 mb-2">
+                          {filas.map(([label, valor, color]) => valor > 0 && (
+                            <div key={label} style={{ width: `${(valor / cs.costoTotal) * 100}%`, backgroundColor: color }} />
+                          ))}
+                        </div>
+                        <div className="flex flex-wrap gap-x-3 gap-y-1 text-[9px] text-white/40">
+                          {filas.map(([label, valor, color]) => (
+                            <span key={label} className="flex items-center gap-1">
+                              <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: color }} />
+                              {label} <span className="text-white/25">{((valor / cs.costoTotal) * 100).toFixed(0)}%</span>
+                            </span>
+                          ))}
+                        </div>
+                      </>
+                    )
+                  })()}
+                </Panel>
+
+                {/* Ingresos — mismo panel visual que IngresosGaugeCore */}
+                <Panel titulo="Ingresos" accent="#1D9E75">
+                  <div className="text-center mb-3">
+                    <div className="font-mono text-[24px] font-black text-[#1D9E75] leading-none">
+                      {mercadoActual ? fmt(resumenSidebar.ingresos.ingresoNeto) : '—'}
+                    </div>
+                    <div className="text-[9px] text-white/30 mt-1 uppercase tracking-wider">
+                      {mercadoActual ? `Bruto ${fmt(resumenSidebar.ingresos.ingresoBrutoTotal)}` : 'Esperando precio de venta'}
+                    </div>
+                  </div>
+                  {(() => {
+                    const ing = resumenSidebar.ingresos
+                    const total = ing.ingresoBrutoHabitacional + ing.ingresoBrutoComercial
+                    if (total <= 0) return null
+                    const pctHab = (ing.ingresoBrutoHabitacional / total) * 100
+                    return (
+                      <>
+                        <div className="flex h-2 rounded-full overflow-hidden bg-white/5 mb-2">
+                          <div style={{ width: `${pctHab}%` }} className="bg-[#1D9E75]" />
+                          {pctHab < 100 && <div style={{ width: `${100 - pctHab}%` }} className="bg-[#C9A227]" />}
+                        </div>
+                        <div className="flex flex-wrap gap-x-3 gap-y-1 text-[9px] text-white/40">
+                          <span className="flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#1D9E75]" />
+                            Habitacional <span className="text-white/25">{pctHab.toFixed(0)}%</span>
+                          </span>
+                          {pctHab < 100 && (
+                            <span className="flex items-center gap-1">
+                              <span className="w-1.5 h-1.5 rounded-full bg-[#C9A227]" />
+                              Comercial <span className="text-white/25">{(100 - pctHab).toFixed(0)}%</span>
+                            </span>
+                          )}
+                        </div>
+                      </>
+                    )
+                  })()}
+                </Panel>
+
+                {/* Indicadores — mismo panel visual que CoreKpiPanel */}
+                <Panel titulo="Indicadores" accent="#1D9E75">
+                  <div className="text-center mb-3">
+                    <div
+                      className="font-mono text-[24px] font-black leading-none"
+                      style={{ color: !construccionActual ? 'rgba(255,255,255,0.25)' : resumenSidebar.utilidad.margenBruto >= 12 ? '#1D9E75' : '#DC2626' }}
+                    >
+                      {construccionActual ? `${resumenSidebar.utilidad.margenBruto.toFixed(1)}%` : '—'}
+                    </div>
+                    <div className="text-[9px] text-white/30 mt-1 uppercase tracking-wider">Margen bruto</div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <div className="rounded-lg px-2 py-2 bg-white/[0.03] text-center">
+                      <div className="font-mono text-[12px] font-bold text-white">{construccionActual ? fmt(resumenSidebar.costoPorM2Vendible) : '—'}</div>
+                      <div className="text-[8px] text-white/30 uppercase tracking-wider mt-0.5">Costo/m² vendible</div>
+                    </div>
+                    <div className="rounded-lg px-2 py-2 bg-white/[0.03] text-center">
+                      <div className="font-mono text-[12px] font-bold text-white">
+                        {resumenSidebar.spreadVentaConstruccion !== null ? `${resumenSidebar.spreadVentaConstruccion.toFixed(2)}x` : '—'}
+                      </div>
+                      <div className="text-[8px] text-white/30 uppercase tracking-wider mt-0.5">Spread venta/const.</div>
+                    </div>
+                    <div className="rounded-lg px-2 py-2 bg-white/[0.03] text-center">
+                      <div className="font-mono text-[12px] font-bold text-white">{construccionActual ? `${resumenSidebar.puntoEquilibrioUnidades} uds` : '—'}</div>
+                      <div className="text-[8px] text-white/30 uppercase tracking-wider mt-0.5">Punto equilibrio</div>
+                    </div>
+                    <div
+                      className="rounded-lg px-2 py-2 text-center"
+                      style={{ backgroundColor: tirSidebar != null ? (tirSidebar >= 0 ? 'rgba(29,158,117,0.12)' : 'rgba(220,38,38,0.12)') : 'rgba(255,255,255,0.03)' }}
+                    >
+                      <div className="font-mono text-[12px] font-bold" style={{ color: tirSidebar == null ? 'white' : tirSidebar >= 0 ? '#5DCAA5' : '#F87171' }}>
+                        {tirSidebar == null ? '—' : `${tirSidebar.toFixed(1)}%`}
+                      </div>
+                      <div className="text-[8px] text-white/30 uppercase tracking-wider mt-0.5">TIR Socio</div>
+                    </div>
+                  </div>
+                </Panel>
+
+                {/* Financiamiento — solo cuando Financiero ya corrió */}
+                {ecSidebar && (
+                  <Panel titulo="Financiamiento" accent="#4F46E5">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-[10px] font-bold text-[#5DCAA5]">Equity {ecSidebar.equity}%</span>
+                      <span className="text-[10px] font-bold text-[#A5B4FC]">Deuda {ecSidebar.deuda}%</span>
+                    </div>
+                    <div className="flex h-2 rounded-full overflow-hidden bg-white/5">
+                      <div className="bg-[#1D9E75]" style={{ width: `${ecSidebar.equity}%` }} />
+                      <div className="bg-[#4F46E5]" style={{ width: `${ecSidebar.deuda}%` }} />
+                    </div>
+                    <div className="flex justify-between mt-1.5 text-[9px] text-white/30">
+                      <span>{fmt(ecSidebar.montoEquity)}</span>
+                      <span>{fmt(ecSidebar.montoDeuda)} · {ecSidebar.tasaDeuda}</span>
+                    </div>
+                  </Panel>
+                )}
+              </div>
+            </>
+          )}
         </aside>
 
         {/* Main content */}

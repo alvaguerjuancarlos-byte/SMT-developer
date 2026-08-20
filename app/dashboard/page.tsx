@@ -76,7 +76,12 @@ export default function DashboardPage() {
     try {
       const res = await authedFetch('/api/proyectos')
       const data = await res.json()
-      setProyectos(Array.isArray(data) ? data : [])
+      // Los proyectos guardados desde /preforma (la nueva versión de una sola pantalla) usan
+      // flujo:'A'/'B' igual que este tablero, pero se marcan con datos.origen:'preforma' porque
+      // su forma de "datos" es distinta (form+pipe del pipeline nuevo) — no es compatible con
+      // esta pantalla ni con /analisis, así que se excluyen aquí; PREFORMA tiene su propio
+      // "Mis proyectos" que sí los lista.
+      setProyectos(Array.isArray(data) ? data.filter((p: Proyecto) => (p.datos as any)?.origen !== 'preforma') : [])
     } catch {
       setProyectos([])
     } finally {
