@@ -1761,16 +1761,16 @@ export default function PreformaPage() {
                 {/* Alto reservado siempre igual (running/done/error/waiting) para que el
                     cambio de estado no mueva el layout del header — Bloque 1, 1.2. */}
                 {etapa && (
-                  <span className="flex items-center justify-center" style={{ height: 10, marginTop: 3 }}>
+                  <span className="flex items-center justify-center" style={{ height: 22, marginTop: 3 }}>
                     {st === 'running' ? (
-                      <Sonar color={T.warn} size={14} />
+                      <Sonar color={T.warn} size={22} />
                     ) : (
                       <span
                         className="inline-block rounded-full"
                         style={{
-                          width: 6, height: 6,
+                          width: 10, height: 10,
                           background: st === 'done' ? T.accent : st === 'error' ? T.bad : 'transparent',
-                          border: st === 'waiting' || !st ? `1px solid ${T.line2}` : 'none',
+                          border: st === 'waiting' || !st ? `1.5px solid ${T.line2}` : 'none',
                         }}
                       />
                     )}
