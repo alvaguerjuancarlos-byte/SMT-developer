@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireUser, unauthorized } from '@/lib/api-auth'
+import { geocodificarTexto } from '@/lib/geo/geocodeTexto'
 
 interface GeoResult {
   found: true
@@ -35,54 +36,15 @@ export async function GET(req: NextRequest) {
 
   // ── MODO TEXTO LIBRE (sin CP) ─────────────────────────────────────────────
   if (q) {
-    // Photon free-text
-    try {
-      const res = await fetch(
-        `https://photon.komoot.io/api/?q=${encodeURIComponent(q)}&lang=es&limit=5&countrycodes=mx`,
-        { headers: H },
-      )
-      if (res.ok) {
-        const json = await res.json()
-        const feats: any[] = json.features ?? []
-        const feat = feats[0]
-        if (feat) {
-          const [lng, lat] = feat.geometry.coordinates
-          const p = feat.properties
-          return NextResponse.json({
-            found: true, lat, lng,
-            colonia: p.suburb ?? p.neighbourhood ?? p.quarter ?? colonia,
-            municipio: p.city ?? p.town ?? ciudad,
-            estado: p.state ?? estado,
-          } satisfies GeoResult)
-        }
-      }
-    } catch { /* fall through */ }
-
-    // Nominatim free-text
-    try {
-      const u = new URL('https://nominatim.openstreetmap.org/search')
-      u.searchParams.set('q', q)
-      u.searchParams.set('countrycodes', 'mx')
-      u.searchParams.set('format', 'json')
-      u.searchParams.set('addressdetails', '1')
-      u.searchParams.set('limit', '3')
-      const res = await fetch(u.toString(), { headers: H })
-      if (res.ok) {
-        const json: any[] = await res.json()
-        const r = json[0]
-        if (r) {
-          const a = r.address ?? {}
-          return NextResponse.json({
-            found: true,
-            lat: parseFloat(r.lat), lng: parseFloat(r.lon),
-            colonia: pick(a, 'suburb', 'neighbourhood', 'quarter') || colonia,
-            municipio: pick(a, 'city', 'town', 'municipality') || ciudad,
-            estado: a.state || estado,
-          } satisfies GeoResult)
-        }
-      }
-    } catch { /* fall through */ }
-
+    const g = await geocodificarTexto(q)
+    if (g) {
+      return NextResponse.json({
+        found: true, lat: g.lat, lng: g.lng,
+        colonia: g.colonia || colonia,
+        municipio: g.municipio || ciudad,
+        estado: g.estado || estado,
+      } satisfies GeoResult)
+    }
     return NextResponse.json({ found: false })
   }
 

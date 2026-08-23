@@ -4,6 +4,11 @@ import Anthropic from '@anthropic-ai/sdk'
 import { validarComparableVenta, evaluarPlausibilidadBanda } from '@/lib/mercado/validarComparableVenta'
 import type { ComparableVenta } from '@/lib/mercado/validarComparableVenta'
 import { callClaudeJson } from '@/lib/llmJson'
+import { geocodificarTexto, distanciaHaversineKm } from '@/lib/geo/geocodeTexto'
+
+// Bloque 5 — "ningún comparable proviene de más de 5km" (criterio de aceptación del bloque
+// MERCADO): tope fijo, no configurable por el usuario — ver plan.
+const RADIO_MAX_KM = 5
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -22,7 +27,7 @@ export async function POST(req: NextRequest) {
   const user = await requireUser(req)
   if (!user) return unauthorized()
 
-  const { colonia, ciudad, estado, codigoPostal, tiposDesarrollo, bandaConstruccion } = await req.json()
+  const { colonia, ciudad, estado, codigoPostal, tiposDesarrollo, bandaConstruccion, lat, lng } = await req.json()
 
   const serperKey = process.env.SERPER_API_KEY?.trim()
   if (!serperKey) {
@@ -62,6 +67,7 @@ ${snippets.join('\n---\n')}
 Para cada propiedad en venta que encuentres con precio, extrae:
 - nombre: nombre real del proyecto/desarrollo, o descripción corta si no tiene nombre propio
 - direccion: dirección o colonia aproximada real
+- colonia: colonia/barrio si se puede identificar en el texto, null si no aparece
 - precioM2: precio por m² como número, null si no se puede calcular
 - precioTotal: precio total en MXN como número, null si no aparece
 - superficieM2: superficie de la unidad en m² como número, null si no aparece
@@ -83,7 +89,7 @@ Reglas:
       messages: [{ role: 'user', content: prompt }],
     }, /\[[\s\S]*\]/)
 
-    const comparables = comparablesRaw
+    let comparables = comparablesRaw
       .map(validarComparableVenta)
       .filter((c): c is ComparableVenta => c !== null)
       // No se descarta ninguno por esto — solo se anota si el precio parece de un
@@ -93,6 +99,29 @@ Reglas:
         ...c,
         sospechosoPorBanda: evaluarPlausibilidadBanda(c.precioM2, bandaConstruccion)?.sospechosoPorBanda ?? false,
       }))
+
+    // Bloque 5 — radio real de 5km: solo cuando el caller manda lat/lng del predio (PREFORMA,
+    // desde Bloque 2). Sin coordenadas se preserva el comportamiento anterior sin filtrar —
+    // cambio aditivo para no romper otros callers de esta misma ruta.
+    if (typeof lat === 'number' && typeof lng === 'number') {
+      const geocodificados = await Promise.all(
+        comparables.map(async (c) => {
+          const q = [c.direccion, c.colonia, ciudad, estado, 'México'].filter(Boolean).join(', ')
+          const g = await geocodificarTexto(q)
+          if (!g) return { ...c, lat: null, lng: null, colonia: c.colonia ?? null, distanciaKm: null }
+          return {
+            ...c,
+            lat: g.lat, lng: g.lng,
+            colonia: g.colonia || c.colonia || null,
+            distanciaKm: distanciaHaversineKm(lat, lng, g.lat, g.lng),
+          }
+        }),
+      )
+      // Se descartan (no solo marcan) los que exceden el radio — "ningún comparable proviene
+      // de más de 5km" es un criterio duro. Los que no se pudieron geocodificar se conservan
+      // (no hay forma de verificar su distancia, no es lo mismo que estar fuera de rango).
+      comparables = geocodificados.filter((c) => c.distanciaKm == null || c.distanciaKm <= RADIO_MAX_KM)
+    }
 
     return NextResponse.json({ comparables, lugar })
   } catch (e: any) {

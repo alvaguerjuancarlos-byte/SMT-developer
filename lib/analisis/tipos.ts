@@ -19,7 +19,13 @@ export interface Fuentes { legal?: Fuente[]; mercado?: Fuente[] }
 // (ver app/api/agentes/comparables-venta/route.ts), algunos solo traen precioTotal
 // identificable, no precioM2 — y el modelo puede copiar ese comparable tal cual (visto en
 // producción: tumbaba la página de Análisis con "Cannot read properties of null").
-export interface Comparable { nombre: string; direccion: string; fechaReferencia: string; precioM2: number | null; avanceObra: string; unidades: number; tipologia: string }
+export interface Comparable {
+  nombre: string; direccion: string; fechaReferencia: string; precioM2: number | null
+  avanceObra: string; unidades: number; tipologia: string
+  // Bloque 5 — radio real de 5km (ver comparables-venta/route.ts); opcionales porque solo se
+  // llenan cuando el predio tiene lat/lng y la geocodificación de la dirección tuvo éxito.
+  colonia?: string | null; lat?: number | null; lng?: number | null; distanciaKm?: number | null
+}
 export interface OfertaActiva { proyectosEnPreventa: number; proyectosEnObra: number; proyectosEntregados24m: number; unidadesDisponibles: number; rangoPrecios: string; saturacion: string }
 export interface SegmentoUnidad { tipo: string; absorcionMensual: string; precioM2: number; participacion: string; perfilComprador: string }
 export interface PricingFase { fase: string; precioM2: number; descuento: string; meta: string }

@@ -17,7 +17,9 @@ export interface ResultadoValidacionIndirectos {
   imprevistosFueraDeRango: boolean
 }
 
-const RANGO_INDIRECTOS = { min: 15, max: 18 }
+// Bloque 7 — exportados para que app/preforma/page.tsx (pestaña COSTOS) los use como
+// rangoSugerido de los DataField de indirectos/imprevistos, sin duplicar los números aquí.
+export const RANGO_INDIRECTOS = { min: 15, max: 18 }
 // Rango default de honorarios si el caller no pasa uno específico por banda — banda 2 (Media
 // Estándar) de RANGOS_HONORARIOS_POR_BANDA en lib/mastermind/catalogo.ts. El Agente Financiero
 // (app/api/agentes/financiero/route.ts) sí pasa el rango real de la banda del proyecto — este
@@ -25,6 +27,7 @@ const RANGO_INDIRECTOS = { min: 15, max: 18 }
 const RANGO_HONORARIOS_DEFAULT = { min: 8, max: 10 }
 const IMPREVISTOS_OBJETIVO = 5
 const IMPREVISTOS_TOLERANCIA = 1.5
+export const RANGO_IMPREVISTOS = { min: IMPREVISTOS_OBJETIVO - IMPREVISTOS_TOLERANCIA, max: IMPREVISTOS_OBJETIVO + IMPREVISTOS_TOLERANCIA }
 
 export function validarIndirectos(
   indirectos: number,

@@ -60,16 +60,23 @@ ${data.mixUnidadesResumen ? `- MEZCLA DE UNIDADES ya definida por el Agente Cons
 ${data.precioVentaObjetivo ? `- PRECIO DE VENTA OBJETIVO definido por el desarrollador: $${Number(data.precioVentaObjetivo).toLocaleString('es-MX')}/m² — es un PROMEDIO PONDERADO por m² vendible de TODA la mezcla, no un precio único por tipología. Repártelo en "segmentacion" usando la mezcla de unidades de arriba (si no hay mezcla, usa proporciones típicas del mercado): unidades más chicas (estudios/1 rec) suelen pagar un premium de $/m², unidades grandes (3 rec+) y locales comerciales suelen tener un $/m² distinto al residencial. El promedio ponderado de "segmentacion" por participación de mercado debe coincidir con este objetivo. Usa el mismo criterio para "precioPromedioZona" y "pricingFases". Valida contra tus comparables si es razonable y menciónalo en la interpretación.` : ''}
 ${data.absorcionObjetivoManual ? `- ABSORCIÓN REAL observada por el desarrollador (dato de campo): ${data.absorcionObjetivoManual} — úsala en "absorcion", inventario y segmentacion en vez de estimarla desde cero.` : ''}
 
-ANÁLISIS REQUERIDO:
-1. Buscar proyectos comparables activos y recientes (radio 500 m primero, ampliar a 1 km si hay menos de 3)
-2. Precio promedio de venta por m² en la zona para este tipo de desarrollo y nivel de calidad
-3. Velocidad de absorción mensual del mercado
-4. Perfil del comprador (NSE, rango de edad, financiamiento)
-5. Segmentación de unidades (tipos, tamaños, participación de mercado)
-6. Oferta activa en el corredor (en preventa, en obra, entregados en 24 meses)
-7. Estrategia de pricing por fases (preventa, construcción, entrega)
-8. Niveles de inventario y saturación del corredor
+ANÁLISIS REQUERIDO — trátalo como DOS análisis distintos que luego se cruzan, no una sola lista mezclada:
+
+OFERTA (qué ya existe o se está construyendo en la zona):
+1. Buscar proyectos comparables activos y recientes dentro de un radio de 5 km del predio
+2. Oferta activa en el corredor (en preventa, en obra, entregados en 24 meses)
+3. Estrategia de pricing por fases (preventa, construcción, entrega)
+4. Niveles de inventario y saturación del corredor
+
+DEMANDA (quién compra y qué tan rápido):
+5. Velocidad de absorción mensual del mercado
+6. Perfil del comprador (NSE, rango de edad, financiamiento)
+7. Segmentación de unidades que la demanda está absorbiendo (tipos, tamaños, participación de mercado)
+
+CRUCE (lectura conjunta de oferta y demanda):
+8. Precio promedio de venta por m² en la zona para este tipo de desarrollo y nivel de calidad
 9. Plusvalía de la zona (últimos 3 años)
+10. Producto recomendado — el que mejor cruza lo que la oferta actual no está cubriendo con lo que la demanda pide
 
 PORTALES A CONSULTAR: Inmuebles24, Vivanuncios, Lamudi, CBRE/JLL reportes de mercado, BBVA Situación Inmobiliaria, CANADEVI.
 
@@ -79,7 +86,7 @@ OUTPUT — JSON EXACTO (sin texto adicional):
     "demanda": "Alta",
     "zona": "Nombre de la zona de mercado",
     "absorcion": "8 unidades/mes",
-    "proyectosActivos": "4 proyectos en radio 500 m",
+    "proyectosActivos": "4 proyectos en radio 5 km",
     "precioPromedioZona": "$9,200/m²",
     "perfilNSE": "C+ · 28–45 años",
     "plusvalia": "+18% en 3 años",

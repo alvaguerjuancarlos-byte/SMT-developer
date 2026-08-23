@@ -18,6 +18,13 @@ export interface ComparableVenta {
   // Ver evaluarPlausibilidadBanda — no bloqueante, solo señala que el precio puede ser de un
   // desarrollo/zona no representativo de la banda de construcción del proyecto.
   sospechosoPorBanda?: boolean
+  // Bloque 5 — radio real de 5km: colonia extraída por el LLM (respaldo si la geocodificación
+  // no resuelve colonia), y lat/lng/distanciaKm solo cuando comparables-venta/route.ts recibe
+  // las coordenadas del predio y logra geocodificar la dirección (ver geocodificarTexto).
+  colonia?: string | null
+  lat?: number | null
+  lng?: number | null
+  distanciaKm?: number | null
 }
 
 const PRECIO_M2_MIN = 5_000
