@@ -480,10 +480,11 @@ function CardPendiente({ titulo, flex = '1', nota, estado, color, onReintentar }
         <div className="h-full flex flex-col items-center justify-center gap-2 py-10">
           {estado === 'running' ? (
             <>
-              {/* El sonar grande vive una sola vez, en el semáforo bajo cada pestaña del header
-                  (Bloque 1) — aquí solo un indicador ligero para no duplicarlo. */}
-              <span className="rounded-full animate-pulse" style={{ width: 7, height: 7, background: color ?? T.accent }} />
-              <p className="text-center" style={{ fontSize: 11, color: T.accent2 }}>Corriendo el agente…</p>
+              {/* El sonar grande (~3cm) vive aquí — es la única zona con espacio real para eso
+                  sin apretar el header. El semáforo bajo cada pestaña se queda compacto (un
+                  punto pequeño) porque ahí sí hay que caber junto al texto de la pestaña. */}
+              <Sonar color={color ?? T.accent} size={112} />
+              <p className="text-center" style={{ fontSize: 11, color: T.accent2, marginTop: 4 }}>Corriendo el agente…</p>
               <p className="text-center" style={{ fontSize: 9.5, color: T.ink4 }}>puede tardar hasta 1–2 min</p>
             </>
           ) : estado === 'error' ? (
@@ -1761,16 +1762,19 @@ export default function PreformaPage() {
                 {/* Alto reservado siempre igual (running/done/error/waiting) para que el
                     cambio de estado no mueva el layout del header — Bloque 1, 1.2. */}
                 {etapa && (
-                  <span className="flex items-center justify-center" style={{ height: 22, marginTop: 3 }}>
+                  // Compacto a propósito — el sonar grande (~3cm) vive en CardPendiente, en el
+                  // área de contenido de la pestaña, donde sí hay espacio sin apretar el header.
+                  // Este punto es el semáforo permanente (Bloque 1, checklist #6), no el sonar.
+                  <span className="flex items-center justify-center" style={{ height: 10, marginTop: 3 }}>
                     {st === 'running' ? (
-                      <Sonar color={T.warn} size={22} />
+                      <Sonar color={T.warn} size={14} />
                     ) : (
                       <span
                         className="inline-block rounded-full"
                         style={{
-                          width: 10, height: 10,
+                          width: 6, height: 6,
                           background: st === 'done' ? T.accent : st === 'error' ? T.bad : 'transparent',
-                          border: st === 'waiting' || !st ? `1.5px solid ${T.line2}` : 'none',
+                          border: st === 'waiting' || !st ? `1px solid ${T.line2}` : 'none',
                         }}
                       />
                     )}
