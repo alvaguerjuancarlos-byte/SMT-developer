@@ -46,6 +46,12 @@ export default function Topbar() {
           <span className="text-white/60 text-sm">Plataforma de Análisis Inmobiliario</span>
         </div>
         <div className="flex items-center gap-4">
+          <Link
+            href="/preforma"
+            className="text-xs font-semibold text-white bg-white/15 hover:bg-white/25 rounded-full px-3 py-1.5 transition-colors"
+          >
+            PREFORMA
+          </Link>
           <span className="text-white/70 text-xs">v3.0 · Jul 2026</span>
           {email && (
             <>
