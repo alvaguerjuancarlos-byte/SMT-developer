@@ -34,9 +34,10 @@ function isVivienda(g: GeneroConstructivo): boolean {
   return GENEROS_VIVIENDA.includes(g)
 }
 
-function eficienciaBase(g: GeneroConstructivo): number {
+function eficienciaBase(g: GeneroConstructivo): Rango {
   const [min, max] = FACTORES_EFICIENCIA[g]
-  return (min + max) / 2
+  const base = (min + max) / 2
+  return { piso: min, base, techo: max }
 }
 
 function fmtMXN(n: number): string {
@@ -208,7 +209,7 @@ export function derivarEstacionamiento(
     } else if (uso.genero === 'oficinas') {
       const normOfi  = normaCaj?.oficinas
       const ratio    = normOfi?.ratio ?? RATIOS_CAJONES_REFERENCIA.oficinas.ratio
-      const efic     = eficienciaBase('oficinas')
+      const efic     = eficienciaBase('oficinas').base
       const m2Rent   = uso.m2Bruto * efic
       const cajones  = m2Rent * ratio
       subtotal += cajones
@@ -227,7 +228,7 @@ export function derivarEstacionamiento(
     } else if (uso.genero === 'comercio') {
       const normCom  = normaCaj?.comercio
       const ratio    = normCom?.ratio ?? RATIOS_CAJONES_REFERENCIA.comercio.ratio
-      const efic     = eficienciaBase('comercio')
+      const efic     = eficienciaBase('comercio').base
       const m2Rent   = uso.m2Bruto * efic
       const cajones  = m2Rent * ratio
       subtotal += cajones
@@ -288,34 +289,48 @@ export function derivarEstacionamiento(
 export function programaDeAreas(
   usos: UsoDesarrollo[],
   cajones: DesgloseCajones,
-): { sobreRasante: number; sotano: number; total: number; vendible: number; supuestos: string[] } {
+): { sobreRasante: number; sotano: number; total: number; vendible: number; vendibleRango: Rango; supuestos: string[] } {
   const supuestos: string[] = []
 
   const sobreRasante = usos.reduce((s, u) => s + u.m2Bruto, 0)
   const sotano       = cajones.areaM2
   const total        = sobreRasante + sotano
 
-  let vendibleFloat = 0
+  let vendiblePisoFloat = 0
+  let vendibleBaseFloat = 0
+  let vendibleTechoFloat = 0
   for (const uso of usos) {
     const efic    = eficienciaBase(uso.genero)
-    const m2Vend  = uso.m2Bruto * efic
-    vendibleFloat += m2Vend
+    const m2Vend: Rango = {
+      piso:  uso.m2Bruto * efic.piso,
+      base:  uso.m2Bruto * efic.base,
+      techo: uso.m2Bruto * efic.techo,
+    }
+    vendiblePisoFloat  += m2Vend.piso
+    vendibleBaseFloat  += m2Vend.base
+    vendibleTechoFloat += m2Vend.techo
 
-    const [eMin, eMax] = FACTORES_EFICIENCIA[uso.genero]
-    if (efic > 0) {
+    if (efic.base > 0) {
       supuestos.push(
-        `[Eficiencia §5] ${uso.genero}: factor ${efic.toFixed(3)} ` +
-        `(punto medio del rango ${eMin}–${eMax}). ` +
-        `Área vendible estimada: ${Math.round(m2Vend).toLocaleString('es-MX')} m². ` +
+        `[Eficiencia §5] ${uso.genero}: rango ${efic.piso.toFixed(3)}–${efic.techo.toFixed(3)} ` +
+        `(base ${efic.base.toFixed(3)}). ` +
+        `Área vendible estimada: ${Math.round(m2Vend.base).toLocaleString('es-MX')} m² ` +
+        `(rango ${Math.round(m2Vend.piso).toLocaleString('es-MX')}–${Math.round(m2Vend.techo).toLocaleString('es-MX')} m²). ` +
         `Corregir rango en FACTORES_EFICIENCIA en lib/estimador/catalogo.ts.`,
       )
     }
   }
 
   // Redondear a 2 decimales para evitar drift de punto flotante
-  const vendible = Math.round(vendibleFloat * 100) / 100
+  const vendibleRango: Rango = {
+    piso:  Math.round(vendiblePisoFloat * 100) / 100,
+    base:  Math.round(vendibleBaseFloat * 100) / 100,
+    techo: Math.round(vendibleTechoFloat * 100) / 100,
+  }
+  // Campo escalar de compatibilidad — mismo valor que antes del fix (colapsado a .base).
+  const vendible = vendibleRango.base
 
-  return { sobreRasante, sotano, total, vendible, supuestos }
+  return { sobreRasante, sotano, total, vendible, vendibleRango, supuestos }
 }
 
 // ── Capa 4 — Costo directo de obra ───────────────────────────────────────────
@@ -396,7 +411,7 @@ export function calcularCostoTotal(directo: Rango): Rango {
 
 export function calcularIndicadores(
   costoTotal: Rango,
-  areas: { total: number; vendible: number },
+  areas: { total: number; vendibleRango: Rango },
 ): { costoPorM2Bruto: Rango; costoPorM2Vendible: Rango } {
   return {
     costoPorM2Bruto: {
@@ -405,9 +420,9 @@ export function calcularIndicadores(
       techo: costoTotal.techo / areas.total,
     },
     costoPorM2Vendible: {
-      piso:  costoTotal.piso  / areas.vendible,
-      base:  costoTotal.base  / areas.vendible,
-      techo: costoTotal.techo / areas.vendible,
+      piso:  costoTotal.piso  / areas.vendibleRango.piso,
+      base:  costoTotal.base  / areas.vendibleRango.base,
+      techo: costoTotal.techo / areas.vendibleRango.techo,
     },
   }
 }
@@ -451,14 +466,15 @@ export function calcular(
   }
 
   // Capa 3b — Áreas
-  const { sobreRasante, sotano, total, vendible, supuestos: supAreas } =
+  const { sobreRasante, sotano, total, vendible, vendibleRango, supuestos: supAreas } =
     programaDeAreas(proyecto.usos, cajones)
   allSupuestos.push(...supAreas)
   allSupuestos.push(
     `[Programa de áreas] Sobre rasante: ${sobreRasante.toLocaleString('es-MX')} m² | ` +
     `Sótano: ${sotano.toLocaleString('es-MX')} m² | ` +
     `Total que CUESTA: ${total.toLocaleString('es-MX')} m² | ` +
-    `Vendible (denom. comercial): ${Math.round(vendible).toLocaleString('es-MX')} m².`,
+    `Vendible (denom. comercial): ${Math.round(vendible).toLocaleString('es-MX')} m² ` +
+    `(rango ${Math.round(vendibleRango.piso).toLocaleString('es-MX')}–${Math.round(vendibleRango.techo).toLocaleString('es-MX')} m²).`,
   )
 
   // Capa 4 — Costo directo
@@ -477,12 +493,12 @@ export function calcular(
   )
 
   // Capa 6 — Indicadores
-  const indicadores = calcularIndicadores(costoTotal, { total, vendible })
+  const indicadores = calcularIndicadores(costoTotal, { total, vendibleRango })
 
   return {
     envolvente,
     cajones,
-    areas: { sobreRasante, sotano, total, vendible },
+    areas: { sobreRasante, sotano, total, vendible, vendibleRango },
     porciones,
     costoDirectoTotal,
     costoTotal,

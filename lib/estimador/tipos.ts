@@ -1,3 +1,6 @@
+import type { Rango } from '@/lib/shared/tipos'
+export type { Rango }
+
 // Géneros constructivos disponibles en el catálogo §8
 export type GeneroConstructivo =
   | 'vivienda_interes_social'
@@ -51,13 +54,6 @@ export interface InputsProyecto {
   usos: UsoDesarrollo[]
 }
 
-// Rango piso / base / techo — toda salida numérica es un rango (§7 regla 3)
-export interface Rango {
-  piso: number
-  base: number
-  techo: number
-}
-
 // ── Outputs ───────────────────────────────────────────────────────────────────
 
 export interface EnvolventeNormativo {
@@ -100,7 +96,8 @@ export interface ResultadoEstimador {
     sobreRasante: number    // Σ m² de todos los usos sobre rasante
     sotano: number          // m² de sótano (estacionamiento derivado)
     total: number           // sobreRasante + sotano — esto es lo que CUESTA
-    vendible: number        // Σ (m²_uso × factor_eficiencia) — denominador comercial
+    vendible: number        // Σ (m²_uso × factor_eficiencia.base) — denominador comercial (colapsado, compat)
+    vendibleRango: Rango    // igual que vendible pero sin colapsar — piso/base/techo genuinamente distintos
   }
   porciones: PorcionCosto[]
   costoDirectoTotal: Rango  // Σ costos directos de todas las porciones

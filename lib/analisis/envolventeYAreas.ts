@@ -3,7 +3,7 @@
 // sin efectos secundarios. Reemplaza el cálculo por "participación típica" que hoy vive
 // disperso en el prompt del Agente Construcción con constantes explícitas y auditable.
 
-export type Rango = { piso: number; base: number; techo: number }
+import type { Rango } from '@/lib/shared/tipos'
 
 export interface EntradaEnvolvente {
   superficieTerreno: number

@@ -3,12 +3,7 @@
 // Fuentes: CMIC, Bimsa Reports, Varela, INEGI — validar antes de fijar valores definitivos.
 
 import type { GeneroConstructivo } from './tipos'
-
-export interface RangoCosto {
-  piso: number
-  base: number
-  techo: number
-}
+import type { Rango } from '@/lib/shared/tipos'
 
 // ── §8 — Catálogo de costos paramétricos (MXN/m², 2026) ─────────────────────
 // Nota sobre base de comercio y estacionamiento:
@@ -16,7 +11,7 @@ export interface RangoCosto {
 //   • estacionamiento_sotano base = $10,000 (ejemplo §11); midpoint sería $10,500
 //   Los valores base se calibraron contra el ejemplo de referencia §11 para coherencia.
 //   Si CMIC/Bimsa actualizan rangos, recalibrar la base aquí.
-export const COSTOS_PARAMETRICOS: Record<GeneroConstructivo, RangoCosto> = {
+export const COSTOS_PARAMETRICOS: Record<GeneroConstructivo, Rango> = {
   vivienda_interes_social:    { piso:  9_500, base: 11_000, techo: 12_500 },
   vivienda_residencial_media: { piso: 16_000, base: 19_000, techo: 22_000 },
   vivienda_residencial_lujo:  { piso: 28_000, base: 36_500, techo: 45_000 },
@@ -43,7 +38,7 @@ export const FACTORES_EFICIENCIA: Record<GeneroConstructivo, [number, number]> =
 
 // ── §5 Capa 5 — Factores de indirectos y costos blandos ──────────────────────
 // Honorarios, supervisión, permisos, derechos, contingencia — factor sobre el costo directo.
-export const FACTORES_INDIRECTOS: RangoCosto = {
+export const FACTORES_INDIRECTOS: Rango = {
   piso:  1.20,  // +20%
   base:  1.28,  // +28%
   techo: 1.35,  // +35%
