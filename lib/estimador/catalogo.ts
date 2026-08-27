@@ -5,21 +5,27 @@
 import type { GeneroConstructivo } from './tipos'
 import type { Rango } from '@/lib/shared/tipos'
 
-// ── §8 — Catálogo de costos paramétricos (MXN/m², 2026) ─────────────────────
-// Nota sobre base de comercio y estacionamiento:
-//   • comercio base = $15,000 (ejemplo §11); midpoint aritmético del rango sería $15,500
-//   • estacionamiento_sotano base = $10,000 (ejemplo §11); midpoint sería $10,500
-//   Los valores base se calibraron contra el ejemplo de referencia §11 para coherencia.
-//   Si CMIC/Bimsa actualizan rangos, recalibrar la base aquí.
+// ── §8 — Catálogo de costos paramétricos (MXN/m²) ────────────────────────────
+// Validado 2026-08-26 contra referencias de mercado agregadas (CEICO-CMIC,
+// BIMSA-CMIC) obtenidas por búsqueda web — NO contra el PDF primario de CMIC/
+// Bimsa/Varela (el libro de Varela existe y es fuente real, pero su vista
+// previa gratuita solo cubre ejemplos de escala chica — casa de 36m², bodega
+// de 1,024m², local de 18m² — no la escala de torre/edificio que necesitamos
+// aquí; sus páginas de edificio de oficinas/depto de 14-18 niveles/centro
+// comercial son de pago, no se consultaron). Tratar como más confiable que
+// los valores originales (que eran estimados sin fuente real, calibrados
+// solo contra un ejemplo interno de los tests), pero seguir sin ser el
+// benchmark definitivo. estacionamiento_sotano y amenidades_comunes NO se
+// encontró referencia de mercado confiable — quedaron sin tocar.
 export const COSTOS_PARAMETRICOS: Record<GeneroConstructivo, Rango> = {
-  vivienda_interes_social:    { piso:  9_500, base: 11_000, techo: 12_500 },
-  vivienda_residencial_media: { piso: 16_000, base: 19_000, techo: 22_000 },
-  vivienda_residencial_lujo:  { piso: 28_000, base: 36_500, techo: 45_000 },
-  nave_industrial:             { piso:  7_500, base:  9_250, techo: 11_000 },
-  oficinas:                    { piso: 14_000, base: 16_500, techo: 19_000 },
-  comercio:                    { piso: 13_000, base: 15_000, techo: 18_000 },
-  estacionamiento_sotano:      { piso:  9_000, base: 10_000, techo: 12_000 },
-  amenidades_comunes:          { piso: 18_000, base: 20_000, techo: 22_000 },
+  vivienda_interes_social:    { piso:  9_500, base: 11_000, techo: 12_500 }, // sin cambio — ya alineado (CEICO-CMIC ~$10,692)
+  vivienda_residencial_media: { piso: 12_000, base: 14_000, techo: 16_000 }, // antes 16k/19k/22k — mercado da $12,000-$16,000
+  vivienda_residencial_lujo:  { piso: 23_000, base: 31_500, techo: 40_000 }, // antes 28k/36.5k/45k — mercado: "supera $23,000", techo general ~$40,000
+  nave_industrial:             { piso:  9_000, base: 10_642, techo: 12_500 }, // antes 7.5k/9.25k/11k — CEICO-CMIC ~$10,642 (caía cerca de nuestro techo viejo, no de la base)
+  oficinas:                    { piso: 10_500, base: 12_750, techo: 15_000 }, // antes 14k/16.5k/19k — BIMSA-CMIC media $11,731 / alta $13,802 (nuestro piso viejo ya superaba su "alta")
+  comercio:                    { piso: 18_000, base: 24_000, techo: 32_000 }, // antes 13k/15k/18k — CDMX promedio $28,000 (rango $18k-$55k); techo viejo apenas tocaba el piso real
+  estacionamiento_sotano:      { piso:  9_000, base: 10_000, techo: 12_000 }, // SIN CAMBIO — no se encontró referencia de mercado confiable
+  amenidades_comunes:          { piso: 18_000, base: 20_000, techo: 22_000 }, // SIN CAMBIO — no se encontró referencia de mercado confiable
 }
 
 // ── §5 Capa 3 — Factores de eficiencia [min, max] (área útil ÷ área bruta) ──

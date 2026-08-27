@@ -53,7 +53,11 @@ describe('Envolvente normativo', () => {
 // ── Costo directo §11 — tolerancia ±0.5% ─────────────────────────────────────
 
 describe('Costo directo — ejemplo §11', () => {
-  const TARGET = 246_000_000
+  // Target recalculado 2026-08-26 tras validar COSTOS_PARAMETRICOS contra
+  // referencias de mercado (ver catalogo.ts) — antes eran 246M/315M/$18,950,
+  // calibrados contra los valores viejos del catálogo (sin fuente real), no
+  // contra un resultado independiente verificado.
+  const TARGET = 217_825_000
 
   it(`base ≈ ${TARGET.toLocaleString('es-MX')} MXN (±0.5%)`, () => {
     const { base } = r.costoDirectoTotal
@@ -75,7 +79,7 @@ describe('Costo directo — ejemplo §11', () => {
 // ── Costo total (con indirectos) §11 — tolerancia ±1% ────────────────────────
 
 describe('Costo total (×1.28 base) — ejemplo §11', () => {
-  const TARGET = 315_000_000
+  const TARGET = 278_816_000
 
   it(`base ≈ ${TARGET.toLocaleString('es-MX')} MXN (±1%)`, () => {
     const { base } = r.costoTotal
@@ -99,10 +103,10 @@ describe('Costo total (×1.28 base) — ejemplo §11', () => {
 // ── Indicadores §11 — tolerancia ±1% ─────────────────────────────────────────
 
 describe('Indicadores — ejemplo §11', () => {
-  it('m²/bruto base ≈ $18,950 (±1%)', () => {
+  it('m²/bruto base ≈ $16,827 (±1%)', () => {
     const { base } = r.indicadores.costoPorM2Bruto
-    expect(base / 18_950, `obtenido: ${base.toFixed(0)}`).toBeGreaterThan(0.99)
-    expect(base / 18_950, `obtenido: ${base.toFixed(0)}`).toBeLessThan(1.01)
+    expect(base / 16_827, `obtenido: ${base.toFixed(0)}`).toBeGreaterThan(0.99)
+    expect(base / 16_827, `obtenido: ${base.toFixed(0)}`).toBeLessThan(1.01)
   })
 
   it('costoPorM2Bruto.base = costoTotal.base / areas.total', () => {
