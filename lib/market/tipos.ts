@@ -102,6 +102,46 @@ export interface GeographyContext {
   radioPrincipal: RadioPrincipal
 }
 
+// ── Price Engine (Fase 8 del documento) ───────────────────────────────────────
+// §11, §12, §21, §22, §57-58. Alcance real: segmenta por banda de superficie y por número de
+// recámaras (reusa parsearRecamaras de comparableEngine.ts) — NO por zona/microzona (Geography
+// Engine todavía no puede segmentar con confianza, ver detectarMicrozona) ni por new/resale (el
+// campo avanceObra — Entregado/En obra/Preventa — no mapea limpio a esa distinción sin
+// inventar una regla). confidenceScore hoy es SOLO función de sampleSize (§57 pide también
+// sourceQuality/recency/geographicPrecision/methodologyQuality — deferred, no hay señal real
+// para esos todavía).
+
+export type NivelConfianza = 'ALTA' | 'BUENA' | 'MEDIA' | 'BAJA' | 'INSUFICIENTE'
+
+export interface RobustStats {
+  n: number
+  mean: number
+  median: number
+  min: number
+  max: number
+  p10: number
+  p25: number
+  p75: number
+  p90: number
+  iqr: number
+  stdDev: number
+  confidenceScore: number
+  confidenceNivel: NivelConfianza
+}
+
+export interface SegmentoPrecio {
+  clave: string
+  estadisticas: RobustStats | null
+  outliersExcluidos: number[]
+}
+
+export interface PriceEngineResultado {
+  askingPricePerM2: RobustStats | null
+  outliersExcluidos: number[]
+  porBandaSuperficie: SegmentoPrecio[]
+  porRecamaras: SegmentoPrecio[]
+}
+
 // ── MarketMaster (Fase 2) ─────────────────────────────────────────────────────
 
 export interface MarketSource {
@@ -127,9 +167,11 @@ export interface MarketMaster {
 
   comparables: ComparableConScore[]
 
-  // Motores todavía sin construir (§131 Fase 8-16) — se declaran para no romper el contrato
+  // Price Engine (Fase 8, ver arriba) — único motor de estos ya construido.
+  prices: PriceEngineResultado | null
+
+  // Motores todavía sin construir (§131 Fase 9-16) — se declaran para no romper el contrato
   // cuando se implementen, pero HOY siempre son null. No poblar con texto libre del LLM.
-  prices: null
   appreciation: null
   inventory: null
   pipeline: null
@@ -144,6 +186,6 @@ export interface MarketMaster {
   sources: MarketSource[]
   warnings: string[]
 
-  version: '0.1.0-fase2-3'
+  version: '0.2.0-fase2-4-8'
   generatedAt: string
 }
