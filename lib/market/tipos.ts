@@ -142,6 +142,24 @@ export interface PriceEngineResultado {
   porRecamaras: SegmentoPrecio[]
 }
 
+// ── Listing Dedup Engine (Fase 6 del documento) ───────────────────────────────
+// §13. Alcance real: comparables-venta/route.ts NO captura coordinates garantizadas (solo si
+// PREFORMA mandó lat/lng del predio y la geocodificación resolvió), ni parking/project/unit/
+// phone/developer/hash — de la lista del spec solo hay señal real en: coordenadas (a veces),
+// dirección, superficie, recámaras (parseadas de tipologia) y nombre de proyecto. Deduplicar
+// contra las señales que sí existen, nunca fingir las que no.
+
+export interface ComparableDescartado {
+  duplicado: ComparableVenta
+  deQuien: ComparableVenta
+  motivo: string
+}
+
+export interface ResultadoDedup {
+  originales: ComparableVenta[]
+  descartados: ComparableDescartado[]
+}
+
 // ── MarketMaster (Fase 2) ─────────────────────────────────────────────────────
 
 export interface MarketSource {
