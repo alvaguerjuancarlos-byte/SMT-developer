@@ -204,6 +204,100 @@ export interface ResultadoPlusvalia {
   motivo?: string                // por qué es null, cuando aplica — nunca se deja sin explicar
 }
 
+// ── Evidence Registry (Fase 3 del documento) ──────────────────────────────────
+// §59-60. Cada métrica que produce un motor de lib/market/ se puede envolver en un
+// MarketEvidence para que responda ¿qué/cuándo/dónde/de dónde/cuántos datos/cómo se calculó? —
+// nunca se presenta un número suelto sin esta trazabilidad. transactionType usa la distinción
+// dura del spec (§10): un precio de portal es SIEMPRE 'asking', nunca 'closing' — este pipeline
+// no tiene ninguna fuente de precios de cierre real todavía.
+
+export type TipoTransaccion = 'asking' | 'closing'
+
+export interface MarketEvidence {
+  evidenceId: string
+  metric: string
+  value: number | string
+  period: string | null        // "YYYY-MM", null si la métrica no es temporal
+  geography: string | null     // ej. colonia — 'sin-segmentar' si aplica a todo el set
+  propertyType: string | null  // ej. "2 rec", null si no aplica
+  transactionType: TipoTransaccion | null
+  sampleSize: number
+  sourceId: string | null
+  method: string                // cómo se calculó, texto corto y específico
+  confidence: NivelConfianza | null
+}
+
+// ── Competitor Engine (§47 del documento) ─────────────────────────────────────
+// Agrupa los comparables de un mismo batch por proyecto (mismo nombre normalizado, ver
+// dedupEngine.ts::normalizarTexto) — un "competidor" es la misma info que ya produce el
+// Comparable Engine, vista por proyecto en vez de por listado individual. De los campos que
+// pide el spec (proyecto, desarrollador, unidades, tipología, precio, precio/m², etapa, entrega,
+// amenities, ubicación), NO hay señal real de desarrollador ni amenities en el pipeline hoy —
+// unidadesObservadas es cuántos LISTADOS de ese proyecto se vieron en este batch, no el
+// inventario total real del proyecto (eso necesitaría Fase 10 completo con datos del desarrollador).
+export interface CompetitorProfile {
+  nombre: string
+  colonia: string | null
+  unidadesObservadas: number
+  precioM2: RobustStats | null
+  tipologias: string[]
+  etapas: EtapaInventario[]
+  // Clasificación más frecuente entre sus listados (DIRECT/SUBSTITUTE/ASPIRATIONAL/FLOOR, §19) —
+  // null si no se pasó un objetivo contra el cual clasificar.
+  clasificacion: TipoComparable | null
+}
+
+// ── Product Fit Engine (Fase 15 del documento) ────────────────────────────────
+// §50. Cruza SITE_MASTER/NORMATIVE_MASTER (aquí: EnvolventeNormativo real de lib/estimador) con
+// MARKET_MASTER (Price/Comparable/Competitor Engine ya construidos). De las 9 dimensiones que
+// pide el spec, demandFit y rentFit quedan SIEMPRE null — no existe Demand Engine (Fase 11) ni
+// Rent Engine (Fase 12) reales todavía, ambos bloqueados por falta de fuente de datos (ver
+// conversación de Fase 1/9/11). supplyFit también queda null: con los datos de hoy sería
+// prácticamente la misma señal que competitionFit disfrazada de otro número — no se fabrica un
+// noveno indicador redundante solo para llenar el campo.
+export interface ProductFitScore {
+  demandFit: null       // NOT_AVAILABLE — sin Demand Engine (Fase 11)
+  competitionFit: number | null
+  priceFit: number | null
+  sizeFit: number | null
+  typologyFit: number | null
+  locationFit: number | null
+  regulatoryFit: number | null // 100 o 0 — límite duro, no un score suave
+  supplyFit: null        // NOT_AVAILABLE — redundante con competitionFit dado el dato actual
+  rentFit: null          // NOT_AVAILABLE — sin Rent Engine (Fase 12)
+  // Bandera dura, separada del promedio (§120, §133.29: nunca recomendar más de lo que permite
+  // la normativa, sin importar qué tan bien puntúen las demás dimensiones).
+  cumpleNormativa: boolean
+  unidadesRecomendadas: number
+  finalScore: number | null
+}
+
+// ── Market Opportunity Score acotado (Fase 16 del documento) ──────────────────
+// §55-56, §126. El spec pide 11 componentes: demand, price_growth, inventory, absorption,
+// competition, pipeline, rent, yield, market_gap, product_fit, data_quality. Solo 4 tienen señal
+// real hoy — el resto necesita motores que no existen (Demand/Absorption/Pipeline/Rent/Yield,
+// Fases 11-14) o no tiene un benchmark contra el cual decir si "más" es mejor o peor
+// (inventory por sí solo, sin absorción real, no dice nada de oportunidad — ver §44 Market
+// Health Matrix, que cruza inventario CON velocidad, algo que no podemos calcular todavía).
+export interface MarketOpportunityScore {
+  components: {
+    demand: null
+    price_growth: number | null
+    inventory: null
+    absorption: null
+    competition: number | null
+    pipeline: null
+    rent: null
+    yield: null
+    market_gap: null
+    product_fit: number | null
+    data_quality: number | null
+  }
+  // §126 — pesos usados, ya normalizados entre los componentes disponibles. Nunca ocultos.
+  weights: Partial<Record<'price_growth' | 'competition' | 'product_fit' | 'data_quality', number>>
+  finalScore: number | null
+}
+
 // ── MarketMaster (Fase 2) ─────────────────────────────────────────────────────
 
 export interface MarketSource {

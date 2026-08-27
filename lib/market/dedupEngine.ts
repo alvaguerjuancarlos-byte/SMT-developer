@@ -27,7 +27,9 @@ const TOLERANCIA_SUPERFICIE_PCT = 0.05
 // para que el archivo no dependa de que el editor/terminal preserve bytes exactos.
 const REGEX_DIACRITICOS = new RegExp(`[${String.fromCharCode(0x0300)}-${String.fromCharCode(0x036f)}]`, 'g')
 
-function normalizarTexto(s: string | null | undefined): string {
+// Exportado -- reusado por competitorEngine.ts (Fase 47) para agrupar comparables del mismo
+// proyecto por nombre, mismo criterio de normalización que usa el dedup para "mismo nombre".
+export function normalizarTexto(s: string | null | undefined): string {
   if (!s) return ''
   return s
     .normalize('NFD').replace(REGEX_DIACRITICOS, '') // quitar acentos
