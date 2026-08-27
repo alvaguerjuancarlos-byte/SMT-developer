@@ -177,6 +177,33 @@ export interface SegmentoInventario {
   superficieM2: RobustStats | null
 }
 
+// ── Appreciation Engine (Fase 9 del documento) ────────────────────────────────
+// §25-28, §61, §97. Motor puro sobre una serie de observaciones YA filtrada por el caller (una
+// colonia, una tipología, etc. — este motor no segmenta por geografía/tipología él mismo, ver
+// nota en appreciationEngine.ts). No tiene datos reales que consumir todavía: recién se aplicó
+// la migración de market_comparable_snapshots (Fase 4) y nada ha vuelto a escribir en ella —
+// hace falta conectar lib/market/persistencia.ts a comparables-venta/route.ts antes de que este
+// motor calcule algo distinto de NOT_ENOUGH_DATA en producción. Se construye ahora de todos
+// modos porque la lógica es independiente de si ya hay datos o no (mismo patrón que
+// comparableEngine.ts/priceEngine.ts: motor puro + tests con fixtures, no con la BD real).
+
+export type VentanaPlusvalia = 'mensual' | 'trimestral' | 'anual' | '3_anios' | '5_anios' | '10_anios'
+
+export interface ObservacionPrecio {
+  precioM2: number
+  observadoEn: string // fecha ISO (YYYY-MM-DD o completa) — solo se usa el mes calendario
+}
+
+export interface ResultadoPlusvalia {
+  ventana: VentanaPlusvalia
+  tasaAnualizada: number | null // % anualizado, null = NOT_ENOUGH_DATA (§97)
+  periodoInicio: string | null  // "YYYY-MM"
+  periodoFin: string | null     // "YYYY-MM"
+  muestraInicio: number         // cuántas observaciones componen la mediana del mes de inicio
+  muestraFin: number
+  motivo?: string                // por qué es null, cuando aplica — nunca se deja sin explicar
+}
+
 // ── MarketMaster (Fase 2) ─────────────────────────────────────────────────────
 
 export interface MarketSource {
