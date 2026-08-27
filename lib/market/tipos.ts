@@ -160,6 +160,23 @@ export interface ResultadoDedup {
   descartados: ComparableDescartado[]
 }
 
+// ── Inventory Engine acotado (Fase 10 del documento, §35, §73) ────────────────
+// El spec pide separar: active, pre-sale, under-construction, delivered, resale, sold. La única
+// señal real que captura comparables-venta/route.ts es avanceObra, y solo con 3 valores posibles
+// ("Preventa"/"En obra"/"Entregado", o null si el LLM no pudo determinarlo — ver su prompt). No
+// hay forma de distinguir "delivered" de "resale"/"sold" con ese único campo — se documenta como
+// tal en vez de inventar la distinción. "active" tampoco aplica: no es una etapa de obra, es un
+// status de listing (publicado vs. retirado) que este pipeline no rastrea.
+
+export type EtapaInventario = 'preventa' | 'en_obra' | 'entregado' | 'sin_dato'
+
+export interface SegmentoInventario {
+  etapa: EtapaInventario
+  unidades: number
+  precioM2: RobustStats | null
+  superficieM2: RobustStats | null
+}
+
 // ── MarketMaster (Fase 2) ─────────────────────────────────────────────────────
 
 export interface MarketSource {
