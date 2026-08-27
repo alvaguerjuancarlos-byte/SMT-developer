@@ -4,13 +4,20 @@
 import type { BenchmarkConstruccion, MastermindInputs } from './tipos'
 
 // ── Benchmarks de costo de construcción (MXN/m² construido) ─────────────────
+// Validado 2026-08-26 contra las mismas referencias de mercado agregadas
+// (CEICO-CMIC, BIMSA-CMIC) usadas para lib/estimador/catalogo.ts — ver ese
+// archivo para el detalle de fuentes y su limitación (agregadores web, no el
+// PDF primario). estacionamiento_sotano queda sin tocar, sin referencia
+// confiable encontrada. oficinas/comercial_local se alinearon además con los
+// valores nuevos de lib/estimador/catalogo.ts (mismo orden de magnitud entre
+// los dos motores, aunque siguen siendo catálogos independientes).
 export const BENCHMARKS_CONSTRUCCION_MXN_M2: Record<BenchmarkConstruccion, number> = {
-  habitacional_economico: 10_500,
-  habitacional_medio: 13_500,
-  habitacional_residencial: 17_000,
-  comercial_local: 12_000,
-  estacionamiento_sotano: 22_000,
-  oficinas: 15_000,
+  habitacional_economico: 10_500,     // sin cambio — ya alineado (CEICO-CMIC ~$10,692)
+  habitacional_medio: 13_500,         // sin cambio — ya alineado (mercado $12,000-$16,000)
+  habitacional_residencial: 18_500,   // antes 17,000 — entre habitacional_medio y el piso de vivienda de lujo (~$23,000)
+  comercial_local: 20_000,            // antes 12,000 — muy subestimado (CDMX promedio $28,000, rango $18k-$55k)
+  estacionamiento_sotano: 22_000,     // SIN CAMBIO — no se encontró referencia de mercado confiable
+  oficinas: 12_750,                   // antes 15,000 — sobreestimado (BIMSA-CMIC media $11,731 / alta $13,802)
 }
 
 // ── Rangos de referencia por banda socioeconómica (MXN/m²) ──────────────────

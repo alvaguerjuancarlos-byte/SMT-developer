@@ -109,8 +109,10 @@ describe('extractProyectoContext — análisis con superficieConstruccionM2 pero
 
     expect(out.superficieConstruccionM2).toBe(4_160)
     // benchmarkMasCercano compara por $/m² efectivo, no por categoría semántica —
-    // 14,887 cae más cerca de "oficinas" (15,000) que de "habitacional_medio" (13,500).
-    expect(out.benchmarkConstruccion).toBe('oficinas')
+    // tras recalibrar BENCHMARKS_CONSTRUCCION_MXN_M2 (2026-08-26, ver catalogo.ts),
+    // 14,887 cae más cerca de "habitacional_medio" (13,500, distancia 1,387) que de
+    // "oficinas" (12,750, distancia 2,137) — antes era al revés (oficinas 15,000).
+    expect(out.benchmarkConstruccion).toBe('habitacional_medio')
     // Sin tipologiaPropuesta, niveles/unidades no se pueden derivar — quedan en default.
     expect(out.niveles).toBeUndefined()
     expect(out.unidadesHabitacionales).toBeUndefined()
@@ -121,8 +123,9 @@ describe('extractProyectoContext — análisis con superficieConstruccionM2 pero
       { superficieConstruccionM2: 4_160 } as AnalisisData['bitacoraConstruccion'],
       { costoTotalConstruccion: 61_928_640 },
     ))
-    // 61,928,640 / 4,160 ≈ 14,887 MXN/m² → más cercano a oficinas (15,000)
-    expect(out.benchmarkConstruccion).toBe('oficinas')
+    // 61,928,640 / 4,160 ≈ 14,887 MXN/m² → más cercano a habitacional_medio (13,500)
+    // tras la recalibración de 2026-08-26 (antes era oficinas, ver test anterior)
+    expect(out.benchmarkConstruccion).toBe('habitacional_medio')
   })
 })
 
