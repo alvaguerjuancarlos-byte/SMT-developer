@@ -311,7 +311,7 @@ export interface MarketSource {
 }
 
 export interface MarketMaster {
-  siteId: string
+  siteId: string | null
 
   // GeographyContext (Fase 4) + coordenadas/estado, que no forman parte del motor de geografía
   // en sí (son datos crudos del predio, no algo que ese motor calcule).
@@ -323,25 +323,32 @@ export interface MarketMaster {
 
   comparables: ComparableConScore[]
 
-  // Price Engine (Fase 8, ver arriba) — único motor de estos ya construido.
   prices: PriceEngineResultado | null
+  inventory: SegmentoInventario[] | null
+  competitors: CompetitorProfile[] | null
+  // Las 6 ventanas del Appreciation Engine — null si no se pidió (sin colonia para segmentar
+  // el histórico) o si no hay historial suficiente (§97: cada ventana declara su propio motivo,
+  // ver ResultadoPlusvalia.motivo).
+  appreciation: ResultadoPlusvalia[] | null
+  // null si el caller no mandó un envolvente normativo real — nunca se fabrica uno (§120).
+  productFit: ProductFitScore | null
+  opportunityScore: MarketOpportunityScore | null
 
-  // Motores todavía sin construir (§131 Fase 9-16) — se declaran para no romper el contrato
-  // cuando se implementen, pero HOY siempre son null. No poblar con texto libre del LLM.
-  appreciation: null
-  inventory: null
+  // Motores todavía sin construir (Fases 11-14 del documento: Demand/Absorption/Pipeline/Rent/
+  // Yield) — se declaran para no romper el contrato cuando se implementen, pero HOY siempre son
+  // null. No poblar con texto libre del LLM.
   pipeline: null
   demand: null
   absorption: null
-  opportunityScore: null
 
   // Promedio simple de finalScore entre los comparables DIRECT (null si no hay ninguno) — única
   // señal de confianza real disponible en esta fase, no un Data Quality Score completo (§56).
   dataConfidence: number | null
 
+  evidence: MarketEvidence[]
   sources: MarketSource[]
   warnings: string[]
 
-  version: '0.2.0-fase2-4-8'
+  version: '0.3.0-fase2-16-acotado'
   generatedAt: string
 }
