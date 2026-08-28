@@ -14,6 +14,11 @@ export type AgentStatus = 'waiting' | 'running' | 'done' | 'error'
 export interface PipeState {
   comparables: { status: AgentStatus; data: any[] }
   comparablesVenta: { status: AgentStatus; data: any[] }
+  // Resumen de lib/market/ (dedup→comparable→price→geography→inventory→competitor→
+  // appreciation→productFit→opportunity→evidence) sobre los mismos comparables de
+  // comparablesVenta — ver app/api/market/resumen/route.ts. Independiente del Agente Mercado
+  // (LLM, /api/agentes/mercado): si uno falla, no debe tumbar al otro.
+  marketResumen: { status: AgentStatus; data: any }
   ubicacion: { status: AgentStatus; data: any }
   terreno: { status: AgentStatus; corridas: any[]; seleccionada: number | null }
   legal: { status: AgentStatus; data: any }
@@ -26,6 +31,7 @@ export interface PipeState {
 const PIPE_INICIAL: PipeState = {
   comparables: { status: 'waiting', data: [] },
   comparablesVenta: { status: 'waiting', data: [] },
+  marketResumen: { status: 'waiting', data: null },
   ubicacion: { status: 'waiting', data: null },
   terreno: { status: 'waiting', corridas: [], seleccionada: null },
   legal: { status: 'waiting', data: null },

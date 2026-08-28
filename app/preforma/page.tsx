@@ -1220,10 +1220,35 @@ export default function PreformaPage() {
     }
   }
 
+  // Independiente del Agente Mercado (LLM) de abajo — si /api/market/resumen falla, no debe
+  // tumbar la corrida principal. Solo corre si hay comparables reales que resumir.
+  async function runMarketResumen(comparablesVenta: any[]) {
+    if (comparablesVenta.length === 0) {
+      setPipe(p => ({ ...p, marketResumen: { status: 'done', data: null } }))
+      return
+    }
+    setPipe(p => ({ ...p, marketResumen: { status: 'running', data: null } }))
+    try {
+      const res = await authedFetch('/api/market/resumen', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          comparables: comparablesVenta, ciudad: form.ciudad, colonia: form.colonia,
+          estado: form.estado, lat: form.lat, lng: form.lng,
+        }),
+      })
+      const json = await res.json()
+      if (json.error) throw new Error(json.error)
+      setPipe(p => ({ ...p, marketResumen: { status: 'done', data: json } }))
+    } catch {
+      setPipe(p => ({ ...p, marketResumen: { status: 'error', data: null } }))
+    }
+  }
+
   async function runMercado(overrides?: { precioVentaObjetivo?: string; unidadesObjetivo?: string }) {
     setPipe(p => ({ ...p, mercado: { ...p.mercado, status: 'running' } }))
     marcarInicio('mercado')
     const comparablesVenta = await runComparablesVenta()
+    runMarketResumen(comparablesVenta) // en paralelo, sin bloquear el Agente Mercado
     try {
       const res = await authedFetch('/api/agentes/mercado', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -2422,6 +2447,46 @@ export default function PreformaPage() {
                         <p style={{ fontSize: 8.5, color: T.ink4, marginTop: 6 }}>Serie ilustrativa — se conecta a datos reales en un bloque futuro.</p>
                       </Cb>
                     </Card>
+                    {(() => {
+                      const mr = pipe.marketResumen.data
+                      const stats = mr?.prices?.askingPricePerM2
+                      return (
+                        <Card flex="none">
+                          <CardHead right={<Pill tone="accent">Datos reales</Pill>}>Resumen de mercado (lib/market/)</CardHead>
+                          <Cb>
+                            {pipe.marketResumen.status === 'running' ? (
+                              <p style={{ fontSize: 10.5, color: T.ink3 }}>Calculando…</p>
+                            ) : pipe.marketResumen.status === 'error' ? (
+                              <p style={{ fontSize: 10.5, color: T.ink3 }}>No se pudo calcular el resumen.</p>
+                            ) : !mr ? (
+                              <p style={{ fontSize: 10.5, color: T.ink3 }}>Sin comparables para resumir todavía.</p>
+                            ) : (
+                              <div className="flex flex-col gap-2">
+                                {stats ? (
+                                  <div className="flex items-center justify-between gap-2">
+                                    <span style={{ fontSize: 13, fontWeight: 600, color: T.ink }}>
+                                      ${stats.median.toLocaleString('es-MX')}/m² <span style={{ fontSize: 9.5, color: T.ink3, fontWeight: 400 }}>mediana</span>
+                                    </span>
+                                    <Mini>n={stats.n} · {stats.confidenceNivel}</Mini>
+                                  </div>
+                                ) : (
+                                  <p style={{ fontSize: 10.5, color: T.ink3 }}>Sin suficientes precios para estadística robusta.</p>
+                                )}
+                                <Kv label="Confianza de datos" value={mr.dataConfidence != null ? `${mr.dataConfidence}%` : '—'} />
+                                <Kv label="Competidores detectados" value={mr.competitors?.length ?? 0} />
+                                {mr.warnings?.length > 0 && (
+                                  <div style={{ marginTop: 2 }}>
+                                    {mr.warnings.map((w: string, i: number) => (
+                                      <p key={i} style={{ fontSize: 8.5, color: T.ink4, lineHeight: 1.5 }}>· {w}</p>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </Cb>
+                        </Card>
+                      )
+                    })()}
                   </div>
                 </div>
               )
