@@ -5,6 +5,7 @@ import { validarComparableVenta, evaluarPlausibilidadBanda } from '@/lib/mercado
 import type { ComparableVenta } from '@/lib/mercado/validarComparableVenta'
 import { callClaudeJson } from '@/lib/llmJson'
 import { geocodificarTexto, distanciaHaversineKm } from '@/lib/geo/geocodeTexto'
+import { registrarFuente, guardarComparablesSnapshot } from '@/lib/market/persistencia'
 
 // Bloque 5 — "ningún comparable proviene de más de 5km" (criterio de aceptación del bloque
 // MERCADO): tope fijo, no configurable por el usuario — ver plan.
@@ -27,7 +28,7 @@ export async function POST(req: NextRequest) {
   const user = await requireUser(req)
   if (!user) return unauthorized()
 
-  const { colonia, ciudad, estado, codigoPostal, tiposDesarrollo, bandaConstruccion, lat, lng } = await req.json()
+  const { colonia, ciudad, estado, codigoPostal, tiposDesarrollo, bandaConstruccion, lat, lng, proyectoId } = await req.json()
 
   const serperKey = process.env.SERPER_API_KEY?.trim()
   if (!serperKey) {
@@ -121,6 +122,18 @@ Reglas:
       // de más de 5km" es un criterio duro. Los que no se pudieron geocodificar se conservan
       // (no hay forma de verificar su distancia, no es lo mismo que estar fuera de rango).
       comparables = geocodificados.filter((c) => c.distanciaKm == null || c.distanciaKm <= RADIO_MAX_KM)
+    }
+
+    // Persistencia — efecto secundario, no debe tumbar la respuesta al cliente si falla (§36:
+    // solo empieza a construirse el histórico real; la ruta sigue funcionando igual si esto
+    // truena, como cualquier otro almacenamiento best-effort del repo).
+    if (comparables.length > 0) {
+      try {
+        const sourceId = await registrarFuente('serper', 'web_search')
+        await guardarComparablesSnapshot(comparables, { proyectoId: proyectoId ?? null, sourceId })
+      } catch (persistError) {
+        console.error('Comparables venta — error al guardar snapshot:', persistError)
+      }
     }
 
     return NextResponse.json({ comparables, lugar })
