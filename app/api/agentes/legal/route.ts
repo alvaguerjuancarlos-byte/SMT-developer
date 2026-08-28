@@ -25,6 +25,42 @@ export async function POST(req: NextRequest) {
     .map((t: string) => t === 'otro' ? (data.tipoOtroTexto || 'Otro') : (desarrolloLabels[t] || t))
     .join(', ')
 
+  // ── Grounding real vía Serper — mismo patrón que comparables-venta/route.ts ──────────────
+  // Hallazgo de la inspección Fase 1 (PREFORMA_PROMPT_MAESTRO_AGENTE_NORMATIVA.md): este agente
+  // no hacía NINGUNA búsqueda real, le pedía a Claude "recordar" COS/CUS/altura de su memoria de
+  // entrenamiento y los presentaba como si fueran normativa verificada. Esto NO resuelve el
+  // RuleEngine completo (lib/normativa/ruleEngine.ts sigue sin ninguna regla real cargada) — es
+  // un parche mínimo: buscar en fuentes reales antes de preguntarle al modelo, y marcar
+  // explícitamente cuándo no se encontró nada en vez de dejar que rellene con memoria.
+  const snippets: string[] = []
+  const fuentesConsultadas: { url: string; titulo: string }[] = []
+  const serperKey = process.env.SERPER_API_KEY?.trim()
+  if (serperKey) {
+    const queries = [
+      `reglamento zonificación usos del suelo "${data.ciudad}" "${data.estado}" COS CUS site:gob.mx`,
+      `plan desarrollo urbano "${data.ciudad}" "${data.colonia}" zonificación densidad altura`,
+    ]
+    for (const q of queries) {
+      try {
+        const res = await fetch('https://google.serper.dev/search', {
+          method: 'POST',
+          headers: { 'X-API-KEY': serperKey, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ q, gl: 'mx', hl: 'es', num: 8 }),
+        })
+        if (!res.ok) continue
+        const json = await res.json()
+        ;(json.organic ?? []).forEach((r: any) => {
+          snippets.push(`URL: ${r.link}\nTÍTULO: ${r.title}\nSNIPPET: ${r.snippet ?? ''}`)
+          fuentesConsultadas.push({ url: r.link, titulo: r.title })
+        })
+      } catch { /* una búsqueda fallida no debe tumbar la ruta completa */ }
+    }
+  }
+  const grounded = snippets.length > 0
+  const groundingBlock = grounded
+    ? `\n\nRESULTADOS DE BÚSQUEDA REAL (Google, vía Serper) — ÚNICA fuente permitida para respaldar COS/CUS/altura/retiros/factibilidades:\n${snippets.join('\n---\n')}\n\nUsa ÚNICAMENTE estos resultados para fundamentar valores normativos. Si no confirman un dato específico, NO lo completes de memoria — dilo explícitamente en la alerta correspondiente y baja nivelRiesgo/confianza de ese punto.`
+    : `\n\nNO se encontraron resultados de búsqueda real para este municipio/colonia (SERPER_API_KEY ausente o sin resultados). NO tienes ninguna fuente verificada para COS/CUS/altura — cualquier valor que devuelvas es una ESTIMACIÓN basada en tu conocimiento general, no en una fuente consultada. Debes decirlo explícitamente.`
+
   const prompt = `Eres el Agente Legal y Normativo de SMT Developer.
 Tu única tarea es analizar la normativa urbana y legal aplicable al predio: uso de suelo, Plan de Desarrollo Urbano, restricciones, factibilidades y alertas legales.
 No calculas valores, costos ni mercado — solo normativa.
@@ -36,6 +72,7 @@ DATOS DEL PREDIO:
 - Superficie: ${data.superficie} m²
 - Tipo(s) de desarrollo deseado: ${tiposLabels}
 ${data.lat && data.lng ? `- Coordenadas: ${data.lat}, ${data.lng}` : ''}
+${groundingBlock}
 
 ANÁLISIS REQUERIDO:
 1. Uso de suelo actual vs. permitido en el PDU vigente del municipio
@@ -75,6 +112,7 @@ OUTPUT — JSON EXACTO (sin texto adicional):
     "regimenCondominio": "Descripción del régimen de condominio recomendado y estado legal",
     "restriccionesAmbientales": "Restricciones por barrancas, pendiente, zonas de riesgo, ANP o servidumbres. Si no hay: 'Sin restricciones ambientales identificadas para esta zona'",
     "nivelRiesgo": "Bajo",
+    "grounded": ${grounded},
     "alertasLegales": [
       {
         "tipo": "Tipo de alerta",
@@ -101,9 +139,15 @@ REGLAS:
   (ej. si cos="60%", cosNum=0.60; si altura="12 niveles", nivelesMax=12)
 - fichaLegal.compatible: true si uso actual es compatible con permitido, false si requiere cambio
 - factibilidades.status: exactamente "Disponible", "Con condicionante" o "No disponible"
-- nivelRiesgo: "Bajo", "Medio" o "Alto"
-- alertasLegales: 1 a 3 alertas REALES y específicas; status "green", "amber" o "red"
-- fuentes.legal: 4 documentos normativos reales con año cuando aplique
+- nivelRiesgo: "Bajo", "Medio" o "Alto" — si grounded=false, NUNCA "Bajo" (sin fuente verificada no
+  hay base para decir que el riesgo es bajo; usa al menos "Medio")
+- fichaLegal.grounded: usa EXACTAMENTE el valor ${grounded} que ya está en el JSON de arriba, no lo cambies
+- alertasLegales: 1 a 3 alertas REALES y específicas; status "green", "amber" o "red". Si
+  grounded=false, la PRIMERA alerta debe ser tipo "Fuente no verificada" explicando que COS/CUS/
+  altura son estimación sin búsqueda real confirmada, status "amber" como mínimo
+- fuentes.legal: si grounded=true, usa SOLO documentos que aparezcan en los resultados de
+  búsqueda de arriba (nombre real + URL si la tienes); si grounded=false, cada entrada debe decir
+  "(no verificado)" en el nombre en vez de aparentar ser una fuente consultada
 - Retorna ÚNICAMENTE el JSON, sin markdown, sin texto extra`
 
   try {
@@ -112,6 +156,15 @@ REGLAS:
       max_tokens: 4000,
       messages: [{ role: 'user', content: prompt }],
     })
+
+    // No confiar en que el modelo copió bien el valor de `grounded` que ya le dimos, ni en que
+    // liste las fuentes reales con exactitud — se sobrescribe con lo que de verdad devolvió
+    // Serper (mismo patrón que costoTerreno/costoTerrenoM2 en el Agente Terreno).
+    if (parsed.fichaLegal) {
+      parsed.fichaLegal.grounded = grounded
+    }
+    parsed.fuentesConsultadas = fuentesConsultadas
+
     return NextResponse.json(parsed)
   } catch (error) {
     console.error('Agente Legal error:', error)
