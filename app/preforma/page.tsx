@@ -15,6 +15,7 @@ import { FACTOR_APROVECHAMIENTO, FACTOR_EFICIENCIA_VENDIBLE } from '@/lib/analis
 import { validarIndirectos, RANGO_INDIRECTOS, RANGO_IMPREVISTOS } from '@/lib/analisis/validacionFinanciera'
 import { parsearPlusvaliaAnual } from '@/lib/mercado/parsearPlusvalia'
 import type { MastermindInputs, MastermindOutputs } from '@/lib/mastermind/tipos'
+import { validarPoligono, type Lado, type Cuadrante } from '@/lib/terreno/geometryEngine'
 import { T } from './theme'
 import { useProjectStore, type AgentStatus, type FieldKey } from './store/useProjectStore'
 import { DataField } from './components/DataField'
@@ -329,6 +330,10 @@ interface FormPreforma {
   // Bloque 2 (2.3): URL del plano/predial que el usuario subió — punto de entrada al
   // polígono real, sin extracción automática todavía.
   planoUrl: string | null
+  // Cuadro de construcción capturado a mano (rumbo + distancia por lado) — primer caller real
+  // de lib/terreno/geometryEngine.ts. Complementa a planoUrl: mientras no exista OCR que
+  // extraiga el cuadro del PDF, esta es la única forma de tener un polígono real.
+  lados: Lado[]
 }
 const FORM_INICIAL: FormPreforma = {
   nombreProyecto: '', lat: null, lng: null, mapsLink: '',
@@ -336,6 +341,7 @@ const FORM_INICIAL: FormPreforma = {
   superficie: '', tiposDesarrollo: [], presupuesto: '', bandaConstruccion: '',
   clasificacionVial: '', pendiente: '', pavimento: '', esEsquina: '', usoSuelo: '', agua: '', electricidad: '',
   planoUrl: null,
+  lados: [],
 }
 
 const TABS = [
@@ -992,6 +998,22 @@ export default function PreformaPage() {
   // Bloque 8 (criterio #2): índice del periodo del flujo de caja seleccionado en FINANCIERO.
   const [mesSeleccionado, setMesSeleccionado] = useState<number | null>(null)
 
+  // Cuadro de construcción (TERRENO) — mini-formulario para agregar un lado a la vez.
+  const [ladoDraft, setLadoDraft] = useState<{ cuadrante: Cuadrante; grados: string; distancia: string }>({ cuadrante: 'NE', grados: '', distancia: '' })
+  function agregarLado() {
+    const grados = parsearNumero(ladoDraft.grados)
+    const distancia = parsearNumero(ladoDraft.distancia)
+    if (grados == null || grados < 0 || grados > 90 || distancia == null || distancia <= 0) return
+    setForm(f => ({ ...f, lados: [...f.lados, { rumbo: { cuadrante: ladoDraft.cuadrante, grados }, distancia }] }))
+    setLadoDraft(d => ({ ...d, grados: '', distancia: '' }))
+  }
+  function quitarLado(i: number) {
+    setForm(f => ({ ...f, lados: f.lados.filter((_, idx) => idx !== i) }))
+  }
+  // Motor puro, corre en el cliente — sin ruta ni red (lib/terreno/geometryEngine.ts). Un
+  // polígono real necesita al menos 3 lados; con menos no hay nada que calcular todavía.
+  const poligono = form.lados.length >= 3 ? validarPoligono(form.lados) : null
+
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [chat])
 
   // Al llegar a la pregunta de ubicación, la Stage salta sola a la pestaña Terreno.
@@ -1105,6 +1127,7 @@ export default function PreformaPage() {
   const pipe = useProjectStore((s) => s.pipe)
   const setPipe = useProjectStore((s) => s.setPipe)
   const fields = useProjectStore((s) => s.fields)
+  const superficieCapturada = parsearNumero(fields.superficieTerreno.value ?? fields.superficieTerreno.agentValue)
   const setFieldManual = useProjectStore((s) => s.setFieldManual)
   const setFieldFromAgent = useProjectStore((s) => s.setFieldFromAgent)
   const resetAllFields = useProjectStore((s) => s.resetAllFields)
@@ -2167,6 +2190,70 @@ export default function PreformaPage() {
                       <DataField fieldKey="esquinaTerreno" label="Estado del predio" type="select" opciones={ESQUINA_OPCIONES} />
                       <div style={{ padding: '7px 10px' }}><Kv label="Precio calculado" value={terrenoActual ? `${fmt(terrenoActual.costoTerrenoM2)}/m²` : '—'} /></div>
                     </div>
+                  </Card>
+                  <Card flex="none">
+                    <CardHead right={poligono ? (
+                      <Pill tone={poligono.cierre.cerrado ? 'accent' : 'muted'}>
+                        {poligono.cierre.cerrado ? 'Cierra' : `Sin cerrar · ${poligono.cierre.errorCierreM.toFixed(2)} m`}
+                      </Pill>
+                    ) : undefined}>
+                      Cuadro de construcción
+                    </CardHead>
+                    <Cb>
+                      {form.lados.length > 0 && (
+                        <div className="flex flex-col gap-1" style={{ marginBottom: 8 }}>
+                          {form.lados.map((l, i) => (
+                            <div key={i} className="flex items-center justify-between">
+                              <span style={{ fontSize: 10.5, color: T.ink2, fontFamily: 'monospace' }}>
+                                {i + 1}. {l.rumbo.cuadrante} {l.rumbo.grados}° · {l.distancia} m
+                              </span>
+                              <button onClick={() => quitarLado(i)} className="cursor-pointer" style={{ fontSize: 9.5, color: T.ink4 }}>Quitar</button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      <div className="flex items-center gap-1.5" style={{ marginBottom: 10 }}>
+                        <select
+                          value={ladoDraft.cuadrante}
+                          onChange={e => setLadoDraft(d => ({ ...d, cuadrante: e.target.value as Cuadrante }))}
+                          style={{ background: T.panel2, border: `1px solid ${T.line}`, borderRadius: 6, padding: '5px 6px', fontSize: 10.5, color: T.ink }}
+                        >
+                          {(['NE', 'NO', 'SE', 'SO'] as const).map(c => <option key={c} value={c}>{c}</option>)}
+                        </select>
+                        <input
+                          type="number" min={0} max={90} placeholder="grados" value={ladoDraft.grados}
+                          onChange={e => setLadoDraft(d => ({ ...d, grados: e.target.value }))}
+                          style={{ width: 64, background: T.panel2, border: `1px solid ${T.line}`, borderRadius: 6, padding: '5px 6px', fontSize: 10.5, color: T.ink }}
+                        />
+                        <input
+                          type="number" min={0} placeholder="metros" value={ladoDraft.distancia}
+                          onChange={e => setLadoDraft(d => ({ ...d, distancia: e.target.value }))}
+                          style={{ width: 72, background: T.panel2, border: `1px solid ${T.line}`, borderRadius: 6, padding: '5px 6px', fontSize: 10.5, color: T.ink }}
+                        />
+                        <button
+                          onClick={agregarLado}
+                          className="cursor-pointer"
+                          style={{ fontSize: 10.5, fontWeight: 600, color: T.accent, background: 'rgba(126,217,174,.12)', border: '1px solid rgba(126,217,174,.35)', borderRadius: 6, padding: '5px 10px' }}
+                        >
+                          + Lado
+                        </button>
+                      </div>
+                      {poligono ? (
+                        <div className="flex flex-col gap-1">
+                          <Kv label="Área calculada" value={`${poligono.areaM2.toFixed(1)} m²`} />
+                          <Kv label="Perímetro" value={`${poligono.perimetroM.toFixed(1)} m`} />
+                          {superficieCapturada != null && Math.abs(poligono.areaM2 - superficieCapturada) > superficieCapturada * 0.02 && (
+                            <p style={{ fontSize: 9.5, color: T.bad, marginTop: 2 }}>
+                              Difiere {Math.abs(poligono.areaM2 - superficieCapturada).toFixed(1)} m² de la superficie capturada arriba ({superficieCapturada} m²).
+                            </p>
+                          )}
+                        </div>
+                      ) : (
+                        <p style={{ fontSize: 10, color: T.ink3 }}>
+                          Agrega al menos 3 lados (rumbo + distancia del cuadro de construcción) para calcular área y perímetro reales — motor propio, sin red.
+                        </p>
+                      )}
+                    </Cb>
                   </Card>
                   <Card>
                     <CardHead>Accesibilidad y servicios</CardHead>
