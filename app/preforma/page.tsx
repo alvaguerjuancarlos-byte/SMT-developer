@@ -1211,6 +1211,32 @@ export default function PreformaPage() {
     runTerreno(ubicacionData, comps)
   }
 
+  // ParcelResolver real (GeoServer municipal de San Pedro Garza García) — solo cubre ese
+  // municipio hoy (único GeoServer verificado, ver lib/terreno/parcelResolver.ts). Fuera de
+  // SPGG no hay a quién preguntarle, así que ni se intenta la llamada.
+  const ES_SAN_PEDRO = /san\s*pedro/i
+  async function runParcela() {
+    if (form.lat == null || form.lng == null || !ES_SAN_PEDRO.test(form.ciudad)) {
+      setPipe(p => ({ ...p, parcela: { status: 'done', data: null } }))
+      return
+    }
+    setPipe(p => ({ ...p, parcela: { status: 'running', data: null } }))
+    try {
+      const res = await authedFetch('/api/terreno/parcela', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          lat: form.lat, lng: form.lng, direccion: form.direccion, colonia: form.colonia,
+          superficieDeclaradaM2: parsearNumero(form.superficie),
+        }),
+      })
+      const json = await res.json()
+      if (json.error) throw new Error(json.error)
+      setPipe(p => ({ ...p, parcela: { status: 'done', data: json } }))
+    } catch {
+      setPipe(p => ({ ...p, parcela: { status: 'error', data: null } }))
+    }
+  }
+
   async function runLegal() {
     setPipe(p => ({ ...p, legal: { status: 'running', data: null } }))
     marcarInicio('legal')
@@ -1400,6 +1426,7 @@ export default function PreformaPage() {
     if (!intakeDone || arranqueRef.current) return
     arranqueRef.current = true
     runUbicacionYTerreno()
+    runParcela()
     runLegal()
     runMercado()
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -2255,6 +2282,46 @@ export default function PreformaPage() {
                       )}
                     </Cb>
                   </Card>
+                  {ES_SAN_PEDRO.test(form.ciudad) && (() => {
+                    const pz = pipe.parcela.data
+                    return (
+                      <Card flex="none">
+                        <CardHead right={pz ? (
+                          <Pill tone={pz.status === 'AUTO_RESOLVED' ? 'accent' : 'muted'}>
+                            {pz.status === 'AUTO_RESOLVED' ? 'Predio identificado' : pz.status === 'REQUIRES_CONFIRMATION' ? 'Requiere confirmar' : 'Sin coincidencia'}
+                          </Pill>
+                        ) : undefined}>
+                          Predio catastral (GeoServer SPGG)
+                        </CardHead>
+                        <Cb>
+                          {pipe.parcela.status === 'running' ? (
+                            <p style={{ fontSize: 10.5, color: T.ink3 }}>Consultando catastro municipal…</p>
+                          ) : pipe.parcela.status === 'error' ? (
+                            <p style={{ fontSize: 10.5, color: T.ink3 }}>No se pudo consultar el catastro.</p>
+                          ) : !pz || pz.status === 'NO_CANDIDATES' ? (
+                            <p style={{ fontSize: 10.5, color: T.ink3 }}>Sin coincidencia en el catastro municipal para este punto.</p>
+                          ) : pz.status === 'REQUIRES_CONFIRMATION' ? (
+                            <div className="flex flex-col gap-1.5">
+                              <p style={{ fontSize: 9.5, color: T.ink3, lineHeight: 1.5 }}>{pz.motivo}</p>
+                              {pz.candidatos.slice(0, 3).map((c: any, i: number) => (
+                                <div key={i} style={{ fontSize: 10, color: T.ink2 }}>
+                                  {c.predio.ubicacion ?? '—'} · {c.predio.colonia ?? '—'} · {c.score != null ? `${Math.round(c.score * 100)}%` : '—'}
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="flex flex-col gap-1">
+                              <Kv label="Folio catastral" value={pz.seleccionado.predio.claveLote ?? '—'} />
+                              <Kv label="Ubicación catastro" value={pz.seleccionado.predio.ubicacion ?? '—'} />
+                              <Kv label="Colonia catastro" value={pz.seleccionado.predio.colonia ?? '—'} />
+                              <Kv label="Área catastral" value={pz.seleccionado.predio.areaM2 != null ? `${pz.seleccionado.predio.areaM2.toFixed(1)} m²` : '—'} />
+                              <Kv label="Coincidencia" value={pz.seleccionado.score != null ? `${Math.round(pz.seleccionado.score * 100)}%` : '—'} />
+                            </div>
+                          )}
+                        </Cb>
+                      </Card>
+                    )
+                  })()}
                   <Card>
                     <CardHead>Accesibilidad y servicios</CardHead>
                     <div className="flex flex-col gap-1" style={{ flex: 1, minHeight: 0, padding: '6px 0' }}>
