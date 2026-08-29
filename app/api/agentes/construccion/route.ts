@@ -41,9 +41,13 @@ export async function POST(req: NextRequest) {
 
   const tipologiaTexto = `${tip.niveles ? `${tip.niveles} niveles` : 'niveles no especificados'}${tip.habitacional ? `, ${tip.habitacional.totalDepartamentos} departamentos` : ''}${tip.comercial ? `, ${tip.comercial.totalLocales} locales comerciales en ${tip.comercial.niveles} niveles` : ''}${tip.tamanoAmenidades ? `, amenidades nivel ${tip.tamanoAmenidades}/3` : ''}`
 
-  const prompt = `Eres el Agente de Costos de Construcción de SMT Developer.
-Tu única tarea es costear el diseño que ya aprobó el Agente de Arquitectura, usando la metodología CMIC y los índices de costos residenciales en México.
-No cambias m², niveles, tipología ni número de unidades — eso ya quedó resuelto. Tu trabajo es asignar costo/m² por zona y calcular el total.
+  const prompt = `Eres el Agente de Costos de Construcción de SMT Developer: un motor PARAMÉTRICO de costos de
+prefactibilidad, no una calculadora de precio único por m². No cambias m², niveles, tipología ni número de
+unidades — eso ya lo resolvió el Agente de Arquitectura. Tu trabajo es construir el costo directo mediante:
+  COSTO_DIRECTO = Σ (superficie de cada zona × costo base de la zona × factores de ajuste)
+y NUNCA mediante superficie total × precio genérico. Nunca uses el precio que indique el usuario sin analizar
+primero las características del proyecto, y nunca fuerces el resultado para que coincida con un benchmark —
+el benchmark sirve para detectar errores, no para fabricar la cifra.
 
 DATOS DEL PROYECTO:
 - Ciudad: ${data.ciudad}, ${data.estado}
@@ -60,48 +64,100 @@ ${zonasTexto}
 ${areaLibre ? `- Área libre y verde (fuera de la superficie construida): ${areaLibre.m2} m² (${areaLibre.porcentajeLote} del lote)` : ''}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-PASO 1 — COSTO POR ZONA
+PASO 1 — COSTO BASE Y FACTORES DE AJUSTE
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Para cada zona de arriba (mismos m², NO los cambies), asigna costo/m² y calcula el total:
+Parte de un benchmark de mercado y conviértelo a costo por m² CONSTRUIDO — nunca lo uses directo como costo
+directo sin ajustar:
+- Residencial vertical medio (4–6 niveles), zona metropolitana de Monterrey: $18,000–$23,000 MXN/m² RENTABLE.
+- Residencial premium en zonas como San Pedro: $28,000–$32,000 MXN/m² rentable.
+Estos son benchmarks de VALIDACIÓN. Para llegar al costo/m² de la Zona 1 (vendible) que realmente vas a usar,
+aplica estos factores multiplicativos sobre el costo base — regla de no doble conteo: la banda de construcción
+ya encapsula el nivel de acabados e instalaciones, así que NO apliques además un factor de acabados/
+instalaciones separado; los factores de abajo cubren lo que la banda NO cubre (altura, ubicación, geometría,
+topografía):
 
+  F_ALTURA (según niveles del proyecto — ${tip.niveles ? `este proyecto tiene ${tip.niveles} niveles` : 'niveles no especificados, usa 1.00'}):
+    1 nivel=0.95 · 2–3=1.00 · 4–6=1.07 · 7–11=1.15 · 12–20=1.25 · 20+=1.35
+    Si el proyecto ya tiene elevador como partida independiente (ver Zona 4/Equipamiento), no vuelvas a cargar
+    el incremento por elevador dentro de este factor.
+
+  F_ZONA (según ubicación — ciudad/estado dados arriba):
+    Zona nacional de bajo costo=0.85–0.95 · mercados secundarios=0.95–1.00 · Monterrey metropolitano=1.05
+    San Nicolás/Guadalupe/Escobedo=1.00–1.05 · Santa Catarina/periféricas=1.00–1.08 · Monterrey zonas premium=1.08–1.15
+    San Pedro Garza García=1.12–1.22 (NO uses 1.22 automáticamente para todo San Pedro — evalúa si la colonia es
+    zona premium, residencial media/alta, de transición o de montaña; Tampiquito parte de 1.15 y se ajusta según
+    calidad/complejidad del proyecto).
+
+  F_COMPLEJIDAD (geometría arquitectónica — voladizos, geometrías irregulares, grandes claros, dobles alturas,
+  fachadas complejas, terrazas estructurales):
+    C0 muy simple=0.95 · C1 estándar=1.00 · C2 media=1.05 · C3 compleja=1.12 · C4 alta complejidad=1.20
+
+  F_TOPO (pendiente del terreno = "${data.pendiente || 'no proporcionada'}"):
+    Si no hay dato de pendiente, NO la inventes: usa F_TOPO=1.00.
+    Si es conocida: 0–5%=1.00 · 5–10%=1.02 · 10–15%=1.05 · 15–25%=1.10 · 25–35%=1.18 · 35–50%=1.30 · >50%=1.40+
+    Este factor NO debe duplicar el costo de excavación/contención/cimentación especial que ya vas a reflejar
+    en la Zona 5 (cuartos de servicio) o en el sobrecosto de sótano de la Zona 2 — es solo el remanente de
+    complejidad estructural que esas partidas específicas no cubren.
+
+  COSTO_BASE_AJUSTADO_ZONA1 = COSTO_BASE_M2_VENDIBLE × F_ALTURA × F_ZONA × F_COMPLEJIDAD × F_TOPO
+
+Registra cada factor aplicado (F_ALTURA, F_ZONA, F_COMPLEJIDAD, F_TOPO) como una entrada de "ajustes" en la
+bitácora, con su valor y justificación — esto es lo que permite explicar después "¿por qué cuesta esto?".
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PASO 2 — COSTO POR ZONA (mismos m² fijados arriba, NO los cambies)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ZONA 1 — ÁREA VENDIBLE
-  Costo/m²: 100% del costo de banda (el más alto — acabados completos)
+  Costo/m² = COSTO_BASE_AJUSTADO_ZONA1 (el más alto — acabados completos de la banda con los factores ya aplicados)
   Qué incluye: muros, losa, cancelería, instalaciones completas, acabados de banda
 
 ZONA 2 — ESTACIONAMIENTO
-  Costo/m²: 40–55% del costo de banda (solo estructura + losa + señalización, sin acabados residenciales)
+  Costo/m²: 40–55% del costo de Zona 1 (solo estructura + losa + señalización, sin acabados residenciales)
   Qué incluye: losa de concreto, estructura, drenaje pluvial, señalización, iluminación básica
-  NOTA: si el estacionamiento es en sótano, agrega 20–35% al costo de esa zona por excavación y muros milán
+  NOTA: si el estacionamiento es en sótano, NO uses un incremento genérico — aplica el factor de sótano
+  específico (incluye excavación, contención, impermeabilización, estructura, losa e instalaciones del sótano,
+  no lo repitas en otra zona): sótano simple=×1.20 · estándar=×1.30 · complejo=×1.45 · profundo/roca/alta
+  complejidad=×1.60+
 
 ZONA 3 — CIRCULACIONES Y NÚCLEOS VERTICALES
-  Costo/m²: 65–75% del costo de banda
+  Costo/m²: 65–75% del costo de Zona 1
 
 ZONA 4 — ÁREAS COMUNES Y AMENIDADES
-  Costo/m²: 80–115% del costo de banda (acabados diferenciados, piezas especiales)
+  Costo/m²: 80–115% del costo de Zona 1 (acabados diferenciados, piezas especiales)
   NOTA: para Banda 1 usa 70% del costo; para Banda 4 puede llegar al tope del rango
 
 ZONA 5 — CUARTOS DE SERVICIO E INSTALACIONES ESPECIALES
-  Costo/m²: 50–65% del costo de banda
+  Costo/m²: 50–65% del costo de Zona 1
+  Si la pendiente es moderada/pronunciada y no hay mecánica de suelos, agrega aquí una reserva paramétrica de
+  cimentación especial proporcional a F_TOPO y márcala explícitamente en "supuestos" como
+  "Mecánica de suelos no disponible" — si además hay indicio de roca sin volumen conocido, no lo inventes:
+  repórtalo en "supuestos" como "RIESGO NO CUANTIFICADO — posible roca, sin volumen estimado".
 
 URBANIZACIÓN Y EXTERIORES (sobre el área libre y verde, NO es superficie construida)
   Costo estimado: $800–$2,500/m² de área libre según banda (jardines, accesos, alumbrado, banqueta)
   Se suma al costo total pero no se cuenta como m² construido
 
-Si el terreno tiene pendiente moderada o pronunciada, suma sobrecosto de cimentación especial ($800k–$1.5M según grado) reflejado en la zona "Cuartos de servicio / obra especial".
-
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-PASO 2 — COSTO POR PARTIDAS (sobre área vendible)
+PASO 3 — COSTO POR PARTIDAS (apertura del costo de la Zona 1 vendible, no un segundo total)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Desglosa el costo/m² de la zona vendible en 8 partidas estándar (suman 100%).
+Desglosa el costo/m² de la zona vendible en 8 partidas estándar que sumen exactamente 100% (elevadores,
+estacionamiento y sótanos ya tienen su propio costo en sus zonas — no los repitas aquí).
 
-PASO 3 — MATERIALES PRINCIPALES (sobre área vendible)
+PASO 4 — MATERIALES PRINCIPALES (sobre área vendible)
 Lista 6 materiales con cantidad y precio unitario.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-PASO 4 — CÁLCULO FINAL
+PASO 5 — CÁLCULO FINAL Y RANGO
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 costoTotalConstruccion = suma(m² zona × costo/m² zona para zonas 1–5) + costo urbanización
 construccionM2 = costoTotalConstruccion / superficieConstruida (promedio ponderado)
+rangoReferencia.minimo/maximo son el escenario LOW/HIGH alrededor de costoPorM2Final (BASE): la incertidumbre
+debe ampliarse cuando falte mecánica de suelos, topografía, programa definitivo o especificación de acabados —
+nunca lo trates como un rango fijo por banda sin relación con la información disponible del proyecto.
+Antes de responder verifica: la suma de las 5 zonas + urbanización coincide exactamente con
+costoTotalConstruccion; las 8 partidas suman 100%; ningún costo ni porcentaje es negativo; el terreno no está
+incluido en ninguna cifra; honorarios/indirectos/imprevistos NO se calculan aquí (los calcula otro agente,
+aguas abajo, sobre este costo directo).
 
 FUENTES A CONSULTAR Y DOCUMENTAR:
 1. CMIC — Índice de costos de construcción residencial (fuente principal)
@@ -121,14 +177,12 @@ OUTPUT — JSON EXACTO (sin texto adicional)
     "nombreBanda": "Media Estándar",
     "descripcionBanda": "1-2 oraciones de qué incluye esta banda en estructura, acabados y equipamiento",
     "costoPorM2Base": 13000,
-    "ciudadAjuste": "Descripción del ajuste por ciudad",
+    "ciudadAjuste": "Descripción del ajuste por ubicación (F_ZONA aplicado y por qué)",
     "ajustes": [
-      {
-        "concepto": "Ajuste por ciudad (ej: Culiacán — ciudad media del norte)",
-        "descripcion": "Explicación del factor ciudad sobre el costo CMIC base",
-        "factorAjuste": "-3%",
-        "impactoM2": -390
-      }
+      { "concepto": "F_ALTURA", "descripcion": "4-6 niveles", "factorAjuste": "×1.07", "impactoM2": 910 },
+      { "concepto": "F_ZONA", "descripcion": "San Pedro, colonia residencial media — no se usó el tope de 1.22", "factorAjuste": "×1.15", "impactoM2": 1690 },
+      { "concepto": "F_COMPLEJIDAD", "descripcion": "C1 estándar, sin geometría irregular", "factorAjuste": "×1.00", "impactoM2": 0 },
+      { "concepto": "F_TOPO", "descripcion": "Pendiente no proporcionada, sin inventar dato", "factorAjuste": "×1.00", "impactoM2": 0 }
     ],
     "costoPorM2VendibleFinal": 13000,
     "costoPorM2Final": 14200,
@@ -256,6 +310,9 @@ REGLAS:
 - costoTotalConstruccion = suma de costoTotal de todas las zonas + costoUrbanizacion del área verde/libre
 - desglosePorPartidas: exactamente 8 partidas, porcentajes suman 100, costoPorM2 = round(costoPorM2VendibleFinal × porcentaje / 100)
 - materialesPrincipales: exactamente 6 materiales
+- ajustes debe incluir F_ALTURA, F_ZONA, F_COMPLEJIDAD y F_TOPO como entradas separadas, cada una con su valor real y por qué se usó ese valor — nunca los omitas aunque el factor sea 1.00
+- Nunca apliques un factor adicional de acabados/instalaciones sobre el costo base: la banda elegida ya los representa
+- Nunca fuerces costoPorM2Final ni rangoReferencia para que coincidan con el benchmark de la sección de costo base — si difieren, explica la causa en razonamiento
 - Retorna ÚNICAMENTE el JSON, sin markdown, sin texto extra`
 
   try {
