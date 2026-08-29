@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   rumboAAzimut, construirVertices, calcularErrorCierre, cerrarPoligono,
   calcularAreaM2, calcularLongitudesLados, calcularAzimutsLados, validarPoligono,
-  clasificarPendiente, type Lado,
+  clasificarPendiente, puntoDentroDePoligono, type Lado,
 } from '../geometryEngine'
 
 // Rectángulo 40 x 25 m recorrido en sentido horario desde el origen: Este, Sur, Oeste, Norte.
@@ -104,5 +104,27 @@ describe('clasificarPendiente', () => {
     expect(clasificarPendiente(10)).toBe('MODERADA')
     expect(clasificarPendiente(19.9)).toBe('MODERADA')
     expect(clasificarPendiente(20)).toBe('PRONUNCIADA')
+  })
+})
+
+describe('puntoDentroDePoligono', () => {
+  const cuadrado: [number, number][] = [[0, 0], [10, 0], [10, 10], [0, 10]]
+
+  it('un punto claramente adentro da true', () => {
+    expect(puntoDentroDePoligono([5, 5], cuadrado)).toBe(true)
+  })
+
+  it('un punto claramente afuera da false', () => {
+    expect(puntoDentroDePoligono([15, 5], cuadrado)).toBe(false)
+    expect(puntoDentroDePoligono([5, -5], cuadrado)).toBe(false)
+  })
+
+  it('funciona igual con coordenadas [lng, lat] típicas de GeoJSON', () => {
+    // Un "cuadrado" alrededor de un punto en San Pedro Garza García.
+    const anillo: [number, number][] = [
+      [-100.383, 25.648], [-100.382, 25.648], [-100.382, 25.649], [-100.383, 25.649],
+    ]
+    expect(puntoDentroDePoligono([-100.3825, 25.6485], anillo)).toBe(true)
+    expect(puntoDentroDePoligono([-100.390, 25.6485], anillo)).toBe(false)
   })
 })

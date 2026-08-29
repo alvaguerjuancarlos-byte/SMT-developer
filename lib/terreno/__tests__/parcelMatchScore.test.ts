@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
-  calcularParcelMatchScore, clasificarCandidatos, resolverSeleccionParcela,
-  type ComponentesMatch, type CandidatoParcela,
+  calcularParcelMatchScore, clasificarCandidatos, resolverSeleccionParcela, construirComponentesMatch,
+  type ComponentesMatch, type CandidatoParcela, type FeaturePredio, type SitioParaMatch,
 } from '../parcelMatchScore'
 
 function componentes(overrides: Partial<ComponentesMatch> = {}): ComponentesMatch {
@@ -90,5 +90,63 @@ describe('resolverSeleccionParcela', () => {
     const r = resolverSeleccionParcela(candidatos)
     expect(r.status).toBe('AUTO_RESOLVED')
     if (r.status === 'AUTO_RESOLVED') expect(r.seleccionado.id).toBe('A')
+  })
+})
+
+describe('construirComponentesMatch — desde un predio real del GeoServer', () => {
+  const anilloSPGG: [number, number][] = [
+    [-100.383, 25.648], [-100.382, 25.648], [-100.382, 25.649], [-100.383, 25.649],
+  ]
+  function predio(overrides: Partial<FeaturePredio> = {}): FeaturePredio {
+    return { claveLote: '3113259016', ubicacion: 'Pedro Moya', colonia: 'Capistrano', areaM2: 500, anillo: anilloSPGG, ...overrides }
+  }
+  function sitio(overrides: Partial<SitioParaMatch> = {}): SitioParaMatch {
+    return { lat: 25.6485, lng: -100.3825, direccion: 'Calle Pedro Moya 123', colonia: 'Capistrano', superficieDeclaradaM2: 500, ...overrides }
+  }
+
+  it('pointInsideParcel: 1 si el punto cae dentro del anillo del predio', () => {
+    const c = construirComponentesMatch(predio(), sitio())
+    expect(c.pointInsideParcel).toBe(1)
+  })
+
+  it('pointInsideParcel: 0 si el punto cae fuera', () => {
+    const c = construirComponentesMatch(predio(), sitio({ lat: 25.700, lng: -100.400 }))
+    expect(c.pointInsideParcel).toBe(0)
+  })
+
+  it('pointInsideParcel: null si el predio no trae anillo válido', () => {
+    const c = construirComponentesMatch(predio({ anillo: [] }), sitio())
+    expect(c.pointInsideParcel).toBeNull()
+  })
+
+  it('addressMatch: similitud parcial por tokens, no exige coincidencia exacta', () => {
+    const c = construirComponentesMatch(predio(), sitio())
+    expect(c.addressMatch).toBeGreaterThan(0)
+    expect(c.addressMatch).toBeLessThan(1)
+  })
+
+  it('addressMatch: null si falta alguno de los dos textos', () => {
+    const c = construirComponentesMatch(predio({ ubicacion: null }), sitio())
+    expect(c.addressMatch).toBeNull()
+  })
+
+  it('neighborhoodMatch: 1 con la misma colonia normalizada', () => {
+    const c = construirComponentesMatch(predio({ colonia: 'Capistrano' }), sitio({ colonia: 'CAPISTRANO' }))
+    expect(c.neighborhoodMatch).toBe(1)
+  })
+
+  it('areaConsistency: 1 si el área coincide exacto, baja con la diferencia', () => {
+    const exacto = construirComponentesMatch(predio({ areaM2: 500 }), sitio({ superficieDeclaradaM2: 500 }))
+    const conDiferencia = construirComponentesMatch(predio({ areaM2: 450 }), sitio({ superficieDeclaradaM2: 500 }))
+    expect(exacto.areaConsistency).toBe(1)
+    expect(conDiferencia.areaConsistency).toBeCloseTo(0.9, 6)
+  })
+
+  it('cadastralIdMatch/municipalityMatch/streetMatch/geometryConsistency siempre null (§97 — sin dato real hoy)', () => {
+    const c = construirComponentesMatch(predio(), sitio())
+    expect(c.cadastralIdMatch).toBeNull()
+    expect(c.municipalityMatch).toBeNull()
+    expect(c.streetMatch).toBeNull()
+    expect(c.geometryConsistency).toBeNull()
   })
 })

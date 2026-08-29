@@ -3,9 +3,13 @@
 // coincidencia (0-1 cada uno, o null si no hay dato para comparar esa dimensión), calcula un
 // score ponderado y decide si se puede auto-seleccionar o si requiere confirmación manual.
 //
-// Hoy no existe ningún ParcelResolver real alimentando esto (ver hallazgo Fase 1: no hay
-// integración catastral/GIS todavía) — este motor queda listo para el día en que un resolver
-// real produzca candidatos con estos componentes calculados.
+// Actualización (2026-08-29): sí existe un ParcelResolver real — ver parcelResolver.ts, que
+// consulta el GeoServer municipal público de San Pedro Garza García (vu:predio, sin
+// autenticación, verificado por prueba directa). construirComponentesMatch() de abajo es la
+// mitad PURA de ese resolver: traduce un predio real + los datos que ya capturó el usuario en
+// componentes de coincidencia, sin tocar la red.
+
+import { puntoDentroDePoligono } from './geometryEngine'
 
 export interface ComponentesMatch {
   cadastralIdMatch: number | null
@@ -106,4 +110,74 @@ export function resolverSeleccionParcela(
   }
 
   return { status: 'AUTO_RESOLVED', seleccionado: mejor, candidatos: clasificados }
+}
+
+// ── Construcción de componentes desde un predio real (parcelResolver.ts) ─────────────────────
+
+// Mismo criterio de normalización que dedupEngine.ts (independiente, no se comparte el import
+// entre lib/terreno y lib/market a propósito — son dominios distintos que hoy coinciden en la
+// necesidad, no en la fuente).
+const REGEX_DIACRITICOS = new RegExp(`[${String.fromCharCode(0x0300)}-${String.fromCharCode(0x036f)}]`, 'g')
+function normalizarTexto(s: string | null | undefined): string {
+  if (!s) return ''
+  return s.normalize('NFD').replace(REGEX_DIACRITICOS, '').toLowerCase().replace(/[^\w\s]/g, ' ').replace(/\s+/g, ' ').trim()
+}
+
+// Similitud de Jaccard sobre tokens — más realista que exigir coincidencia exacta entre una
+// dirección tecleada por el usuario y el campo "ubicacion" del catastro, que casi nunca se
+// escriben idéntico ("Pedro Moya" vs "Calle Pedro Moya #123").
+function similitudTexto(a: string, b: string): number | null {
+  const tokensA = new Set(normalizarTexto(a).split(' ').filter(Boolean))
+  const tokensB = new Set(normalizarTexto(b).split(' ').filter(Boolean))
+  if (tokensA.size === 0 || tokensB.size === 0) return null
+  const interseccion = [...tokensA].filter((t) => tokensB.has(t)).length
+  const union = new Set([...tokensA, ...tokensB]).size
+  return union > 0 ? interseccion / union : 0
+}
+
+export interface FeaturePredio {
+  claveLote: string | null
+  ubicacion: string | null
+  colonia: string | null
+  areaM2: number | null
+  // Anillo exterior en [lng, lat] (EPSG:4326) — mismo orden que devuelve GeoJSON/parcelResolver.ts.
+  anillo: [number, number][]
+}
+
+export interface SitioParaMatch {
+  lat: number
+  lng: number
+  direccion?: string | null
+  colonia?: string | null
+  superficieDeclaradaM2?: number | null
+}
+
+// De las 8 dimensiones del §8, hoy solo hay dato real para 4: el resto queda null porque no se
+// captura folio catastral esperado, ni frente/calle por separado, ni una segunda geometría
+// independiente contra la cual comparar (§97 — nunca rellenar con un valor inventado).
+export function construirComponentesMatch(predio: FeaturePredio, sitio: SitioParaMatch): ComponentesMatch {
+  const pointInsideParcel = predio.anillo.length >= 3
+    ? (puntoDentroDePoligono([sitio.lng, sitio.lat], predio.anillo) ? 1 : 0)
+    : null
+
+  const addressMatch = similitudTexto(predio.ubicacion ?? '', sitio.direccion ?? '')
+  const neighborhoodMatch = similitudTexto(predio.colonia ?? '', sitio.colonia ?? '')
+
+  let areaConsistency: number | null = null
+  if (predio.areaM2 != null && sitio.superficieDeclaradaM2 != null && sitio.superficieDeclaradaM2 > 0) {
+    const diffPct = Math.abs(predio.areaM2 - sitio.superficieDeclaradaM2) / sitio.superficieDeclaradaM2
+    areaConsistency = Math.max(0, 1 - diffPct)
+  }
+
+  return {
+    cadastralIdMatch: null, // el usuario no captura un folio esperado contra el cual comparar
+    pointInsideParcel,
+    addressMatch,
+    municipalityMatch: null, // este adaptador es específico de San Pedro; lo resuelve quien llama
+    neighborhoodMatch,
+    streetMatch: null, // no se separa calle de dirección completa todavía
+    areaConsistency,
+    geometryConsistency: null, // requeriría una segunda geometría independiente (ej. cuadro de
+    // construcción ya capturado a mano) contra la cual comparar — no en este primer corte
+  }
 }

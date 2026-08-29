@@ -165,3 +165,19 @@ export function clasificarPendiente(porcentaje: number): ClasificacionPendiente 
   if (porcentaje < 20) return 'MODERADA'
   return 'PRONUNCIADA'
 }
+
+// Ray casting (algoritmo de Jordan) — agnóstico a qué representan [a,b]: sirve igual para
+// vértices planos (x,y) que para coordenadas geográficas [lng,lat], mientras punto y anillo usen
+// el mismo orden de ejes. Primer punto para el adaptador GIS real (lib/terreno/parcelResolver.ts,
+// §7 del documento: "calcular distancia punto-polígono" / point-in-parcel).
+export function puntoDentroDePoligono(punto: [number, number], anillo: [number, number][]): boolean {
+  const [x, y] = punto
+  let dentro = false
+  for (let i = 0, j = anillo.length - 1; i < anillo.length; j = i++) {
+    const [xi, yi] = anillo[i]
+    const [xj, yj] = anillo[j]
+    const cruza = (yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi
+    if (cruza) dentro = !dentro
+  }
+  return dentro
+}
