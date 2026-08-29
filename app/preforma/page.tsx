@@ -1222,18 +1222,36 @@ export default function PreformaPage() {
 
   // Independiente del Agente Mercado (LLM) de abajo — si /api/market/resumen falla, no debe
   // tumbar la corrida principal. Solo corre si hay comparables reales que resumir.
-  async function runMarketResumen(comparablesVenta: any[]) {
+  //
+  // fichaLegal es opcional: Legal y Mercado arrancan en PARALELO (ver el useEffect de abajo),
+  // así que en la primera corrida (dentro de runMercado) casi nunca está listo todavía. Una
+  // segunda corrida se dispara sola cuando Legal termina (otro useEffect) y esta vez sí manda
+  // productFit -- por eso el endpoint puede llamarse dos veces por análisis, la segunda más
+  // completa que la primera.
+  async function runMarketResumen(comparablesVenta: any[], fichaLegal?: any) {
     if (comparablesVenta.length === 0) {
       setPipe(p => ({ ...p, marketResumen: { status: 'done', data: null } }))
       return
     }
     setPipe(p => ({ ...p, marketResumen: { status: 'running', data: null } }))
+    // Product Fit exige un envolvente normativo real. Solo se arma si Legal ya corrió Y quedó
+    // `grounded` (búsqueda real por Serper, no memoria del LLM — ver commit eb8409b): pasar un
+    // envolvente basado en una cifra inventada sería justo el problema que se venía corrigiendo
+    // toda la sesión. unidadesObjetivo se toma como "si se construyera al máximo de densidad que
+    // permite la norma" — es una pregunta real de mercado (¿el mercado soporta el tope legal?),
+    // no un valor inventado; sin densidadMaxUnidades no hay con qué evaluarlo y se omite.
+    const productFit = (fichaLegal?.grounded === true && typeof fichaLegal.densidadMaxUnidades === 'number')
+      ? {
+          unidadesObjetivo: fichaLegal.densidadMaxUnidades,
+          envolvente: { cumple: fichaLegal.compatible === true, unidadesMax: fichaLegal.densidadMaxUnidades },
+        }
+      : undefined
     try {
       const res = await authedFetch('/api/market/resumen', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           comparables: comparablesVenta, ciudad: form.ciudad, colonia: form.colonia,
-          estado: form.estado, lat: form.lat, lng: form.lng,
+          estado: form.estado, lat: form.lat, lng: form.lng, productFit,
         }),
       })
       const json = await res.json()
@@ -1366,6 +1384,15 @@ export default function PreformaPage() {
 
   useEffect(() => {
     if (pipe.legal.status === 'done' && pipe.arquitectura.status === 'waiting') runArquitectura()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pipe.legal.status])
+
+  // Segunda corrida de /api/market/resumen, esta vez con productFit -- ver comentario en
+  // runMarketResumen sobre por qué la primera (dentro de runMercado) casi nunca lo trae.
+  useEffect(() => {
+    if (pipe.legal.status === 'done' && pipe.comparablesVenta.status === 'done' && pipe.comparablesVenta.data.length > 0) {
+      runMarketResumen(pipe.comparablesVenta.data, pipe.legal.data?.fichaLegal)
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pipe.legal.status])
 
@@ -2474,6 +2501,12 @@ export default function PreformaPage() {
                                 )}
                                 <Kv label="Confianza de datos" value={mr.dataConfidence != null ? `${mr.dataConfidence}%` : '—'} />
                                 <Kv label="Competidores detectados" value={mr.competitors?.length ?? 0} />
+                                {mr.productFit && (
+                                  <Kv label="Fit de producto (máx. densidad)" value={mr.productFit.finalScore != null ? `${mr.productFit.finalScore}/100` : '—'} />
+                                )}
+                                {mr.opportunityScore?.finalScore != null && (
+                                  <Kv label="Oportunidad" value={`${mr.opportunityScore.finalScore}/100`} />
+                                )}
                                 {mr.warnings?.length > 0 && (
                                   <div style={{ marginTop: 2 }}>
                                     {mr.warnings.map((w: string, i: number) => (
