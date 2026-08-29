@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireUser, unauthorized } from '@/lib/api-auth'
 import { callClaudeJson } from '@/lib/llmJson'
 import { calcularDensidad, type UnidadDensidad } from '@/lib/normativa/calculos'
+import { consultarNormativaReal } from '@/lib/normativa/geoserverSPGG'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -57,10 +58,30 @@ export async function POST(req: NextRequest) {
       } catch { /* una búsqueda fallida no debe tumbar la ruta completa */ }
     }
   }
-  const grounded = snippets.length > 0
+  // ── GIS real del GeoServer municipal de San Pedro (E2/E3/E4) — más autoritativo que un
+  // snippet de búsqueda: es el catastro/zonificación oficial, no una página que lo menciona.
+  // Cobertura real verificada por prueba directa: uso (E2) cubre todo el municipio; densidad
+  // (E3) y altura (E4) SOLO existen dentro de zonas con un "Programa" específico (CV/CZ) — la
+  // mayoría de los puntos no van a tener densidad/altura por esta vía, y eso es correcto, no un
+  // error (el servidor real no tiene ese dato para esa zona, no se inventa).
+  const esSanPedro = /san\s*pedro/i.test(data.ciudad || '')
+  const gisReal = (esSanPedro && typeof data.lat === 'number' && typeof data.lng === 'number')
+    ? await consultarNormativaReal(data.lat, data.lng).catch(() => null)
+    : null
+  const gisBlock = gisReal && (gisReal.uso || gisReal.densidad || gisReal.altura)
+    ? `\n\nDATOS OFICIALES REALES — GeoServer municipal de San Pedro Garza García (catastro/zonificación, más autoritativo que cualquier búsqueda web):\n${
+        gisReal.uso ? `- Uso de suelo (E2): "${gisReal.uso.uso}" — ${gisReal.uso.descripcion} — distrito "${gisReal.uso.distrito}"\n` : ''
+      }${
+        gisReal.densidad ? `- Densidad (E3): código "${gisReal.densidad.densidadCodigo}", CUS = ${gisReal.densidad.cusNum} — programa ${gisReal.densidad.programa}\n` : ''
+      }${
+        gisReal.altura ? `- Altura (E4): ${gisReal.altura.nivelesMax} niveles, ${gisReal.altura.alturaM} m — programa ${gisReal.altura.programa}\n` : ''
+      }\nEstos valores son de la fuente MÁS confiable disponible — úsalos directamente para los campos correspondientes (uso, cusNum/cus, nivelesMax/altura) en vez de buscarlos o inventarlos. El servidor los sobrescribirá de todos modos si no coinciden, así que no los cambies.`
+    : ''
+
+  const grounded = snippets.length > 0 || !!gisBlock
   const groundingBlock = grounded
-    ? `\n\nRESULTADOS DE BÚSQUEDA REAL (Google, vía Serper) — ÚNICA fuente permitida para respaldar COS/CUS/altura/retiros/factibilidades:\n${snippets.join('\n---\n')}\n\nUsa ÚNICAMENTE estos resultados para fundamentar valores normativos. Si no confirman un dato específico, NO lo completes de memoria — dilo explícitamente en la alerta correspondiente y baja nivelRiesgo/confianza de ese punto.`
-    : `\n\nNO se encontraron resultados de búsqueda real para este municipio/colonia (SERPER_API_KEY ausente o sin resultados). NO tienes ninguna fuente verificada para COS/CUS/altura — cualquier valor que devuelvas es una ESTIMACIÓN basada en tu conocimiento general, no en una fuente consultada. Debes decirlo explícitamente.`
+    ? `\n\nRESULTADOS DE BÚSQUEDA REAL (Google, vía Serper) — ÚNICA fuente permitida para respaldar COS/CUS/altura/retiros/factibilidades:\n${snippets.join('\n---\n')}\n\nUsa ÚNICAMENTE estos resultados para fundamentar valores normativos. Si no confirman un dato específico, NO lo completes de memoria — dilo explícitamente en la alerta correspondiente y baja nivelRiesgo/confianza de ese punto.${gisBlock}`
+    : `\n\nNO se encontraron resultados de búsqueda real para este municipio/colonia (SERPER_API_KEY ausente o sin resultados). NO tienes ninguna fuente verificada para COS/CUS/altura — cualquier valor que devuelvas es una ESTIMACIÓN basada en tu conocimiento general, no en una fuente consultada. Debes decirlo explícitamente.${gisBlock}`
 
   const prompt = `Eres el Agente Legal y Normativo de SMT Developer.
 Tu única tarea es analizar la normativa urbana y legal aplicable al predio: uso de suelo, Plan de Desarrollo Urbano, restricciones, factibilidades y alertas legales.
@@ -187,6 +208,23 @@ REGLAS:
         fl.densidadVerificada = true
       } else {
         fl.densidadVerificada = false
+      }
+
+      // Sobrescribe con el dato oficial real cuando existe — mismo criterio que
+      // densidadMaxUnidades: no confiar en que el modelo copió bien los números que ya se le
+      // dieron en el prompt. No hay capa de COS verificada todavía, así que cos/cosNum nunca
+      // se tocan aquí.
+      if (gisReal?.uso) {
+        fl.usoGIS = gisReal.uso.uso
+        fl.distritoGIS = gisReal.uso.distrito
+      }
+      if (gisReal?.densidad?.cusNum != null) {
+        fl.cusNum = gisReal.densidad.cusNum
+        fl.cus = String(gisReal.densidad.cusNum)
+      }
+      if (gisReal?.altura?.nivelesMax != null) {
+        fl.nivelesMax = gisReal.altura.nivelesMax
+        fl.altura = `${gisReal.altura.nivelesMax} niveles`
       }
     }
     parsed.fuentesConsultadas = fuentesConsultadas
