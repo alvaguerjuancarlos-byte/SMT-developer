@@ -2237,7 +2237,12 @@ export default function PreformaPage() {
                 <div className="grid gap-2" style={{ gridTemplateColumns: '1.5fr 1fr', flex: 1, minHeight: 0 }}>
                   <div className="flex flex-col gap-2 min-h-0">
                     <Card flex="none">
-                      <CardHead right={<Mini>{fl.municipio}</Mini>}>Envolvente normativa</CardHead>
+                      <CardHead right={
+                        <div className="flex items-center gap-2">
+                          <Mini>{fl.municipio}</Mini>
+                          <Pill tone={fl.grounded ? 'accent' : 'muted'}>{fl.grounded ? 'Con fuente real' : 'Sin verificar'}</Pill>
+                        </div>
+                      }>Envolvente normativa</CardHead>
                       <Cb>
                         <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 8 }}>
                           <thead>
@@ -2328,6 +2333,41 @@ export default function PreformaPage() {
                         </Cb>
                       </Card>
                     )}
+                    {(() => {
+                      const fuentesReales: { url: string; titulo: string }[] = pipe.legal.data?.fuentesConsultadas ?? []
+                      const fuentesLegal: { nombre: string; tipo: string }[] = pipe.legal.data?.fuentes?.legal ?? []
+                      if (fuentesReales.length === 0 && fuentesLegal.length === 0) return null
+                      return (
+                        <Card flex="none">
+                          <CardHead>Fuentes</CardHead>
+                          <Cb style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                            {!fl.grounded && (
+                              <p style={{ fontSize: 9.5, color: T.ink3, lineHeight: 1.5 }}>
+                                Sin búsqueda real confirmada para este municipio/colonia — lo de abajo es lo que el
+                                modelo reporta, no fuentes verificadas.
+                              </p>
+                            )}
+                            {fuentesReales.length > 0 && (
+                              <div className="flex flex-col gap-1">
+                                {fuentesReales.map((f, i) => (
+                                  <a key={i} href={f.url} target="_blank" rel="noreferrer"
+                                    style={{ fontSize: 10, color: T.accent, textDecoration: 'none', lineHeight: 1.4 }}>
+                                    {f.titulo || f.url}
+                                  </a>
+                                ))}
+                              </div>
+                            )}
+                            {fuentesLegal.length > 0 && (
+                              <div className="flex flex-col gap-0.5" style={{ marginTop: fuentesReales.length > 0 ? 4 : 0 }}>
+                                {fuentesLegal.map((f, i) => (
+                                  <p key={i} style={{ fontSize: 9.5, color: T.ink3 }}>· {f.nombre} <span style={{ color: T.ink4 }}>({f.tipo})</span></p>
+                                ))}
+                              </div>
+                            )}
+                          </Cb>
+                        </Card>
+                      )
+                    })()}
                   </div>
                 </div>
               )
