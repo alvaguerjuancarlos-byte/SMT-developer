@@ -2,6 +2,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { NextRequest, NextResponse } from 'next/server'
 import { requireUser, unauthorized } from '@/lib/api-auth'
 import { callClaudeJson } from '@/lib/llmJson'
+import { calcularDensidad, type UnidadDensidad } from '@/lib/normativa/calculos'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -94,6 +95,8 @@ OUTPUT — JSON EXACTO (sin texto adicional):
     "compatible": true,
     "densidadAutorizada": "Densidad máxima permitida (ej: 150 hab/ha · 48 unidades máx)",
     "densidadMaxUnidades": 48,
+    "densidadValor": 100,
+    "densidadUnidad": "m2_por_vivienda",
     "cos": "60%",
     "cosNum": 0.60,
     "cus": "2.4",
@@ -137,6 +140,13 @@ REGLAS:
   pipeline calcule el envolvente (COS × terreno, CUS × terreno × niveles) sin tener que parsear
   texto — deben coincidir exactamente con lo que dicen cos/cus/altura/densidadAutorizada
   (ej. si cos="60%", cosNum=0.60; si altura="12 niveles", nivelesMax=12)
+- densidadValor/densidadUnidad: la densidad SIN CONVERTIR a unidades, tal como la expresa el
+  instrumento normativo — densidadUnidad debe ser EXACTAMENTE "viviendas_por_ha" o
+  "m2_por_vivienda" (nunca otro texto). Si el instrumento la expresa en una unidad distinta que
+  no se puede convertir de forma válida a estas dos (ej. solo "hab/ha" sin tamaño de hogar
+  conocido), omite ambos campos (null) en vez de forzar una conversión inventada — el servidor
+  recalcula densidadMaxUnidades de forma independiente a partir de estos dos campos, así que si
+  van vacíos no se verifica ese número
 - fichaLegal.compatible: true si uso actual es compatible con permitido, false si requiere cambio
 - factibilidades.status: exactamente "Disponible", "Con condicionante" o "No disponible"
 - nivelRiesgo: "Bajo", "Medio" o "Alto" — si grounded=false, NUNCA "Bajo" (sin fuente verificada no
@@ -162,6 +172,22 @@ REGLAS:
     // Serper (mismo patrón que costoTerreno/costoTerrenoM2 en el Agente Terreno).
     if (parsed.fichaLegal) {
       parsed.fichaLegal.grounded = grounded
+
+      // Primer enganche real de lib/normativa/calculos.ts: el modelo hace su propia aritmética
+      // para densidadMaxUnidades (§20 del documento pide EXACTAMENTE este cálculo: densidad ×
+      // superficie, redondeando siempre hacia abajo) — un LLM puede fallar esa cuenta. Si mandó
+      // el valor sin convertir (densidadValor/densidadUnidad) y la superficie del predio es un
+      // número real, se recalcula con el motor puro y se sobrescribe densidadMaxUnidades con el
+      // valor verificado en vez de confiar en la aritmética del modelo.
+      const fl = parsed.fichaLegal
+      const unidadValida = fl.densidadUnidad === 'viviendas_por_ha' || fl.densidadUnidad === 'm2_por_vivienda'
+      if (typeof fl.densidadValor === 'number' && unidadValida && typeof data.superficie === 'number') {
+        const r = calcularDensidad(fl.densidadValor, fl.densidadUnidad as UnidadDensidad, data.superficie)
+        fl.densidadMaxUnidades = r.unidadesMax
+        fl.densidadVerificada = true
+      } else {
+        fl.densidadVerificada = false
+      }
     }
     parsed.fuentesConsultadas = fuentesConsultadas
 

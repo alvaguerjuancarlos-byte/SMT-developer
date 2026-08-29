@@ -2287,6 +2287,11 @@ export default function PreformaPage() {
                         <DataField fieldKey="retirosNormativa" label="Retiros" type="text" />
                         <DataField fieldKey="densidadNormativa" label="Densidad autorizada" type="text" />
                         <DataField fieldKey="regimenCondominioNormativa" label="Régimen de condominio" type="text" />
+                        <p style={{ fontSize: 9, color: fl.densidadVerificada ? T.accent : T.ink4, padding: '2px 2px 0' }}>
+                          {fl.densidadVerificada
+                            ? '✓ Unidades máximas recalculadas con lib/normativa/calculos.ts, no solo la aritmética del modelo.'
+                            : 'Unidades máximas sin verificar de forma independiente (el modelo no dio densidad+unidad sin convertir).'}
+                        </p>
                       </div>
                     </Card>
                     <Card flex="none">
