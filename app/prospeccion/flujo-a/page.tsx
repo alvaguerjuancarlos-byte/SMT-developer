@@ -5,6 +5,17 @@ export const dynamic = 'force-dynamic'
 import { useState, useRef, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { authedFetch } from '@/lib/apiClient'
+import { Fraunces, IBM_Plex_Mono } from 'next/font/google'
+
+// Look & feel — tomado de la referencia smtbroker-landing.html (navy/oro, Fraunces + IBM Plex
+// Mono, grid tipo blueprint). Acotado a Flujo A por ahora (JC pidió probar aquí primero, sin
+// tocar Flujo B/PREFORMA/Topbar) — ver PALETA abajo si se replica a otras pantallas.
+const fraunces = Fraunces({ subsets: ['latin'], weight: ['500', '600'], style: ['normal', 'italic'], variable: '--font-fraunces' })
+const plexMono = IBM_Plex_Mono({ subsets: ['latin'], weight: ['400', '500'], variable: '--font-plex-mono' })
+
+// PALETA (de la referencia):
+// navy-950 #070f22 · navy-900 #0b1d3a · navy-800 #132a4d · navy-700 #1c3a63
+// gold-500 #c9a227 · gold-400 #ddc06a · paper #f4f0e6 · slate #8b96ab · slate-dim #5f6a80
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -174,7 +185,7 @@ function LeafletPicker({ lat, lng, onMove }: { lat: number; lng: number; onMove:
     const map = L.map(ref.current).setView([lat, lng], 17)
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OSM' }).addTo(map)
     const icon = L.divIcon({
-      html: `<div><svg viewBox="0 0 24 36" width="22" height="32"><path d="M12 0C5.37 0 0 5.37 0 12c0 9 12 24 12 24s12-15 12-24C24 5.37 18.63 0 12 0z" fill="#1D9E75"/><circle cx="12" cy="12" r="5" fill="white"/></svg></div>`,
+      html: `<div><svg viewBox="0 0 24 36" width="22" height="32"><path d="M12 0C5.37 0 0 5.37 0 12c0 9 12 24 12 24s12-15 12-24C24 5.37 18.63 0 12 0z" fill="#c9a227"/><circle cx="12" cy="12" r="5" fill="white"/></svg></div>`,
       className: '', iconAnchor: [11, 32],
     })
     const marker = L.marker([lat, lng], { draggable: true, icon }).addTo(map)
@@ -190,8 +201,8 @@ function LeafletPicker({ lat, lng, onMove }: { lat: number; lng: number; onMove:
     mapRef.current?.setView([lat, lng], 17)
   }, [lat, lng])
 
-  if (!ready) return <div className="w-full h-[220px] rounded-2xl bg-[#F0F4F2] flex items-center justify-center"><p className="text-[13px] text-[#9aab9f]">Cargando mapa…</p></div>
-  return <div ref={ref} className="w-full h-[220px] rounded-2xl overflow-hidden border border-[#E2E8E4]" />
+  if (!ready) return <div className="w-full h-[220px] rounded-2xl bg-[#132a4d] flex items-center justify-center"><p className="text-[13px] text-[#8b96ab]">Cargando mapa…</p></div>
+  return <div ref={ref} className="w-full h-[220px] rounded-2xl overflow-hidden border border-[#2a3f5c]" />
 }
 
 // ─── Shared UI ────────────────────────────────────────────────────────────────
@@ -199,8 +210,11 @@ function LeafletPicker({ lat, lng, onMove }: { lat: number; lng: number; onMove:
 function Q({ title, sub }: { title: string; sub?: string }) {
   return (
     <div className="mb-7">
-      <h2 className="text-[28px] md:text-[32px] font-black text-white leading-tight tracking-tight mb-2">{title}</h2>
-      {sub && <p className="text-[15px] text-white/55 leading-relaxed">{sub}</p>}
+      <h2
+        className="text-[30px] md:text-[36px] font-medium text-[#f4f0e6] leading-[1.1] tracking-[-0.01em] mb-2"
+        style={{ fontFamily: 'var(--font-fraunces)' }}
+      >{title}</h2>
+      {sub && <p className="text-[15px] text-[#8b96ab] leading-relaxed">{sub}</p>}
     </div>
   )
 }
@@ -208,15 +222,15 @@ function Q({ title, sub }: { title: string; sub?: string }) {
 function Chip({ label, sub, selected, onClick }: { label: string; sub?: string; selected: boolean; onClick: () => void }) {
   return (
     <button onClick={onClick} className={`w-full text-left flex items-center justify-between gap-3 px-4 py-3.5 rounded-2xl border-2 transition-all duration-150 ${
-      selected ? 'border-[#1D9E75] bg-[#F0FBF6] shadow-[0_0_0_1px_#1D9E75]' : 'border-[#E2E8E4] bg-white hover:border-[#9FE1CB]'
+      selected ? 'border-[#c9a227] bg-[#1c304b] shadow-[0_0_0_1px_#c9a227]' : 'border-[#2a3f5c] bg-[#132a4d] hover:border-[#a68f52]'
     }`}>
       <div className="min-w-0">
-        <p className={`text-[14px] font-semibold leading-tight ${selected ? 'text-[#0F6E56]' : 'text-[#111d17]'}`}>{label}</p>
-        {sub && <p className="text-[12px] text-[#9aab9f] mt-0.5">{sub}</p>}
+        <p className={`text-[14px] font-semibold leading-tight ${selected ? 'text-[#ddc06a]' : 'text-[#f4f0e6]'}`}>{label}</p>
+        {sub && <p className="text-[12px] text-[#8b96ab] mt-0.5">{sub}</p>}
       </div>
       {selected && (
         <svg className="shrink-0" width="18" height="18" viewBox="0 0 18 18" fill="none">
-          <circle cx="9" cy="9" r="9" fill="#1D9E75"/>
+          <circle cx="9" cy="9" r="9" fill="#c9a227"/>
           <path d="M5 9l3 3 5-5" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
         </svg>
       )}
@@ -230,7 +244,7 @@ function SmallChips({ options, value, onChange }: { options: { id: string; label
       {options.map(o => (
         <button key={o.id} onClick={() => onChange(value === o.id ? '' : o.id)}
           className={`px-3 py-1.5 rounded-xl text-[12px] font-semibold border transition-all ${
-            value === o.id ? 'border-[#1D9E75] bg-[#F0FBF6] text-[#0F6E56]' : 'border-[#E2E8E4] bg-white text-[#5a7065] hover:border-[#9FE1CB]'
+            value === o.id ? 'border-[#c9a227] bg-[#1c304b] text-[#ddc06a]' : 'border-[#2a3f5c] bg-[#132a4d] text-[#8b96ab] hover:border-[#a68f52]'
           }`}>
           {o.label}
         </button>
@@ -241,11 +255,14 @@ function SmallChips({ options, value, onChange }: { options: { id: string; label
 
 function InferredRow({ label, children, ai }: { label: string; children: React.ReactNode; ai?: boolean }) {
   return (
-    <div className="border border-[#E2E8E4] rounded-2xl p-4 bg-white">
+    <div className="border border-[#2a3f5c] rounded-2xl p-4 bg-[#132a4d]">
       <div className="flex items-center gap-2 mb-3">
-        <p className="text-[11px] font-bold text-[#9aab9f] tracking-widest uppercase">{label}</p>
+        <p className="text-[11px] tracking-[0.18em] uppercase text-[#8b96ab]" style={{ fontFamily: 'var(--font-plex-mono)' }}>{label}</p>
         {ai && (
-          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-[#E1F5EE] text-[#0F6E56] tracking-wider">AUTO</span>
+          <span
+            className="text-[9px] px-1.5 py-0.5 border border-[#c9a227] text-[#ddc06a] tracking-wider"
+            style={{ fontFamily: 'var(--font-plex-mono)' }}
+          >AUTO</span>
         )}
       </div>
       {children}
@@ -262,20 +279,20 @@ function SuperficieCampos({ form, set }: { form: FormData; set: (patch: Partial<
         <input autoFocus type="number" value={form.superficie}
           onChange={e => set({ superficie: e.target.value })}
           placeholder="0"
-          className="w-full border-2 border-[#E2E8E4] rounded-2xl px-4 py-4 text-[20px] text-[#111d17] bg-white focus:outline-none focus:border-[#1D9E75] placeholder:text-[#c5d0cb] transition-colors pr-14"
+          className="w-full border-2 border-[#2a3f5c] rounded-2xl px-4 py-4 text-[20px] text-[#f4f0e6] bg-[#132a4d] focus:outline-none focus:border-[#c9a227] placeholder:text-[#5f6a80] transition-colors pr-14"
         />
-        <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[14px] text-[#9aab9f] font-medium pointer-events-none">m²</span>
+        <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[14px] text-[#8b96ab] font-medium pointer-events-none">m²</span>
       </div>
 
       {Number(form.superficie) > 0 && (
         <div className="mt-5">
-          <p className="text-[12px] font-bold text-[#9aab9f] uppercase tracking-wider mb-2">Frente del predio (opcional)</p>
+          <p className="text-[12px] font-bold text-[#8b96ab] uppercase tracking-wider mb-2">Frente del predio (opcional)</p>
           <div className="relative">
             <input type="number" value={form.frente} onChange={e => set({ frente: e.target.value })}
               placeholder="0"
-              className="w-full border-2 border-[#E2E8E4] rounded-2xl px-4 py-3.5 text-[16px] text-[#111d17] bg-white focus:outline-none focus:border-[#1D9E75] placeholder:text-[#c5d0cb] transition-colors pr-10"
+              className="w-full border-2 border-[#2a3f5c] rounded-2xl px-4 py-3.5 text-[16px] text-[#f4f0e6] bg-[#132a4d] focus:outline-none focus:border-[#c9a227] placeholder:text-[#5f6a80] transition-colors pr-10"
             />
-            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[13px] text-[#9aab9f] font-medium pointer-events-none">m</span>
+            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[13px] text-[#8b96ab] font-medium pointer-events-none">m</span>
           </div>
         </div>
       )}
@@ -303,7 +320,7 @@ function TipoDesarrolloCampos({ form, set }: { form: FormData; set: (patch: Part
           onChange={e => set({ tipoOtroTexto: e.target.value })}
           placeholder="Describe tu idea: tipo de inmueble, concepto, perfil de usuario, lo que tengas en mente…"
           rows={3}
-          className="w-full border-2 border-[#1D9E75] bg-[#F0FBF6] rounded-2xl px-4 py-3.5 text-[14px] text-[#111d17] focus:outline-none placeholder:text-[#9aab9f] resize-none transition-colors"
+          className="w-full border-2 border-[#c9a227] bg-[#1c304b] rounded-2xl px-4 py-3.5 text-[14px] text-[#f4f0e6] focus:outline-none placeholder:text-[#8b96ab] resize-none transition-colors"
         />
       )}
     </div>
@@ -313,26 +330,26 @@ function TipoDesarrolloCampos({ form, set }: { form: FormData; set: (patch: Part
 function PresupuestoBandaCampos({ form, set }: { form: FormData; set: (patch: Partial<FormData>) => void }) {
   return (
     <div>
-      <p className="text-[13px] font-bold text-[#111d17] mb-3">¿Cuánto presupuesto tienes para invertir?</p>
+      <p className="text-[13px] font-bold text-[#f4f0e6] mb-3">¿Cuánto presupuesto tienes para invertir?</p>
       <div className="grid grid-cols-2 gap-2.5 mb-7">
         {RANGOS_PRESUPUESTO.map(r => (
           <Chip key={r.id} label={r.label} selected={form.presupuesto === r.id} onClick={() => set({ presupuesto: r.id })} />
         ))}
       </div>
 
-      <p className="text-[13px] font-bold text-[#111d17] mb-3">¿Qué nivel de acabados buscas?</p>
+      <p className="text-[13px] font-bold text-[#f4f0e6] mb-3">¿Qué nivel de acabados buscas?</p>
       <div className="flex flex-col gap-2.5">
         {BANDAS.map(b => (
           <button key={b.id} onClick={() => set({ bandaConstruccion: b.id })}
             className={`w-full text-left flex items-center justify-between gap-3 px-4 py-3.5 rounded-2xl border-2 transition-all ${
-              form.bandaConstruccion === b.id ? 'border-[#1D9E75] bg-[#F0FBF6]' : 'border-[#E2E8E4] bg-white hover:border-[#9FE1CB]'
+              form.bandaConstruccion === b.id ? 'border-[#c9a227] bg-[#1c304b]' : 'border-[#2a3f5c] bg-[#132a4d] hover:border-[#a68f52]'
             }`}>
             <div>
-              <p className={`text-[14px] font-bold ${form.bandaConstruccion === b.id ? 'text-[#0F6E56]' : 'text-[#111d17]'}`}>{b.label}</p>
-              <p className="text-[11px] text-[#9aab9f] mt-0.5">{b.sub}</p>
+              <p className={`text-[14px] font-bold ${form.bandaConstruccion === b.id ? 'text-[#ddc06a]' : 'text-[#f4f0e6]'}`}>{b.label}</p>
+              <p className="text-[11px] text-[#8b96ab] mt-0.5">{b.sub}</p>
             </div>
             <span className={`text-[10px] font-bold px-2 py-1 rounded-lg shrink-0 ${
-              form.bandaConstruccion === b.id ? 'bg-[#1D9E75] text-white' : 'bg-[#F0F4F2] text-[#5a7065]'
+              form.bandaConstruccion === b.id ? 'bg-[#c9a227] text-[#070f22]' : 'bg-[#132a4d] text-[#8b96ab]'
             }`}>{b.rango}</span>
           </button>
         ))}
@@ -624,9 +641,9 @@ function FluidoAContent() {
           <input autoFocus type="text" value={form.nombreProyecto}
             onChange={e => set({ nombreProyecto: e.target.value })}
             placeholder="Ej. Torre Cumbres, Casa Pedregal, Plaza Oriente…"
-            className="w-full border-2 border-[#E2E8E4] rounded-2xl px-4 py-4 text-[16px] text-[#111d17] bg-white focus:outline-none focus:border-[#1D9E75] placeholder:text-[#c5d0cb] transition-colors"
+            className="w-full border-2 border-[#2a3f5c] rounded-2xl px-4 py-4 text-[16px] text-[#f4f0e6] bg-[#132a4d] focus:outline-none focus:border-[#c9a227] placeholder:text-[#5f6a80] transition-colors"
           />
-          <p className="text-[12px] text-[#9aab9f] mt-3">Usa el nombre del terreno, zona o el concepto que tienes en mente.</p>
+          <p className="text-[12px] text-[#8b96ab] mt-3">Usa el nombre del terreno, zona o el concepto que tienes en mente.</p>
         </div>
       )
 
@@ -638,17 +655,17 @@ function FluidoAContent() {
           {/* Maps link input */}
           <div className="relative mb-4">
             <div className="flex items-center gap-2 mb-2">
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1C4.24 1 2 3.24 2 6c0 3.75 5 8 5 8s5-4.25 5-8c0-2.76-2.24-5-5-5zm0 6.5A1.5 1.5 0 1 1 7 4.5a1.5 1.5 0 0 1 0 3z" fill="#1D9E75"/></svg>
-              <p className="text-[12px] font-bold text-[#1D9E75] uppercase tracking-wider">Google Maps link</p>
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1C4.24 1 2 3.24 2 6c0 3.75 5 8 5 8s5-4.25 5-8c0-2.76-2.24-5-5-5zm0 6.5A1.5 1.5 0 1 1 7 4.5a1.5 1.5 0 0 1 0 3z" fill="#c9a227"/></svg>
+              <p className="text-[12px] font-bold text-[#c9a227] uppercase tracking-wider">Google Maps link</p>
             </div>
             <input autoFocus type="text" value={mapsInput}
               onChange={e => handleMapsLink(e.target.value)}
               placeholder="https://maps.app.goo.gl/… o https://www.google.com/maps/…"
-              className={`w-full border-2 rounded-2xl px-4 py-4 text-[14px] text-[#111d17] bg-white focus:outline-none placeholder:text-[#c5d0cb] transition-colors ${inferError ? 'border-red-400' : 'border-[#E2E8E4] focus:border-[#1D9E75]'}`}
+              className={`w-full border-2 rounded-2xl px-4 py-4 text-[14px] text-[#f4f0e6] bg-[#132a4d] focus:outline-none placeholder:text-[#5f6a80] transition-colors ${inferError ? 'border-red-400' : 'border-[#2a3f5c] focus:border-[#c9a227]'}`}
             />
             {(inferring || expanding) && (
               <div className="absolute right-4 top-[calc(50%+6px)] -translate-y-1/2">
-                <svg className="animate-spin w-5 h-5 text-[#1D9E75]" viewBox="0 0 24 24" fill="none">
+                <svg className="animate-spin w-5 h-5 text-[#c9a227]" viewBox="0 0 24 24" fill="none">
                   <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeOpacity="0.25"/>
                   <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round"/>
                 </svg>
@@ -656,21 +673,21 @@ function FluidoAContent() {
             )}
           </div>
 
-          {expanding && <p className="text-[12px] text-[#1D9E75] mb-4">Leyendo enlace corto de Maps…</p>}
-          {inferring && !expanding && <p className="text-[12px] text-[#1D9E75] mb-4">Detectando ubicación y características del predio…</p>}
+          {expanding && <p className="text-[12px] text-[#c9a227] mb-4">Leyendo enlace corto de Maps…</p>}
+          {inferring && !expanding && <p className="text-[12px] text-[#c9a227] mb-4">Detectando ubicación y características del predio…</p>}
           {!inferring && !expanding && !form.lat && !showManual && (
-            <p className="text-[12px] text-[#9aab9f] mb-4">Pega el link de Maps o captura la dirección manualmente.</p>
+            <p className="text-[12px] text-[#8b96ab] mb-4">Pega el link de Maps o captura la dirección manualmente.</p>
           )}
           {inferError && <p className="text-[12px] text-red-500 mb-4">{inferError}</p>}
 
           {/* Confirmation card — aparece en cuanto hay coordenadas, con o sin inferencia */}
           {form.lat && form.lng && mapsInput && (
-            <div className="rounded-2xl border border-[#9FE1CB] bg-[#F0FBF6] p-4 mb-4">
+            <div className="rounded-2xl border border-[#a68f52] bg-[#1c304b] p-4 mb-4">
               {/* Datos detectados — editables inline */}
               <div className="flex flex-col gap-2 mb-3">
                 <div className="flex items-center gap-2">
-                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" className="shrink-0"><path d="M7 1C4.24 1 2 3.24 2 6c0 3.75 5 8 5 8s5-4.25 5-8c0-2.76-2.24-5-5-5z" fill="#1D9E75"/></svg>
-                  <p className="text-[12px] font-bold text-[#0F6E56]">
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" className="shrink-0"><path d="M7 1C4.24 1 2 3.24 2 6c0 3.75 5 8 5 8s5-4.25 5-8c0-2.76-2.24-5-5-5z" fill="#c9a227"/></svg>
+                  <p className="text-[12px] font-bold text-[#ddc06a]">
                     {[form.ciudad, form.estado].filter(Boolean).join(', ') || 'Ubicación detectada'}
                     {form.codigoPostal ? ` · CP ${form.codigoPostal}` : ''}
                   </p>
@@ -678,23 +695,23 @@ function FluidoAContent() {
 
                 {/* Dirección editable */}
                 <div>
-                  <p className="text-[10px] font-bold text-[#9aab9f] uppercase tracking-wider mb-1">Calle y número</p>
+                  <p className="text-[10px] font-bold text-[#8b96ab] uppercase tracking-wider mb-1">Calle y número</p>
                   <input type="text" value={form.direccion}
                     onChange={e => set({ direccion: e.target.value })}
                     placeholder="Calle y número (opcional)"
-                    className="w-full border border-[#9FE1CB] bg-white rounded-xl px-3 py-2 text-[13px] text-[#111d17] focus:outline-none focus:border-[#1D9E75] placeholder:text-[#c5d0cb]"
+                    className="w-full border border-[#a68f52] bg-[#132a4d] rounded-xl px-3 py-2 text-[13px] text-[#f4f0e6] focus:outline-none focus:border-[#c9a227] placeholder:text-[#5f6a80]"
                   />
                 </div>
 
                 {/* Colonia editable — campo más propenso a errores de Nominatim */}
                 <div>
-                  <p className="text-[10px] font-bold text-[#9aab9f] uppercase tracking-wider mb-1">
-                    Colonia <span className="font-normal normal-case tracking-normal text-[#1D9E75]">— corrige si es incorrecto</span>
+                  <p className="text-[10px] font-bold text-[#8b96ab] uppercase tracking-wider mb-1">
+                    Colonia <span className="font-normal normal-case tracking-normal text-[#c9a227]">— corrige si es incorrecto</span>
                   </p>
                   <input type="text" value={form.colonia}
                     onChange={e => set({ colonia: e.target.value })}
                     placeholder="Nombre de la colonia"
-                    className="w-full border border-[#9FE1CB] bg-white rounded-xl px-3 py-2 text-[13px] text-[#111d17] focus:outline-none focus:border-[#1D9E75] placeholder:text-[#c5d0cb]"
+                    className="w-full border border-[#a68f52] bg-[#132a4d] rounded-xl px-3 py-2 text-[13px] text-[#f4f0e6] focus:outline-none focus:border-[#c9a227] placeholder:text-[#5f6a80]"
                   />
                 </div>
               </div>
@@ -703,20 +720,20 @@ function FluidoAContent() {
               {(form.clasificacionVial || form.pendiente || form.esEsquina === 'si' || form.usoSuelo) && (
                 <div className="flex flex-wrap gap-1.5 mb-3">
                   {form.clasificacionVial && (
-                    <span className="text-[10px] font-semibold px-2 py-1 rounded-lg bg-white border border-[#9FE1CB] text-[#0F6E56]">
+                    <span className="text-[10px] font-semibold px-2 py-1 rounded-lg bg-[#132a4d] border border-[#a68f52] text-[#ddc06a]">
                       {VIALIDAD_LABELS[form.clasificacionVial] ?? form.clasificacionVial}
                     </span>
                   )}
                   {form.pendiente && (
-                    <span className="text-[10px] font-semibold px-2 py-1 rounded-lg bg-white border border-[#9FE1CB] text-[#0F6E56]">
+                    <span className="text-[10px] font-semibold px-2 py-1 rounded-lg bg-[#132a4d] border border-[#a68f52] text-[#ddc06a]">
                       {PENDIENTE_LABELS[form.pendiente] ?? form.pendiente}
                     </span>
                   )}
                   {form.esEsquina === 'si' && (
-                    <span className="text-[10px] font-semibold px-2 py-1 rounded-lg bg-white border border-[#9FE1CB] text-[#0F6E56]">Esquina</span>
+                    <span className="text-[10px] font-semibold px-2 py-1 rounded-lg bg-[#132a4d] border border-[#a68f52] text-[#ddc06a]">Esquina</span>
                   )}
                   {form.usoSuelo && (
-                    <span className="text-[10px] font-semibold px-2 py-1 rounded-lg bg-white border border-[#9FE1CB] text-[#0F6E56]">
+                    <span className="text-[10px] font-semibold px-2 py-1 rounded-lg bg-[#132a4d] border border-[#a68f52] text-[#ddc06a]">
                       {form.usoSuelo.charAt(0).toUpperCase() + form.usoSuelo.slice(1)}
                     </span>
                   )}
@@ -726,13 +743,13 @@ function FluidoAContent() {
               {/* Map */}
               <LeafletPicker lat={form.lat!} lng={form.lng!}
                 onMove={(lat, lng) => set({ lat, lng })} />
-              <p className="text-[10px] text-[#9aab9f] font-mono mt-2">{form.lat!.toFixed(5)}, {form.lng!.toFixed(5)}</p>
+              <p className="text-[10px] text-[#8b96ab] font-mono mt-2">{form.lat!.toFixed(5)}, {form.lng!.toFixed(5)}</p>
             </div>
           )}
 
           {/* Manual fallback toggle */}
           <button onClick={() => setShowManual(v => !v)}
-            className="text-[12px] text-[#9aab9f] hover:text-[#5a7065] underline underline-offset-2 transition-colors">
+            className="text-[12px] text-[#8b96ab] hover:text-[#8b96ab] underline underline-offset-2 transition-colors">
             {showManual ? 'Ocultar captura manual' : '¿No tienes link? Ingresa la dirección'}
           </button>
 
@@ -740,24 +757,24 @@ function FluidoAContent() {
             <div className="mt-5 flex flex-col gap-4">
 
               {scoutOrigen && (
-                <div className="flex items-start gap-2.5 px-3.5 py-2.5 rounded-xl bg-[#F0FBF6] border border-[#9FE1CB]">
-                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" className="shrink-0 mt-0.5"><path d="M7 1C4.24 1 2 3.24 2 6c0 3.75 5 8 5 8s5-4.25 5-8c0-2.76-2.24-5-5-5z" fill="#1D9E75"/></svg>
+                <div className="flex items-start gap-2.5 px-3.5 py-2.5 rounded-xl bg-[#1c304b] border border-[#a68f52]">
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" className="shrink-0 mt-0.5"><path d="M7 1C4.24 1 2 3.24 2 6c0 3.75 5 8 5 8s5-4.25 5-8c0-2.76-2.24-5-5-5z" fill="#c9a227"/></svg>
                   <div>
-                    <p className="text-[12px] font-semibold text-[#0F6E56]">Ubicación cargada desde Scout</p>
-                    <p className="text-[11px] text-[#5a7065] mt-0.5">Los campos en verde están pre-llenados. Confirma en el mapa para continuar.</p>
+                    <p className="text-[12px] font-semibold text-[#ddc06a]">Ubicación cargada desde Scout</p>
+                    <p className="text-[11px] text-[#8b96ab] mt-0.5">Los campos en verde están pre-llenados. Confirma en el mapa para continuar.</p>
                   </div>
                 </div>
               )}
 
               {/* 1 — Estado */}
               <div>
-                <p className="text-[11px] font-bold text-[#9aab9f] uppercase tracking-wider mb-1.5">
-                  Estado{scoutOrigen && mEstado && <span className="ml-1.5 text-[#1D9E75] normal-case font-normal tracking-normal text-[10px]">● Scout</span>}
+                <p className="text-[11px] font-bold text-[#8b96ab] uppercase tracking-wider mb-1.5">
+                  Estado{scoutOrigen && mEstado && <span className="ml-1.5 text-[#c9a227] normal-case font-normal tracking-normal text-[10px]">● Scout</span>}
                 </p>
                 <input type="text" list="estados-list" value={mEstado}
                   onChange={e => { setMEstado(e.target.value); setMCiudad('') }} autoFocus={!scoutOrigen}
                   placeholder="Selecciona o escribe un estado…"
-                  className={`w-full border-2 rounded-xl px-4 py-3 text-[14px] text-[#111d17] focus:outline-none focus:border-[#1D9E75] placeholder:text-[#c5d0cb] transition-colors ${scoutOrigen && mEstado ? 'border-[#1D9E75] bg-[#F0FBF6]' : 'border-[#E2E8E4] bg-white'}`}
+                  className={`w-full border-2 rounded-xl px-4 py-3 text-[14px] text-[#f4f0e6] focus:outline-none focus:border-[#c9a227] placeholder:text-[#5f6a80] transition-colors ${scoutOrigen && mEstado ? 'border-[#c9a227] bg-[#1c304b]' : 'border-[#2a3f5c] bg-[#132a4d]'}`}
                 />
                 <datalist id="estados-list">{ESTADOS_MX.map(e => <option key={e} value={e} />)}</datalist>
               </div>
@@ -765,13 +782,13 @@ function FluidoAContent() {
               {/* 2 — Ciudad filtrada por estado */}
               {mEstado.length > 2 && (
                 <div>
-                  <p className="text-[11px] font-bold text-[#9aab9f] uppercase tracking-wider mb-1.5">
-                    Ciudad o municipio{scoutOrigen && mCiudad && <span className="ml-1.5 text-[#1D9E75] normal-case font-normal tracking-normal text-[10px]">● Scout</span>}
+                  <p className="text-[11px] font-bold text-[#8b96ab] uppercase tracking-wider mb-1.5">
+                    Ciudad o municipio{scoutOrigen && mCiudad && <span className="ml-1.5 text-[#c9a227] normal-case font-normal tracking-normal text-[10px]">● Scout</span>}
                   </p>
                   <input type="text" list="ciudades-estado-list" value={mCiudad}
                     onChange={e => setMCiudad(e.target.value)}
                     placeholder="Escribe o selecciona…"
-                    className={`w-full border-2 rounded-xl px-4 py-3 text-[14px] text-[#111d17] focus:outline-none focus:border-[#1D9E75] placeholder:text-[#c5d0cb] transition-colors ${scoutOrigen && mCiudad ? 'border-[#1D9E75] bg-[#F0FBF6]' : 'border-[#E2E8E4] bg-white'}`}
+                    className={`w-full border-2 rounded-xl px-4 py-3 text-[14px] text-[#f4f0e6] focus:outline-none focus:border-[#c9a227] placeholder:text-[#5f6a80] transition-colors ${scoutOrigen && mCiudad ? 'border-[#c9a227] bg-[#1c304b]' : 'border-[#2a3f5c] bg-[#132a4d]'}`}
                   />
                   <datalist id="ciudades-estado-list">
                     {ciudadesPorEstado(mEstado).map(c => <option key={c} value={c} />)}
@@ -782,13 +799,13 @@ function FluidoAContent() {
               {/* 3 — Colonia */}
               {mCiudad.length > 2 && (
                 <div>
-                  <p className="text-[11px] font-bold text-[#9aab9f] uppercase tracking-wider mb-1.5">
-                    Colonia{scoutOrigen && mColonia && <span className="ml-1.5 text-[#1D9E75] normal-case font-normal tracking-normal text-[10px]">● Scout</span>}
+                  <p className="text-[11px] font-bold text-[#8b96ab] uppercase tracking-wider mb-1.5">
+                    Colonia{scoutOrigen && mColonia && <span className="ml-1.5 text-[#c9a227] normal-case font-normal tracking-normal text-[10px]">● Scout</span>}
                   </p>
                   <input type="text" list="colonia-hist" value={mColonia}
                     onChange={e => setMColonia(e.target.value)}
                     placeholder="Nombre de la colonia"
-                    className={`w-full border-2 rounded-xl px-4 py-3 text-[14px] text-[#111d17] focus:outline-none focus:border-[#1D9E75] placeholder:text-[#c5d0cb] transition-colors ${scoutOrigen && mColonia ? 'border-[#1D9E75] bg-[#F0FBF6]' : 'border-[#E2E8E4] bg-white'}`}
+                    className={`w-full border-2 rounded-xl px-4 py-3 text-[14px] text-[#f4f0e6] focus:outline-none focus:border-[#c9a227] placeholder:text-[#5f6a80] transition-colors ${scoutOrigen && mColonia ? 'border-[#c9a227] bg-[#1c304b]' : 'border-[#2a3f5c] bg-[#132a4d]'}`}
                   />
                   <datalist id="colonia-hist">{coloniaHistory.suggestions.map(s => <option key={s} value={s} />)}</datalist>
                 </div>
@@ -797,11 +814,11 @@ function FluidoAContent() {
               {/* 4 — Calle y número */}
               {mCiudad.length > 2 && (
                 <div>
-                  <p className="text-[11px] font-bold text-[#9aab9f] uppercase tracking-wider mb-1.5">Calle y número <span className="font-normal normal-case tracking-normal">(opcional)</span></p>
+                  <p className="text-[11px] font-bold text-[#8b96ab] uppercase tracking-wider mb-1.5">Calle y número <span className="font-normal normal-case tracking-normal">(opcional)</span></p>
                   <input type="text" list="calle-hist" value={mCalle}
                     onChange={e => setMCalle(e.target.value)}
                     placeholder="Av. Insurgentes 250"
-                    className="w-full border-2 border-[#E2E8E4] rounded-xl px-4 py-3 text-[14px] text-[#111d17] bg-white focus:outline-none focus:border-[#1D9E75] placeholder:text-[#c5d0cb] transition-colors"
+                    className="w-full border-2 border-[#2a3f5c] rounded-xl px-4 py-3 text-[14px] text-[#f4f0e6] bg-[#132a4d] focus:outline-none focus:border-[#c9a227] placeholder:text-[#5f6a80] transition-colors"
                   />
                   <datalist id="calle-hist">{calleHistory.suggestions.map(s => <option key={s} value={s} />)}</datalist>
                 </div>
@@ -811,10 +828,10 @@ function FluidoAContent() {
               {mCiudad.length > 2 && (
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
-                    <p className="text-[11px] font-bold text-[#9aab9f] uppercase tracking-wider">Código postal <span className="font-normal normal-case tracking-normal">(opcional)</span>{scoutOrigen && mCP && <span className="ml-1.5 text-[#1D9E75] normal-case font-normal tracking-normal text-[10px]">● Scout</span>}</p>
+                    <p className="text-[11px] font-bold text-[#8b96ab] uppercase tracking-wider">Código postal <span className="font-normal normal-case tracking-normal">(opcional)</span>{scoutOrigen && mCP && <span className="ml-1.5 text-[#c9a227] normal-case font-normal tracking-normal text-[10px]">● Scout</span>}</p>
                     {!mCpOmitido && mCP === '' && (
                       <button onClick={() => setMCpOmitido(true)}
-                        className="text-[11px] text-[#9aab9f] hover:text-[#5a7065] underline underline-offset-2">
+                        className="text-[11px] text-[#8b96ab] hover:text-[#8b96ab] underline underline-offset-2">
                         No lo sé
                       </button>
                     )}
@@ -824,7 +841,7 @@ function FluidoAContent() {
                       onChange={e => { setMCP(e.target.value.replace(/\D/g, '').slice(0, 5)); setMCpOmitido(false) }}
                       onKeyDown={e => { if (e.key === 'Enter') geocodeManual() }}
                       placeholder="5 dígitos"
-                      className={`w-full border-2 rounded-xl px-4 py-3 text-[16px] tracking-[0.3em] font-mono text-[#111d17] focus:outline-none focus:border-[#1D9E75] placeholder:tracking-normal placeholder:font-sans placeholder:text-[14px] placeholder:text-[#c5d0cb] transition-colors ${scoutOrigen && mCP ? 'border-[#1D9E75] bg-[#F0FBF6]' : 'border-[#E2E8E4] bg-white'}`}
+                      className={`w-full border-2 rounded-xl px-4 py-3 text-[16px] tracking-[0.3em] font-mono text-[#f4f0e6] focus:outline-none focus:border-[#c9a227] placeholder:tracking-normal placeholder:font-sans placeholder:text-[14px] placeholder:text-[#5f6a80] transition-colors ${scoutOrigen && mCP ? 'border-[#c9a227] bg-[#1c304b]' : 'border-[#2a3f5c] bg-[#132a4d]'}`}
                     />
                   )}
                   <datalist id="cp-hist">{cpHistory.suggestions.map(s => <option key={s} value={s} />)}</datalist>
@@ -836,10 +853,10 @@ function FluidoAContent() {
                 <div>
                   {manualError && <p className="text-[12px] text-red-500 mb-2">{manualError}</p>}
                   <button onClick={() => geocodeManual()} disabled={manualGeocoding}
-                    className="flex items-center gap-2 px-5 py-3 rounded-xl text-[13px] font-semibold bg-[#1D9E75] text-white hover:bg-[#0F6E56] disabled:opacity-60 transition-colors">
+                    className="flex items-center gap-2 px-5 py-3 rounded-xl text-[13px] font-semibold bg-[#c9a227] text-[#070f22] hover:bg-[#ddc06a] disabled:opacity-60 transition-colors" style={{ fontFamily: 'var(--font-plex-mono)' }}>
                     {manualGeocoding
-                      ? <><svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="white" strokeWidth="3" strokeOpacity="0.3"/><path d="M12 2a10 10 0 0 1 10 10" stroke="white" strokeWidth="3" strokeLinecap="round"/></svg>Buscando…</>
-                      : <>Ver en mapa <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1C4.24 1 2 3.24 2 6c0 3.75 5 8 5 8s5-4.25 5-8c0-2.76-2.24-5-5-5z" fill="white"/></svg></>
+                      ? <><svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="#070f22" strokeWidth="3" strokeOpacity="0.3"/><path d="M12 2a10 10 0 0 1 10 10" stroke="#070f22" strokeWidth="3" strokeLinecap="round"/></svg>Buscando…</>
+                      : <>Ver en mapa <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1C4.24 1 2 3.24 2 6c0 3.75 5 8 5 8s5-4.25 5-8c0-2.76-2.24-5-5-5z" fill="#070f22"/></svg></>
                     }
                   </button>
                 </div>
@@ -847,16 +864,16 @@ function FluidoAContent() {
 
               {/* 7 — Mapa */}
               {canShowMap && (
-                <div className="rounded-2xl border border-[#9FE1CB] bg-[#F0FBF6] p-4">
-                  <p className="text-[13px] font-bold text-[#0F6E56] mb-0.5">
+                <div className="rounded-2xl border border-[#a68f52] bg-[#1c304b] p-4">
+                  <p className="text-[13px] font-bold text-[#ddc06a] mb-0.5">
                     {[mColonia || form.colonia, mCiudad, mEstado].filter(Boolean).join(', ')}
                   </p>
-                  <p className="text-[12px] text-[#5a7065] mb-3">Arrastra el pin al terreno exacto</p>
+                  <p className="text-[12px] text-[#8b96ab] mb-3">Arrastra el pin al terreno exacto</p>
                   <LeafletPicker lat={form.lat!} lng={form.lng!}
                     onMove={(lat, lng) => set({ lat, lng })} />
-                  <p className="text-[10px] text-[#9aab9f] font-mono mt-2">{form.lat!.toFixed(5)}, {form.lng!.toFixed(5)}</p>
+                  <p className="text-[10px] text-[#8b96ab] font-mono mt-2">{form.lat!.toFixed(5)}, {form.lng!.toFixed(5)}</p>
                   <button onClick={() => geocodeManual(true)} disabled={manualGeocoding}
-                    className="mt-2 text-[12px] font-semibold text-[#1D9E75] hover:text-[#0F6E56] underline underline-offset-2 disabled:opacity-50 transition-colors">
+                    className="mt-2 text-[12px] font-semibold text-[#c9a227] hover:text-[#ddc06a] underline underline-offset-2 disabled:opacity-50 transition-colors">
                     {manualGeocoding ? 'Afinando…' : 'Afinar con dirección →'}
                   </button>
                 </div>
@@ -873,11 +890,11 @@ function FluidoAContent() {
           <div>
             <Q title="Cuéntanos del terreno y tu idea" sub="Unas preguntas rápidas para calibrar el análisis — el resto lo ajustan los agentes de IA." />
             <div className="mb-8">
-              <p className="text-[13px] font-bold text-[#111d17] mb-3">¿Cuántos m² tiene el terreno?</p>
+              <p className="text-[13px] font-bold text-[#f4f0e6] mb-3">¿Cuántos m² tiene el terreno?</p>
               <SuperficieCampos form={form} set={set} />
             </div>
             <div className="mb-8">
-              <p className="text-[13px] font-bold text-[#111d17] mb-3">¿Qué tipo de desarrollo tienes en mente?</p>
+              <p className="text-[13px] font-bold text-[#f4f0e6] mb-3">¿Qué tipo de desarrollo tienes en mente?</p>
               <TipoDesarrolloCampos form={form} set={set} />
             </div>
             <PresupuestoBandaCampos form={form} set={set} />
@@ -936,45 +953,45 @@ function FluidoAContent() {
             <InferredRow label="Servicios">
               <div className="flex flex-col gap-3">
                 <div>
-                  <p className="text-[10px] text-[#9aab9f] font-semibold mb-1.5">Agua</p>
+                  <p className="text-[10px] text-[#8b96ab] font-semibold mb-1.5">Agua</p>
                   <SmallChips options={AGUA_OPTS} value={form.agua} onChange={v => set({ agua: v })} />
                 </div>
                 <div>
-                  <p className="text-[10px] text-[#9aab9f] font-semibold mb-1.5">Drenaje</p>
+                  <p className="text-[10px] text-[#8b96ab] font-semibold mb-1.5">Drenaje</p>
                   <SmallChips options={DRENAJE_OPTS} value={form.drenaje} onChange={v => set({ drenaje: v })} />
                 </div>
                 <div>
-                  <p className="text-[10px] text-[#9aab9f] font-semibold mb-1.5">Electricidad</p>
+                  <p className="text-[10px] text-[#8b96ab] font-semibold mb-1.5">Electricidad</p>
                   <SmallChips options={ELEC_OPTS} value={form.electricidad} onChange={v => set({ electricidad: v })} />
                 </div>
                 <div>
-                  <p className="text-[10px] text-[#9aab9f] font-semibold mb-1.5">Pavimento frente al predio</p>
+                  <p className="text-[10px] text-[#8b96ab] font-semibold mb-1.5">Pavimento frente al predio</p>
                   <SmallChips options={[{ id: 'si', label: 'Sí' }, { id: 'no', label: 'No' }]} value={form.pavimento} onChange={v => set({ pavimento: v })} />
                 </div>
               </div>
             </InferredRow>
 
-            <div className="bg-[#F0FBF6] border-2 border-[#1D9E75]/40 rounded-2xl p-4">
-              <p className="text-[13px] font-bold text-[#0F6E56] mb-1">¿Tienes un valor estimado o real del terreno?</p>
-              <p className="text-[11px] text-[#5a7065] mb-3 leading-snug">
+            <div className="bg-[#1c304b] border-2 border-[#c9a227]/40 rounded-2xl p-4">
+              <p className="text-[13px] font-bold text-[#ddc06a] mb-1">¿Tienes un valor estimado o real del terreno?</p>
+              <p className="text-[11px] text-[#8b96ab] mb-3 leading-snug">
                 Si conoces el precio que pide el vendedor (o una estimación tuya), la IA lo usa para validar su cálculo — no lo fuerza como resultado final.
               </p>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[12px] text-[#5a7065]">$</span>
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[12px] text-[#8b96ab]">$</span>
                 <input type="number" value={form.precioSolicitado} onChange={e => set({ precioSolicitado: e.target.value })}
                   placeholder="0"
-                  className="w-full border-2 border-[#1D9E75]/30 rounded-xl pl-6 pr-14 py-2.5 text-[14px] font-semibold text-[#111d17] bg-white focus:outline-none focus:border-[#1D9E75] placeholder:text-[#c5d0cb]"
+                  className="w-full border-2 border-[#c9a227]/30 rounded-xl pl-6 pr-14 py-2.5 text-[14px] font-semibold text-[#f4f0e6] bg-[#132a4d] focus:outline-none focus:border-[#c9a227] placeholder:text-[#5f6a80]"
                 />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-[#5a7065] font-medium">MXN</span>
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-[#8b96ab] font-medium">MXN</span>
               </div>
             </div>
 
             <InferredRow label="Datos opcionales">
               <div>
-                <p className="text-[10px] text-[#9aab9f] font-semibold mb-1.5">Cuenta predial</p>
+                <p className="text-[10px] text-[#8b96ab] font-semibold mb-1.5">Cuenta predial</p>
                 <input type="text" value={form.cuentaPredial} onChange={e => set({ cuentaPredial: e.target.value })}
                   placeholder="019-012-045-001-000"
-                  className="w-full border border-[#E2E8E4] rounded-xl px-3 py-2.5 text-[13px] text-[#111d17] bg-white focus:outline-none focus:border-[#1D9E75] placeholder:text-[#c5d0cb]"
+                  className="w-full border border-[#2a3f5c] rounded-xl px-3 py-2.5 text-[13px] text-[#f4f0e6] bg-[#132a4d] focus:outline-none focus:border-[#c9a227] placeholder:text-[#5f6a80]"
                 />
               </div>
             </InferredRow>
@@ -991,10 +1008,17 @@ function FluidoAContent() {
   const isLast = step === TOTAL - 1
 
   return (
-    <div className="min-h-screen bg-[#0C0F0E] flex flex-col">
+    <div
+      className={`${fraunces.variable} ${plexMono.variable} min-h-screen bg-[#0b1d3a] flex flex-col`}
+      style={{
+        backgroundImage:
+          'linear-gradient(rgba(244,240,230,0.11) 1px, transparent 1px), linear-gradient(90deg, rgba(244,240,230,0.11) 1px, transparent 1px)',
+        backgroundSize: '64px 64px',
+      }}
+    >
 
       {/* Header */}
-      <header className="sticky top-0 z-20 bg-[#0D2137] px-5 py-4">
+      <header className="sticky top-0 z-20 bg-[#070f22] px-5 py-4">
         <div className="max-w-[680px] mx-auto flex items-center gap-4">
           <div className="flex items-center gap-3 shrink-0">
             <button onClick={step > 0 ? back : () => router.push('/prospeccion')}
@@ -1004,26 +1028,30 @@ function FluidoAContent() {
               </svg>
             </button>
             <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg bg-[#1D9E75] flex items-center justify-center shrink-0">
+              <div className="w-7 h-7 rounded-lg bg-[#c9a227] flex items-center justify-center shrink-0">
                 <svg width="14" height="14" viewBox="0 0 18 18" fill="none">
                   <path d="M9 2L16 6V12L9 16L2 12V6L9 2Z" stroke="white" strokeWidth="1.5" fill="none"/>
                   <path d="M9 2V16M2 6L16 12M16 6L2 12" stroke="white" strokeWidth="1" strokeOpacity="0.5"/>
                 </svg>
               </div>
-              <span className="text-[13px] font-semibold text-white hidden sm:block">SMT Developer</span>
+              <span className="text-[14px] hidden sm:block" style={{ fontFamily: 'var(--font-fraunces)', fontWeight: 500, color: '#f4f0e6' }}>
+                SMT <em style={{ fontStyle: 'normal', color: '#ddc06a' }}>Developer</em>
+              </span>
             </div>
           </div>
 
           <div className="flex-1">
             <div className="h-1.5 bg-white/15 rounded-full overflow-hidden">
-              <div className="h-full bg-[#1D9E75] rounded-full transition-all duration-500" style={{ width: `${pct}%` }} />
+              <div className="h-full bg-[#c9a227] rounded-full transition-all duration-500" style={{ width: `${pct}%` }} />
             </div>
           </div>
 
           <div className="shrink-0 text-right">
-            <p className="text-[11px] text-white/40 leading-none mb-0.5">{modoRapido ? 'Flujo A · Camino corto' : 'Flujo A'}</p>
-            <p className="text-[13px] font-bold text-white leading-none tabular-nums">
-              {step + 1}<span className="text-white/40 font-normal"> / {TOTAL}</span>
+            <p className="text-[10px] text-[#8b96ab] leading-none mb-1 tracking-[0.14em] uppercase" style={{ fontFamily: 'var(--font-plex-mono)' }}>
+              {modoRapido ? 'Flujo A · Camino corto' : 'Flujo A'}
+            </p>
+            <p className="text-[13px] text-[#f4f0e6] leading-none tabular-nums" style={{ fontFamily: 'var(--font-plex-mono)' }}>
+              {step + 1}<span className="text-[#8b96ab]"> / {TOTAL}</span>
             </p>
           </div>
         </div>
@@ -1042,31 +1070,31 @@ function FluidoAContent() {
       </main>
 
       {/* Footer */}
-      <footer className="sticky bottom-0 bg-[#0A0C0B] border-t border-white/10 px-5 py-4">
+      <footer className="sticky bottom-0 bg-[#070f22] border-t border-white/10 px-5 py-4">
         <div className="max-w-[600px] mx-auto flex items-center justify-between gap-3">
           {/* Skip on last step — solo aplica al paso de "Ajuste fino", que no existe en modo rápido */}
           {isLast && !modoRapido ? (
-            <button onClick={next} className="text-[13px] text-[#9aab9f] hover:text-[#5a7065] transition-colors px-2 py-2">
+            <button onClick={next} className="text-[13px] text-[#8b96ab] hover:text-[#ddc06a] transition-colors px-2 py-2" style={{ fontFamily: 'var(--font-plex-mono)' }}>
               Omitir ajuste →
             </button>
           ) : <div />}
 
           {isLast ? (
             <button onClick={submit}
-              className="flex items-center gap-2 bg-[#1D9E75] hover:bg-[#0F6E56] text-white px-7 py-3 rounded-xl text-[14px] font-bold transition-colors">
+              className="flex items-center gap-2 bg-[#c9a227] hover:bg-[#ddc06a] text-[#070f22] px-7 py-3 rounded-xl text-[14px] font-semibold transition-colors" style={{ fontFamily: 'var(--font-plex-mono)' }}>
               <svg width="16" height="16" viewBox="0 0 18 18" fill="none">
-                <path d="M9 2L16 6V12L9 16L2 12V6L9 2Z" stroke="white" strokeWidth="1.5" fill="none"/>
-                <path d="M9 2V16M2 6L16 12M16 6L2 12" stroke="white" strokeWidth="1" strokeOpacity="0.5"/>
+                <path d="M9 2L16 6V12L9 16L2 12V6L9 2Z" stroke="#070f22" strokeWidth="1.5" fill="none"/>
+                <path d="M9 2V16M2 6L16 12M16 6L2 12" stroke="#070f22" strokeWidth="1" strokeOpacity="0.5"/>
               </svg>
               Iniciar análisis
             </button>
           ) : (
             <button onClick={next} disabled={!canAdvance(step, form, modoRapido)}
-              className={`flex items-center gap-2 px-7 py-3 rounded-xl text-[14px] font-bold transition-all ${
+              className={`flex items-center gap-2 px-7 py-3 rounded-xl text-[14px] font-semibold transition-all ${
                 canAdvance(step, form, modoRapido)
-                  ? 'bg-[#1D9E75] hover:bg-[#0F6E56] text-white'
+                  ? 'bg-[#c9a227] hover:bg-[#ddc06a] text-[#070f22]'
                   : 'bg-white/10 text-white/30 cursor-not-allowed'
-              }`}>
+              }`} style={{ fontFamily: 'var(--font-plex-mono)' }}>
               Continuar
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                 <path d="M5 3l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
@@ -1081,7 +1109,7 @@ function FluidoAContent() {
 
 export default function FluidoAPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-[#0C0F0E]" />}>
+    <Suspense fallback={<div className="min-h-screen bg-[#0b1d3a]" />}>
       <FluidoAContent />
     </Suspense>
   )
