@@ -104,6 +104,10 @@ export interface PipelineState {
   financiero:  { status: AgentStatus; data: FinancieroResult | null; precioVentaObjetivo: string; unidadesObjetivo: string }
   ubicacion:   { status: AgentStatus; data: UbicacionData | null }
   catastro:    { status: AgentStatus; data: CatastroData | null }
+  // MVP portado de PREFORMA (ver app/preforma/page.tsx::runParcela) — cruce contra el catastro
+  // real de San Pedro Garza García (único GeoServer municipal verificado hoy). Solo corre
+  // cuando ciudad matchea ES_SAN_PEDRO; en cualquier otro municipio queda 'done' con data null.
+  parcela:     { status: AgentStatus; data: any }
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -1556,6 +1560,7 @@ function PipelineContent() {
     financiero:  { status: 'waiting', data: null, precioVentaObjetivo: '', unidadesObjetivo: '' },
     ubicacion:   { status: 'waiting', data: null },
     catastro:    { status: 'waiting', data: null },
+    parcela:     { status: 'waiting', data: null },
   })
 
   // Candidato actualmente elegido por el analista en cada paso con "Ajustar parámetros"
@@ -1690,6 +1695,28 @@ function PipelineContent() {
     }
   }
 
+  // ParcelResolver real (GeoServer municipal de San Pedro Garza García) — MVP portado de
+  // PREFORMA (ver app/preforma/page.tsx::runParcela). Solo cubre ese municipio hoy (único
+  // GeoServer verificado, ver lib/terreno/parcelResolver.ts): fuera de SPGG ni se intenta.
+  const ES_SAN_PEDRO = /san\s*pedro/i
+  const runParcela = async (fd: any, lat: number | null, lng: number | null) => {
+    if (lat == null || lng == null || !ES_SAN_PEDRO.test(fd.ciudad || '')) {
+      setPipe(p => ({ ...p, parcela: { status: 'done', data: null } }))
+      return
+    }
+    setPipe(p => ({ ...p, parcela: { status: 'running', data: null } }))
+    try {
+      const res = await authedFetch('/api/terreno/parcela', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lat, lng, direccion: fd.direccion, colonia: fd.colonia, superficieDeclaradaM2: Number(fd.superficie) || undefined }),
+      })
+      const json = await res.json()
+      setPipe(p => ({ ...p, parcela: { status: 'done', data: json } }))
+    } catch {
+      setPipe(p => ({ ...p, parcela: { status: 'error', data: null } }))
+    }
+  }
+
   // ── Preparación: Ubicación (corre primero, al terminar dispara Terreno) ──
   const runUbicacion = async (fd: any) => {
     let lat: number | null = fd.lat ?? fd.zonaGeo?.lat ?? null
@@ -1730,6 +1757,7 @@ function PipelineContent() {
 
     if (!lat || !lng) {
       setPipe(p => ({ ...p, ubicacion: { status: 'done', data: { isocronas: [] } } }))
+      runParcela(fd, lat, lng)
       const comps = await getComps(fd)
       runTerreno(fd, null, comps)
       return
@@ -1737,6 +1765,7 @@ function PipelineContent() {
 
     // Comparables e isócronas en paralelo
     setPipe(p => ({ ...p, ubicacion: { status: 'running', data: null } }))
+    runParcela(fd, lat, lng)
     const [comps, isoRes] = await Promise.all([
       getComps(fd),
       authedFetch('/api/geo/isochrone', {
@@ -2313,6 +2342,44 @@ function PipelineContent() {
                     </div>
                     <p className="text-[10px] text-[#5f6a80] mt-2 italic">Estas referencias se pasan al Agente Terreno para calibrar la valuación.</p>
                   </VerDetalle>
+                </div>
+              )}
+
+              {ES_SAN_PEDRO.test(formData?.ciudad || '') && pipe.parcela.status !== 'waiting' && (
+                <div className="bg-[#132a4d] rounded-2xl border border-[#2a3f5c] shadow-sm p-5">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-[11px] font-bold text-[#5f6a80] uppercase tracking-widest">Predio catastral (GeoServer SPGG)</p>
+                    {pipe.parcela.data?.status && (
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                        pipe.parcela.data.status === 'AUTO_RESOLVED' ? 'bg-[#14301f] text-[#1D9E75]' : 'bg-[#2a3f5c] text-[#8b96ab]'
+                      }`}>
+                        {pipe.parcela.data.status === 'AUTO_RESOLVED' ? 'Predio identificado' : pipe.parcela.data.status === 'REQUIRES_CONFIRMATION' ? 'Requiere confirmar' : 'Sin coincidencia'}
+                      </span>
+                    )}
+                  </div>
+                  {pipe.parcela.status === 'running' ? (
+                    <p className="text-[11px] text-[#5f6a80]">Consultando catastro municipal…</p>
+                  ) : pipe.parcela.status === 'error' ? (
+                    <p className="text-[11px] text-[#5f6a80]">No se pudo consultar el catastro.</p>
+                  ) : !pipe.parcela.data || pipe.parcela.data.status === 'NO_CANDIDATES' ? (
+                    <p className="text-[11px] text-[#5f6a80]">Sin coincidencia en el catastro municipal para este punto.</p>
+                  ) : pipe.parcela.data.status === 'REQUIRES_CONFIRMATION' ? (
+                    <div className="flex flex-col gap-1">
+                      <p className="text-[10.5px] text-[#5f6a80] leading-snug mb-1">{pipe.parcela.data.motivo}</p>
+                      {pipe.parcela.data.candidatos?.slice(0, 3).map((c: any, i: number) => (
+                        <p key={i} className="text-[11px] text-[#8b96ab]">
+                          {c.predio.ubicacion ?? '—'} · {c.predio.colonia ?? '—'} · {c.score != null ? `${Math.round(c.score * 100)}%` : '—'}
+                        </p>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                      <p className="text-[11px] text-[#8b96ab]">Folio catastral <span className="text-[#f4f0e6] font-semibold">{pipe.parcela.data.seleccionado?.predio.claveLote ?? '—'}</span></p>
+                      <p className="text-[11px] text-[#8b96ab]">Coincidencia <span className="text-[#f4f0e6] font-semibold">{pipe.parcela.data.seleccionado?.score != null ? `${Math.round(pipe.parcela.data.seleccionado.score * 100)}%` : '—'}</span></p>
+                      <p className="text-[11px] text-[#8b96ab]">Colonia catastro <span className="text-[#f4f0e6] font-semibold">{pipe.parcela.data.seleccionado?.predio.colonia ?? '—'}</span></p>
+                      <p className="text-[11px] text-[#8b96ab]">Área catastral <span className="text-[#f4f0e6] font-semibold">{pipe.parcela.data.seleccionado?.predio.areaM2 != null ? `${pipe.parcela.data.seleccionado.predio.areaM2.toFixed(1)} m²` : '—'}</span></p>
+                    </div>
+                  )}
                 </div>
               )}
 
