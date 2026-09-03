@@ -3,6 +3,11 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { authedFetch } from '@/lib/apiClient'
+import { Fraunces, IBM_Plex_Mono } from 'next/font/google'
+
+// Look & feel — espejo azul del navy/oro de Flujo A (ver app/prospeccion/flujo-a/page.tsx).
+const fraunces = Fraunces({ subsets: ['latin'], weight: ['500', '600'], style: ['normal', 'italic'], variable: '--font-fraunces' })
+const plexMono = IBM_Plex_Mono({ subsets: ['latin'], weight: ['400', '500'], variable: '--font-plex-mono' })
 
 const CIUDADES = [
   'Acapulco', 'Acuña', 'Agua Prieta', 'Aguascalientes', 'Ahome', 'Allende',
@@ -137,11 +142,11 @@ function ProgressBar({ step }: { step: number }) {
         {Array.from({ length: TOTAL_STEPS }).map((_, i) => (
           <div
             key={i}
-            className={`h-1 rounded-full flex-1 transition-all duration-300 ${i < step ? 'bg-[#1D9E75]' : 'bg-[#E2E8E4]'}`}
+            className={`h-1 rounded-full flex-1 transition-all duration-300 ${i < step ? 'bg-[#5B8FD4]' : 'bg-[#2a3f5c]'}`}
           />
         ))}
       </div>
-      <p className="text-[11px] text-[#9aab9f] tracking-wide">Paso {step} de {TOTAL_STEPS}</p>
+      <p className="text-[11px] text-[#5f6a80] tracking-wide">Paso {step} de {TOTAL_STEPS}</p>
     </div>
   )
 }
@@ -160,8 +165,8 @@ function ChipOption({
       onClick={onClick}
       className={`text-left rounded-xl border px-4 py-3 transition-all duration-150 w-full ${
         selected
-          ? 'bg-white border-[#1D9E75] shadow-[0_0_0_2px_#1D9E75]'
-          : 'bg-white border-[#E2E8E4] hover:border-[#9FE1CB]'
+          ? 'bg-[#132a4d] border-[#5B8FD4] shadow-[0_0_0_2px_#5B8FD4]'
+          : 'bg-[#132a4d] border-[#2a3f5c] hover:border-[#3f5a85]'
       }`}
     >
       {children}
@@ -172,21 +177,21 @@ function ChipOption({
 function Step1({ data, setData }: { data: FormData; setData: (d: FormData) => void }) {
   return (
     <div>
-      <p className="text-[12px] font-semibold text-[#1D9E75] tracking-[0.12em] uppercase mb-2">Scout IA · Flujo B</p>
-      <h2 className="text-[24px] font-semibold text-[#111d17] mb-2">Nombre del proyecto</h2>
-      <p className="text-[14px] text-[#5a7065] mb-6">
+      <p className="text-[12px] font-semibold text-[#8FB6E8] tracking-[0.12em] uppercase mb-2" style={{ fontFamily: 'var(--font-plex-mono)' }}>Scout IA · Flujo B</p>
+      <h2 className="text-[24px] font-medium text-[#f4f0e6] mb-2" style={{ fontFamily: 'var(--font-fraunces)' }}>Nombre del proyecto</h2>
+      <p className="text-[14px] text-[#8b96ab] mb-6">
         Este nombre identificará el proyecto y los 3 candidatos de terreno a lo largo del análisis Scout y el reporte comparativo final.
       </p>
       <div>
-        <label className="block text-[12px] text-[#5a7065] mb-2">Nombre del proyecto</label>
+        <label className="block text-[12px] text-[#8b96ab] mb-2">Nombre del proyecto</label>
         <input
           type="text"
           value={data.nombreProyecto}
           onChange={e => setData({ ...data, nombreProyecto: e.target.value })}
           placeholder="Ej. Residencial Valle 2026, Torre Midtown, Plaza Industrial Norte"
-          className="w-full border border-[#E2E8E4] rounded-xl px-4 py-3 text-[14px] text-[#111d17] bg-white focus:outline-none focus:border-[#1D9E75] focus:ring-2 focus:ring-[#1D9E75]/20 placeholder:text-[#c5d0cb]"
+          className="w-full border border-[#2a3f5c] rounded-xl px-4 py-3 text-[14px] text-[#f4f0e6] bg-[#132a4d] focus:outline-none focus:border-[#5B8FD4] focus:ring-2 focus:ring-[#5B8FD4]/20 placeholder:text-[#5f6a80]"
         />
-        <p className="text-[11px] text-[#9aab9f] mt-2">
+        <p className="text-[11px] text-[#5f6a80] mt-2">
           Puedes usar el concepto de desarrollo, la zona objetivo o el nombre comercial que tengas en mente.
         </p>
       </div>
@@ -265,19 +270,19 @@ function Step2({ data, setData }: { data: FormData; setData: (d: FormData) => vo
     const canContinue = data.estado.trim() !== '' && data.ciudad.trim() !== ''
     return (
       <div>
-        <p className="text-[12px] font-semibold text-[#1D9E75] tracking-[0.12em] uppercase mb-2">Scout IA · Flujo B</p>
-        <h2 className="text-[24px] font-semibold text-[#111d17] mb-2">¿En qué zona quieres buscar?</h2>
-        <p className="text-[14px] text-[#5a7065] mb-6">Indica el estado, la ciudad y la colonia o zona objetivo.</p>
+        <p className="text-[12px] font-semibold text-[#8FB6E8] tracking-[0.12em] uppercase mb-2" style={{ fontFamily: 'var(--font-plex-mono)' }}>Scout IA · Flujo B</p>
+        <h2 className="text-[24px] font-medium text-[#f4f0e6] mb-2" style={{ fontFamily: 'var(--font-fraunces)' }}>¿En qué zona quieres buscar?</h2>
+        <p className="text-[14px] text-[#8b96ab] mb-6">Indica el estado, la ciudad y la colonia o zona objetivo.</p>
 
         <div className="mb-4">
-          <label className="block text-[12px] text-[#5a7065] mb-2">Estado</label>
+          <label className="block text-[12px] text-[#8b96ab] mb-2">Estado</label>
           <input
             type="text"
             list="estados-list-b"
             value={data.estado}
             onChange={e => setData({ ...data, estado: e.target.value })}
             placeholder="Selecciona un estado…"
-            className="w-full border border-[#E2E8E4] rounded-xl px-4 py-3 text-[14px] text-[#111d17] bg-white focus:outline-none focus:border-[#1D9E75] focus:ring-2 focus:ring-[#1D9E75]/20 placeholder:text-[#c5d0cb]"
+            className="w-full border border-[#2a3f5c] rounded-xl px-4 py-3 text-[14px] text-[#f4f0e6] bg-[#132a4d] focus:outline-none focus:border-[#5B8FD4] focus:ring-2 focus:ring-[#5B8FD4]/20 placeholder:text-[#5f6a80]"
           />
           <datalist id="estados-list-b">
             {ESTADOS_MX.map(e => <option key={e} value={e} />)}
@@ -285,14 +290,14 @@ function Step2({ data, setData }: { data: FormData; setData: (d: FormData) => vo
         </div>
 
         <div className="mb-4">
-          <label className="block text-[12px] text-[#5a7065] mb-2">Ciudad o municipio</label>
+          <label className="block text-[12px] text-[#8b96ab] mb-2">Ciudad o municipio</label>
           <input
             type="text"
             list="ciudades-list-b"
             value={data.ciudad}
             onChange={e => setData({ ...data, ciudad: e.target.value })}
             placeholder="Escribe o selecciona una ciudad…"
-            className="w-full border border-[#E2E8E4] rounded-xl px-4 py-3 text-[14px] text-[#111d17] bg-white focus:outline-none focus:border-[#1D9E75] focus:ring-2 focus:ring-[#1D9E75]/20 placeholder:text-[#c5d0cb]"
+            className="w-full border border-[#2a3f5c] rounded-xl px-4 py-3 text-[14px] text-[#f4f0e6] bg-[#132a4d] focus:outline-none focus:border-[#5B8FD4] focus:ring-2 focus:ring-[#5B8FD4]/20 placeholder:text-[#5f6a80]"
           />
           <datalist id="ciudades-list-b">
             {CIUDADES.map(c => <option key={c} value={c} />)}
@@ -300,24 +305,24 @@ function Step2({ data, setData }: { data: FormData; setData: (d: FormData) => vo
         </div>
 
         <div className="mb-6">
-          <label className="block text-[12px] text-[#5a7065] mb-2">
-            Colonia o zona <span className="text-[#9aab9f]">(opcional)</span>
+          <label className="block text-[12px] text-[#8b96ab] mb-2">
+            Colonia o zona <span className="text-[#5f6a80]">(opcional)</span>
           </label>
           <input
             type="text"
             value={data.zona}
             onChange={e => setData({ ...data, zona: e.target.value })}
             placeholder="Ej. Valle Oriente, Cumbres, San Jerónimo…"
-            className="w-full border border-[#E2E8E4] rounded-xl px-4 py-3 text-[14px] text-[#111d17] bg-white focus:outline-none focus:border-[#1D9E75] focus:ring-2 focus:ring-[#1D9E75]/20 placeholder:text-[#c5d0cb]"
+            className="w-full border border-[#2a3f5c] rounded-xl px-4 py-3 text-[14px] text-[#f4f0e6] bg-[#132a4d] focus:outline-none focus:border-[#5B8FD4] focus:ring-2 focus:ring-[#5B8FD4]/20 placeholder:text-[#5f6a80]"
           />
-          <p className="text-[11px] text-[#9aab9f] mt-2">Si la dejas vacía, el Scout buscará en toda la ciudad.</p>
+          <p className="text-[11px] text-[#5f6a80] mt-2">Si la dejas vacía, el Scout buscará en toda la ciudad.</p>
         </div>
 
         <button
           onClick={() => setSubStep(2)}
           disabled={!canContinue}
           className={`w-full flex items-center justify-center gap-2 py-3.5 rounded-xl text-[14px] font-semibold transition-colors ${
-            canContinue ? 'bg-[#1D9E75] text-white hover:bg-[#0F6E56]' : 'bg-[#E2E8E4] text-[#9aab9f] cursor-not-allowed'
+            canContinue ? 'bg-[#5B8FD4] text-[#f4f0e6] hover:bg-[#8FB6E8]' : 'bg-[#2a3f5c] text-[#5f6a80] cursor-not-allowed'
           }`}
         >
           Confirmar con código postal
@@ -333,15 +338,15 @@ function Step2({ data, setData }: { data: FormData; setData: (d: FormData) => vo
   const puedeAgregarMas = data.zonasGeo.length < MAX_CODIGOS_POSTALES
   return (
     <div>
-      <p className="text-[12px] font-semibold text-[#1D9E75] tracking-[0.12em] uppercase mb-2">Scout IA · Flujo B</p>
-      <h2 className="text-[24px] font-semibold text-[#111d17] mb-2">Códigos postales a buscar</h2>
-      <p className="text-[14px] text-[#5a7065] mb-2">
+      <p className="text-[12px] font-semibold text-[#8FB6E8] tracking-[0.12em] uppercase mb-2" style={{ fontFamily: 'var(--font-plex-mono)' }}>Scout IA · Flujo B</p>
+      <h2 className="text-[24px] font-medium text-[#f4f0e6] mb-2" style={{ fontFamily: 'var(--font-fraunces)' }}>Códigos postales a buscar</h2>
+      <p className="text-[14px] text-[#8b96ab] mb-2">
         El código postal permite al Scout usar coordenadas GPS exactas para la búsqueda. Puedes agregar hasta {MAX_CODIGOS_POSTALES} para ampliar el área.
       </p>
 
       {/* Resumen de lo elegido */}
       <div className="flex items-center gap-2 mb-6">
-        <button onClick={() => setSubStep(1)} className="text-[11px] text-[#5a9078] hover:text-[#0F6E56] underline underline-offset-2">
+        <button onClick={() => setSubStep(1)} className="text-[11px] text-[#8b96ab] hover:text-[#8FB6E8] underline underline-offset-2">
           ← {data.estado && `${data.estado} · `}{data.ciudad}{data.zona ? ` · ${data.zona}` : ''}
         </button>
       </div>
@@ -350,12 +355,12 @@ function Step2({ data, setData }: { data: FormData; setData: (d: FormData) => vo
       {data.zonasGeo.length > 0 && (
         <div className="flex flex-wrap gap-2 mb-5">
           {data.zonasGeo.map(z => (
-            <div key={z.cp} className="flex items-center gap-2 bg-[#E1F5EE] border border-[#9FE1CB] rounded-full pl-3 pr-2 py-1.5">
-              <span className="text-[12px] font-semibold text-[#0F6E56]">CP {z.cp}</span>
-              <span className="text-[11px] text-[#5a9078]">· {z.nombre}</span>
+            <div key={z.cp} className="flex items-center gap-2 bg-[#5B8FD4]/10 border border-[#5B8FD4]/40 rounded-full pl-3 pr-2 py-1.5">
+              <span className="text-[12px] font-semibold text-[#8FB6E8]">CP {z.cp}</span>
+              <span className="text-[11px] text-[#8b96ab]">· {z.nombre}</span>
               <button
                 onClick={() => removeZona(z.cp)}
-                className="text-[#5a9078] hover:text-red-500 ml-1"
+                className="text-[#8b96ab] hover:text-red-500 ml-1"
                 aria-label={`Quitar CP ${z.cp}`}
               >
                 <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
@@ -369,8 +374,8 @@ function Step2({ data, setData }: { data: FormData; setData: (d: FormData) => vo
 
       {/* Preview del CP recién geocodificado, pendiente de confirmar */}
       {preview && (
-        <div className="rounded-xl border border-[#E2E8E4] bg-[#FAFBF9] px-4 py-3 mb-5">
-          <div className="rounded-2xl overflow-hidden border border-[#E2E8E4] mb-3" style={{ height: 160 }}>
+        <div className="rounded-xl border border-[#2a3f5c] bg-[#132a4d] px-4 py-3 mb-5">
+          <div className="rounded-2xl overflow-hidden border border-[#2a3f5c] mb-3" style={{ height: 160 }}>
             <iframe
               src={`https://www.openstreetmap.org/export/embed.html?bbox=${preview.lng - 0.012},${preview.lat - 0.008},${preview.lng + 0.012},${preview.lat + 0.008}&layer=mapnik&marker=${preview.lat},${preview.lng}`}
               className="w-full h-full border-0"
@@ -378,18 +383,18 @@ function Step2({ data, setData }: { data: FormData; setData: (d: FormData) => vo
               title="Mapa de la zona"
             />
           </div>
-          <p className="text-[13px] font-semibold text-[#111d17]">CP {preview.cp} · {preview.nombre}</p>
-          <p className="text-[10px] text-[#9aab9f] font-mono mb-3">{preview.lat.toFixed(5)}, {preview.lng.toFixed(5)}</p>
+          <p className="text-[13px] font-semibold text-[#f4f0e6]">CP {preview.cp} · {preview.nombre}</p>
+          <p className="text-[10px] text-[#5f6a80] font-mono mb-3">{preview.lat.toFixed(5)}, {preview.lng.toFixed(5)}</p>
           <div className="flex gap-2">
             <button
               onClick={confirmAdd}
-              className="flex-1 bg-[#1D9E75] text-white rounded-xl py-2.5 text-[13px] font-semibold hover:bg-[#0F6E56] transition-colors"
+              className="flex-1 bg-[#5B8FD4] text-[#f4f0e6] rounded-xl py-2.5 text-[13px] font-semibold hover:bg-[#8FB6E8] transition-colors"
             >
               Agregar esta zona
             </button>
             <button
               onClick={cancelPreview}
-              className="px-4 border border-[#E2E8E4] text-[#5a7065] rounded-xl py-2.5 text-[13px] hover:border-[#9FE1CB] transition-colors"
+              className="px-4 border border-[#2a3f5c] text-[#8b96ab] rounded-xl py-2.5 text-[13px] hover:border-[#5B8FD4]/40 transition-colors"
             >
               Cambiar
             </button>
@@ -400,7 +405,7 @@ function Step2({ data, setData }: { data: FormData; setData: (d: FormData) => vo
       {/* Input para agregar un nuevo CP */}
       {!preview && puedeAgregarMas && (
         <div className="mb-2">
-          <label className="block text-[12px] text-[#5a7065] mb-2">
+          <label className="block text-[12px] text-[#8b96ab] mb-2">
             {data.zonasGeo.length === 0 ? 'Código postal' : `Agregar otro código postal (${data.zonasGeo.length}/${MAX_CODIGOS_POSTALES})`}
           </label>
           <div className="relative">
@@ -412,15 +417,15 @@ function Step2({ data, setData }: { data: FormData; setData: (d: FormData) => vo
               onChange={handleCPChange}
               placeholder="Ej. 64630"
               autoFocus
-              className={`w-full border rounded-xl px-4 py-3 text-[18px] tracking-[0.2em] font-mono text-[#111d17] bg-white focus:outline-none focus:ring-2 placeholder:text-[#c5d0cb] placeholder:tracking-normal placeholder:font-sans placeholder:text-[14px] pr-12 ${
+              className={`w-full border rounded-xl px-4 py-3 text-[18px] tracking-[0.2em] font-mono text-[#f4f0e6] bg-[#132a4d] focus:outline-none focus:ring-2 placeholder:text-[#5f6a80] placeholder:tracking-normal placeholder:font-sans placeholder:text-[14px] pr-12 ${
                 verifyError
                   ? 'border-red-400 focus:border-red-400 focus:ring-red-100'
-                  : 'border-[#E2E8E4] focus:border-[#1D9E75] focus:ring-[#1D9E75]/20'
+                  : 'border-[#2a3f5c] focus:border-[#5B8FD4] focus:ring-[#5B8FD4]/20'
               }`}
             />
             <div className="absolute right-4 top-1/2 -translate-y-1/2">
               {verifying && (
-                <svg className="animate-spin w-5 h-5 text-[#1D9E75]" viewBox="0 0 24 24" fill="none">
+                <svg className="animate-spin w-5 h-5 text-[#5B8FD4]" viewBox="0 0 24 24" fill="none">
                   <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeOpacity="0.25"/>
                   <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round"/>
                 </svg>
@@ -428,9 +433,9 @@ function Step2({ data, setData }: { data: FormData; setData: (d: FormData) => vo
             </div>
           </div>
           {verifyError && <p className="text-[11px] text-red-500 mt-2">{verifyError}</p>}
-          {verifying && <p className="text-[11px] text-[#1D9E75] mt-2">Buscando en Google Maps…</p>}
+          {verifying && <p className="text-[11px] text-[#5B8FD4] mt-2">Buscando en Google Maps…</p>}
           {!verifyError && !verifying && (
-            <p className="text-[11px] text-[#9aab9f] mt-2">
+            <p className="text-[11px] text-[#5f6a80] mt-2">
               {data.zonasGeo.length === 0
                 ? 'Al completar 5 dígitos verificamos automáticamente y mostramos el mapa.'
                 : `Opcional — puedes agregar hasta ${MAX_CODIGOS_POSTALES} códigos postales para ampliar la búsqueda.`}
@@ -440,7 +445,7 @@ function Step2({ data, setData }: { data: FormData; setData: (d: FormData) => vo
       )}
 
       {!puedeAgregarMas && (
-        <p className="text-[11px] text-[#9aab9f] mt-2">Máximo de {MAX_CODIGOS_POSTALES} códigos postales alcanzado.</p>
+        <p className="text-[11px] text-[#5f6a80] mt-2">Máximo de {MAX_CODIGOS_POSTALES} códigos postales alcanzado.</p>
       )}
     </div>
   )
@@ -449,9 +454,9 @@ function Step2({ data, setData }: { data: FormData; setData: (d: FormData) => vo
 function Step3({ data, setData }: { data: FormData; setData: (d: FormData) => void }) {
   return (
     <div>
-      <p className="text-[12px] font-semibold text-[#1D9E75] tracking-[0.12em] uppercase mb-2">Scout IA · Flujo B</p>
-      <h2 className="text-[24px] font-semibold text-[#111d17] mb-2">¿Qué tipo de desarrollo tienes en mente?</h2>
-      <p className="text-[14px] text-[#5a7065] mb-6">El Scout filtrará terrenos con el uso de suelo adecuado.</p>
+      <p className="text-[12px] font-semibold text-[#8FB6E8] tracking-[0.12em] uppercase mb-2" style={{ fontFamily: 'var(--font-plex-mono)' }}>Scout IA · Flujo B</p>
+      <h2 className="text-[24px] font-medium text-[#f4f0e6] mb-2" style={{ fontFamily: 'var(--font-fraunces)' }}>¿Qué tipo de desarrollo tienes en mente?</h2>
+      <p className="text-[14px] text-[#8b96ab] mb-6">El Scout filtrará terrenos con el uso de suelo adecuado.</p>
 
       <div className="grid grid-cols-2 gap-3">
         {TIPOS_DESARROLLO.map(t => (
@@ -459,8 +464,8 @@ function Step3({ data, setData }: { data: FormData; setData: (d: FormData) => vo
             <div className="flex items-start gap-3">
               <span className="text-2xl leading-none mt-0.5">{t.icon}</span>
               <div>
-                <p className="text-[13px] font-semibold text-[#111d17] leading-snug">{t.label}</p>
-                <p className="text-[11px] text-[#7a9089] mt-0.5">{t.desc}</p>
+                <p className="text-[13px] font-semibold text-[#f4f0e6] leading-snug">{t.label}</p>
+                <p className="text-[11px] text-[#5f6a80] mt-0.5">{t.desc}</p>
               </div>
             </div>
           </ChipOption>
@@ -469,8 +474,8 @@ function Step3({ data, setData }: { data: FormData; setData: (d: FormData) => vo
           <div className="flex items-start gap-3">
             <span className="text-2xl leading-none mt-0.5">✏️</span>
             <div>
-              <p className="text-[13px] font-semibold text-[#111d17] leading-snug">Otro</p>
-              <p className="text-[11px] text-[#7a9089] mt-0.5">Describe la vocación del proyecto</p>
+              <p className="text-[13px] font-semibold text-[#f4f0e6] leading-snug">Otro</p>
+              <p className="text-[11px] text-[#5f6a80] mt-0.5">Describe la vocación del proyecto</p>
             </div>
           </div>
         </ChipOption>
@@ -482,7 +487,7 @@ function Step3({ data, setData }: { data: FormData; setData: (d: FormData) => vo
           value={data.tipoOtroTexto}
           onChange={e => setData({ ...data, tipoOtroTexto: e.target.value })}
           placeholder="Describe la vocación del proyecto…"
-          className="mt-3 w-full text-[13px] bg-white border border-[#1D9E75] rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-[#1D9E75]/20 placeholder:text-[#c0cdc7]"
+          className="mt-3 w-full text-[13px] bg-[#132a4d] border border-[#5B8FD4] rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-[#5B8FD4]/20 placeholder:text-[#5f6a80]"
         />
       )}
     </div>
@@ -492,27 +497,27 @@ function Step3({ data, setData }: { data: FormData; setData: (d: FormData) => vo
 function Step4({ data, setData }: { data: FormData; setData: (d: FormData) => void }) {
   return (
     <div>
-      <p className="text-[12px] font-semibold text-[#1D9E75] tracking-[0.12em] uppercase mb-2">Scout IA · Flujo B</p>
-      <h2 className="text-[24px] font-semibold text-[#111d17] mb-2">Superficie y presupuesto</h2>
-      <p className="text-[14px] text-[#5a7065] mb-6">Define los rangos para que el Scout descarte terrenos fuera de tu parámetro.</p>
+      <p className="text-[12px] font-semibold text-[#8FB6E8] tracking-[0.12em] uppercase mb-2" style={{ fontFamily: 'var(--font-plex-mono)' }}>Scout IA · Flujo B</p>
+      <h2 className="text-[24px] font-medium text-[#f4f0e6] mb-2" style={{ fontFamily: 'var(--font-fraunces)' }}>Superficie y presupuesto</h2>
+      <p className="text-[14px] text-[#8b96ab] mb-6">Define los rangos para que el Scout descarte terrenos fuera de tu parámetro.</p>
 
       <div className="mb-6">
-        <p className="text-[13px] font-semibold text-[#111d17] mb-3">Superficie del terreno</p>
+        <p className="text-[13px] font-semibold text-[#f4f0e6] mb-3">Superficie del terreno</p>
         <div className="grid grid-cols-2 gap-2">
           {RANGOS_SUPERFICIE.map(r => (
             <ChipOption key={r.id} selected={data.superficie === r.id} onClick={() => setData({ ...data, superficie: r.id })}>
-              <p className="text-[13px] text-[#111d17] font-medium">{r.label}</p>
+              <p className="text-[13px] text-[#f4f0e6] font-medium">{r.label}</p>
             </ChipOption>
           ))}
         </div>
       </div>
 
       <div>
-        <p className="text-[13px] font-semibold text-[#111d17] mb-3">Presupuesto de adquisición</p>
+        <p className="text-[13px] font-semibold text-[#f4f0e6] mb-3">Presupuesto de adquisición</p>
         <div className="grid grid-cols-2 gap-2">
           {RANGOS_PRESUPUESTO.map(r => (
             <ChipOption key={r.id} selected={data.presupuesto === r.id} onClick={() => setData({ ...data, presupuesto: r.id })}>
-              <p className="text-[13px] text-[#111d17] font-medium">{r.label}</p>
+              <p className="text-[13px] text-[#f4f0e6] font-medium">{r.label}</p>
             </ChipOption>
           ))}
         </div>
@@ -533,9 +538,9 @@ function Step5({ data, setData }: { data: FormData; setData: (d: FormData) => vo
 
   return (
     <div>
-      <p className="text-[12px] font-semibold text-[#1D9E75] tracking-[0.12em] uppercase mb-2">Scout IA · Flujo B</p>
-      <h2 className="text-[24px] font-semibold text-[#111d17] mb-2">¿Cuáles son tus prioridades?</h2>
-      <p className="text-[14px] text-[#5a7065] mb-6">Elige hasta 2. El Scout ponderará los resultados según lo que más te importa.</p>
+      <p className="text-[12px] font-semibold text-[#8FB6E8] tracking-[0.12em] uppercase mb-2" style={{ fontFamily: 'var(--font-plex-mono)' }}>Scout IA · Flujo B</p>
+      <h2 className="text-[24px] font-medium text-[#f4f0e6] mb-2" style={{ fontFamily: 'var(--font-fraunces)' }}>¿Cuáles son tus prioridades?</h2>
+      <p className="text-[14px] text-[#8b96ab] mb-6">Elige hasta 2. El Scout ponderará los resultados según lo que más te importa.</p>
 
       <div className="grid grid-cols-2 gap-3 mb-6">
         {PRIORIDADES.map(p => {
@@ -548,29 +553,29 @@ function Step5({ data, setData }: { data: FormData; setData: (d: FormData) => vo
               disabled={disabled}
               className={`text-left rounded-xl border px-4 py-4 transition-all duration-150 ${
                 selected
-                  ? 'bg-white border-[#1D9E75] shadow-[0_0_0_2px_#1D9E75]'
+                  ? 'bg-[#132a4d] border-[#5B8FD4] shadow-[0_0_0_2px_#5B8FD4]'
                   : disabled
-                  ? 'bg-[#F7F8F6] border-[#E2E8E4] opacity-40 cursor-not-allowed'
-                  : 'bg-white border-[#E2E8E4] hover:border-[#9FE1CB]'
+                  ? 'bg-[#132a4d] border-[#2a3f5c] opacity-40 cursor-not-allowed'
+                  : 'bg-[#132a4d] border-[#2a3f5c] hover:border-[#5B8FD4]/40'
               }`}
             >
               <span className="text-2xl block mb-2">{p.icon}</span>
-              <p className="text-[13px] font-semibold text-[#111d17]">{p.label}</p>
+              <p className="text-[13px] font-semibold text-[#f4f0e6]">{p.label}</p>
             </button>
           )
         })}
       </div>
 
       <div>
-        <label className="block text-[12px] text-[#5a7065] mb-2">
-          Contexto adicional <span className="text-[#9aab9f]">(opcional)</span>
+        <label className="block text-[12px] text-[#8b96ab] mb-2">
+          Contexto adicional <span className="text-[#5f6a80]">(opcional)</span>
         </label>
         <textarea
           rows={3}
           placeholder="Ej. Buscamos algo para clase media-alta, con acceso a vía rápida, preferentemente esquina…"
           value={data.notas}
           onChange={e => setData({ ...data, notas: e.target.value })}
-          className="w-full border border-[#E2E8E4] rounded-xl px-4 py-3 text-[14px] text-[#111d17] bg-white focus:outline-none focus:border-[#1D9E75] focus:ring-2 focus:ring-[#1D9E75]/20 placeholder:text-[#c5d0cb] resize-none"
+          className="w-full border border-[#2a3f5c] rounded-xl px-4 py-3 text-[14px] text-[#f4f0e6] bg-[#132a4d] focus:outline-none focus:border-[#5B8FD4] focus:ring-2 focus:ring-[#5B8FD4]/20 placeholder:text-[#5f6a80] resize-none"
         />
       </div>
     </div>
@@ -586,66 +591,66 @@ function Step6({ data }: { data: FormData }) {
 
   return (
     <div>
-      <p className="text-[12px] font-semibold text-[#1D9E75] tracking-[0.12em] uppercase mb-2">Scout IA · Flujo B</p>
-      <h2 className="text-[24px] font-semibold text-[#111d17] mb-2">Resumen de tu búsqueda</h2>
-      <p className="text-[14px] text-[#5a7065] mb-6">Confirma los parámetros antes de activar el Scout.</p>
+      <p className="text-[12px] font-semibold text-[#8FB6E8] tracking-[0.12em] uppercase mb-2" style={{ fontFamily: 'var(--font-plex-mono)' }}>Scout IA · Flujo B</p>
+      <h2 className="text-[24px] font-medium text-[#f4f0e6] mb-2" style={{ fontFamily: 'var(--font-fraunces)' }}>Resumen de tu búsqueda</h2>
+      <p className="text-[14px] text-[#8b96ab] mb-6">Confirma los parámetros antes de activar el Scout.</p>
 
-      <div className="rounded-2xl border border-[#1D9E75]/30 bg-[#F0FBF6] p-5 mb-5">
+      <div className="rounded-2xl border border-[#5B8FD4]/30 bg-[#1c304b] p-5 mb-5">
         <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 rounded-xl bg-[#1D9E75] flex items-center justify-center shrink-0">
+          <div className="w-10 h-10 rounded-xl bg-[#5B8FD4] flex items-center justify-center shrink-0">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-              <circle cx="11" cy="11" r="7" stroke="white" strokeWidth="1.8"/>
-              <path d="M16.5 16.5L21 21" stroke="white" strokeWidth="1.8" strokeLinecap="round"/>
-              <path d="M8 11H14M11 8V14" stroke="white" strokeWidth="1.8" strokeLinecap="round"/>
+              <circle cx="11" cy="11" r="7" stroke="#f4f0e6" strokeWidth="1.8"/>
+              <path d="M16.5 16.5L21 21" stroke="#f4f0e6" strokeWidth="1.8" strokeLinecap="round"/>
+              <path d="M8 11H14M11 8V14" stroke="#f4f0e6" strokeWidth="1.8" strokeLinecap="round"/>
             </svg>
           </div>
           <div>
-            <p className="text-[13px] font-bold text-[#0F6E56]">Scout listo para activarse</p>
-            <p className="text-[11px] text-[#5a9078]">El análisis iniciará en cuanto confirmes</p>
+            <p className="text-[13px] font-bold text-[#8FB6E8]">Scout listo para activarse</p>
+            <p className="text-[11px] text-[#8b96ab]">El análisis iniciará en cuanto confirmes</p>
           </div>
         </div>
 
         {data.nombreProyecto && (
-          <div className="mb-3 px-4 py-3 bg-[#1D9E75] rounded-xl">
+          <div className="mb-3 px-4 py-3 bg-[#5B8FD4] rounded-xl">
             <p className="text-[10px] font-semibold text-[#9FE1CB] tracking-[0.12em] uppercase mb-0.5">Proyecto</p>
-            <p className="text-[16px] font-bold text-white">{data.nombreProyecto}</p>
+            <p className="text-[16px] font-bold text-[#f4f0e6]">{data.nombreProyecto}</p>
           </div>
         )}
 
         <div className="grid grid-cols-2 gap-3">
-          <div className="bg-white rounded-xl p-3 border border-[#D4EFE3]">
-            <p className="text-[10px] text-[#7aaa90] uppercase tracking-wide mb-1">Ubicación</p>
-            {data.estado && <p className="text-[10px] font-semibold text-[#1D9E75] mb-0.5">{data.estado}</p>}
-            <p className="text-[13px] font-semibold text-[#111d17]">{data.ciudad || '—'}</p>
-            {data.zona && <p className="text-[11px] text-[#5a7065] mt-0.5">{data.zona}</p>}
+          <div className="bg-[#132a4d] rounded-xl p-3 border border-[#5B8FD4]/25">
+            <p className="text-[10px] text-[#8b96ab] uppercase tracking-wide mb-1">Ubicación</p>
+            {data.estado && <p className="text-[10px] font-semibold text-[#5B8FD4] mb-0.5">{data.estado}</p>}
+            <p className="text-[13px] font-semibold text-[#f4f0e6]">{data.ciudad || '—'}</p>
+            {data.zona && <p className="text-[11px] text-[#8b96ab] mt-0.5">{data.zona}</p>}
             {data.zonasGeo.length > 0 && (
               <div className="flex flex-wrap gap-1 mt-1">
                 {data.zonasGeo.map(z => (
-                  <span key={z.cp} className="text-[10px] font-medium text-[#1D9E75] bg-[#E1F5EE] px-1.5 py-0.5 rounded">
+                  <span key={z.cp} className="text-[10px] font-medium text-[#5B8FD4] bg-[#5B8FD4]/10 px-1.5 py-0.5 rounded">
                     CP {z.cp}
                   </span>
                 ))}
               </div>
             )}
           </div>
-          <div className="bg-white rounded-xl p-3 border border-[#D4EFE3]">
-            <p className="text-[10px] text-[#7aaa90] uppercase tracking-wide mb-1">Tipo de desarrollo</p>
-            <p className="text-[13px] font-semibold text-[#111d17]">{tipoLabel}</p>
+          <div className="bg-[#132a4d] rounded-xl p-3 border border-[#5B8FD4]/25">
+            <p className="text-[10px] text-[#8b96ab] uppercase tracking-wide mb-1">Tipo de desarrollo</p>
+            <p className="text-[13px] font-semibold text-[#f4f0e6]">{tipoLabel}</p>
           </div>
-          <div className="bg-white rounded-xl p-3 border border-[#D4EFE3]">
-            <p className="text-[10px] text-[#7aaa90] uppercase tracking-wide mb-1">Superficie</p>
-            <p className="text-[13px] font-semibold text-[#111d17]">{superficie?.label || '—'}</p>
+          <div className="bg-[#132a4d] rounded-xl p-3 border border-[#5B8FD4]/25">
+            <p className="text-[10px] text-[#8b96ab] uppercase tracking-wide mb-1">Superficie</p>
+            <p className="text-[13px] font-semibold text-[#f4f0e6]">{superficie?.label || '—'}</p>
           </div>
-          <div className="bg-white rounded-xl p-3 border border-[#D4EFE3]">
-            <p className="text-[10px] text-[#7aaa90] uppercase tracking-wide mb-1">Presupuesto</p>
-            <p className="text-[13px] font-semibold text-[#111d17]">{presupuesto?.label || '—'}</p>
+          <div className="bg-[#132a4d] rounded-xl p-3 border border-[#5B8FD4]/25">
+            <p className="text-[10px] text-[#8b96ab] uppercase tracking-wide mb-1">Presupuesto</p>
+            <p className="text-[13px] font-semibold text-[#f4f0e6]">{presupuesto?.label || '—'}</p>
           </div>
           {prioridades.length > 0 && (
-            <div className="col-span-2 bg-white rounded-xl p-3 border border-[#D4EFE3]">
-              <p className="text-[10px] text-[#7aaa90] uppercase tracking-wide mb-1">Prioridades</p>
+            <div className="col-span-2 bg-[#132a4d] rounded-xl p-3 border border-[#5B8FD4]/25">
+              <p className="text-[10px] text-[#8b96ab] uppercase tracking-wide mb-1">Prioridades</p>
               <div className="flex gap-2 flex-wrap">
                 {prioridades.map(p => (
-                  <span key={p.id} className="text-[12px] font-medium text-[#0F6E56] bg-[#E1F5EE] px-2.5 py-1 rounded-full">
+                  <span key={p.id} className="text-[12px] font-medium text-[#8FB6E8] bg-[#5B8FD4]/10 px-2.5 py-1 rounded-full">
                     {p.icon} {p.label}
                   </span>
                 ))}
@@ -653,17 +658,17 @@ function Step6({ data }: { data: FormData }) {
             </div>
           )}
           {data.notas && (
-            <div className="col-span-2 bg-white rounded-xl p-3 border border-[#D4EFE3]">
-              <p className="text-[10px] text-[#7aaa90] uppercase tracking-wide mb-1">Notas</p>
-              <p className="text-[12px] text-[#5a7065]">{data.notas}</p>
+            <div className="col-span-2 bg-[#132a4d] rounded-xl p-3 border border-[#5B8FD4]/25">
+              <p className="text-[10px] text-[#8b96ab] uppercase tracking-wide mb-1">Notas</p>
+              <p className="text-[12px] text-[#8b96ab]">{data.notas}</p>
             </div>
           )}
         </div>
       </div>
 
-      <div className="flex items-start gap-2 bg-[#FFF8E6] border border-[#F0D070] rounded-xl px-4 py-3">
+      <div className="flex items-start gap-2 bg-[#132a4d] border border-[#c9a227]/40 rounded-xl px-4 py-3">
         <span className="text-base mt-0.5">⏱️</span>
-        <p className="text-[12px] text-[#7a6020]">
+        <p className="text-[12px] text-[#ddc06a]">
           El Scout analiza disponibilidad, uso de suelo y precios de mercado. El proceso toma entre <strong>2 y 4 horas</strong>. Te notificaremos al completarse.
         </p>
       </div>
@@ -704,24 +709,33 @@ export default function FlujoB() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0C0F0E] flex flex-col">
-      <header className="px-8 py-5 flex items-center gap-3 border-b border-white/10 bg-[#0C0F0E]">
-        <div className="w-8 h-8 rounded-lg bg-[#1D9E75] flex items-center justify-center">
+    <div
+      className={`${fraunces.variable} ${plexMono.variable} min-h-screen bg-[#0b1d3a] flex flex-col`}
+      style={{
+        backgroundImage:
+          'linear-gradient(rgba(244,240,230,0.11) 1px, transparent 1px), linear-gradient(90deg, rgba(244,240,230,0.11) 1px, transparent 1px)',
+        backgroundSize: '64px 64px',
+      }}
+    >
+      <header className="sticky top-0 z-20 px-8 py-5 flex items-center gap-3 border-b border-white/10 bg-[#070f22]">
+        <div className="w-8 h-8 rounded-lg bg-[#5B8FD4] flex items-center justify-center">
           <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-            <path d="M9 2L16 6V12L9 16L2 12V6L9 2Z" stroke="white" strokeWidth="1.5" fill="none"/>
-            <path d="M9 2V16M2 6L16 12M16 6L2 12" stroke="white" strokeWidth="1" strokeOpacity="0.5"/>
+            <path d="M9 2L16 6V12L9 16L2 12V6L9 2Z" stroke="#f4f0e6" strokeWidth="1.5" fill="none"/>
+            <path d="M9 2V16M2 6L16 12M16 6L2 12" stroke="#f4f0e6" strokeWidth="1" strokeOpacity="0.5"/>
           </svg>
         </div>
         <div>
-          <span className="text-[15px] font-medium text-white tracking-wide">SMT Developer</span>
-          <span className="block text-[10px] text-white/40 tracking-[0.12em] uppercase">Inteligencia inmobiliaria</span>
+          <span className="text-[15px] tracking-wide" style={{ fontFamily: 'var(--font-fraunces)', fontWeight: 500, color: '#f4f0e6' }}>
+            SMT <em style={{ fontStyle: 'normal', color: '#8FB6E8' }}>Developer</em>
+          </span>
+          <span className="block text-[10px] text-[#8b96ab] tracking-[0.12em] uppercase">Inteligencia inmobiliaria</span>
         </div>
-        <div className="ml-auto flex items-center gap-2 text-[12px] text-white/30">
-          <span className="text-[#1D9E75] font-medium">Prospección</span>
+        <div className="ml-auto flex items-center gap-2 text-[12px] text-[#5f6a80]">
+          <span className="text-[#5B8FD4] font-medium">Prospección</span>
           <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
             <path d="M4 2L8 6L4 10" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
           </svg>
-          <span className="text-[#1D9E75] font-medium">Flujo B</span>
+          <span className="text-[#5B8FD4] font-medium">Flujo B</span>
           <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
             <path d="M4 2L8 6L4 10" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
           </svg>
@@ -733,7 +747,7 @@ export default function FlujoB() {
         <div className="w-full max-w-[560px]">
           <ProgressBar step={step} />
 
-          <div className="bg-white rounded-2xl border border-[#E2E8E4] p-8 mb-6 shadow-sm">
+          <div className="bg-[#132a4d] rounded-2xl border border-[#2a3f5c] p-8 mb-6 shadow-sm">
             {step === 1 && <Step1 data={data} setData={setData} />}
             {step === 2 && <Step2 data={data} setData={setData} />}
             {step === 3 && <Step3 data={data} setData={setData} />}
@@ -745,7 +759,7 @@ export default function FlujoB() {
           <div className="flex items-center justify-between">
             <button
               onClick={handleBack}
-              className="flex items-center gap-2 text-[13px] text-[#5a7065] hover:text-[#111d17] transition-colors"
+              className="flex items-center gap-2 text-[13px] text-[#8b96ab] hover:text-[#f4f0e6] transition-colors"
             >
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                 <path d="M10 4L6 8L10 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
@@ -758,8 +772,8 @@ export default function FlujoB() {
               disabled={!canAdvance()}
               className={`flex items-center gap-2 px-6 py-3 rounded-xl text-[14px] font-medium transition-all duration-200 ${
                 canAdvance()
-                  ? 'bg-[#1D9E75] text-white hover:bg-[#0F6E56] cursor-pointer'
-                  : 'bg-[#E2E8E4] text-[#9aab9f] cursor-not-allowed'
+                  ? 'bg-[#5B8FD4] text-[#f4f0e6] hover:bg-[#8FB6E8] cursor-pointer'
+                  : 'bg-[#2a3f5c] text-[#5f6a80] cursor-not-allowed'
               }`}
             >
               {step === TOTAL_STEPS ? 'Activar Scout' : 'Siguiente'}

@@ -25,7 +25,7 @@ export default function SensitivityMatrix() {
   return (
     <div className="rounded-xl border border-white/10 p-5" style={{ background: 'linear-gradient(180deg, rgba(255,255,255,0.035) 0%, rgba(255,255,255,0) 60%)' }}>
       <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-white/50 flex items-center gap-2 mb-1">
-        <span className="w-1.5 h-1.5 rounded-full bg-[#1D9E75]" />
+        <span className="w-1.5 h-1.5 rounded-full bg-[#c9a227]" />
         Matriz de sensibilidad
       </h3>
       <p className="text-[11px] text-white/30 mb-4">Precio de venta (columnas) vs. costo de construcción (filas) → TIR Socio</p>

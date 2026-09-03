@@ -45,7 +45,7 @@ export default function DetailDrawerCore({ leverId, mixHabitacional, totalLocale
   return (
     <div className="rounded-xl border border-white/10 bg-black/20 p-5">
       <div className="flex items-center gap-2 mb-4">
-        <span className="w-1.5 h-1.5 rounded-full bg-[#1D9E75]" />
+        <span className="w-1.5 h-1.5 rounded-full bg-[#c9a227]" />
         <h4 className="text-[12px] font-bold uppercase tracking-wider text-white">{TITULOS[leverId]}</h4>
       </div>
 

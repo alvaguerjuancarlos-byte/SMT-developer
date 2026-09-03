@@ -45,11 +45,11 @@ export default function DetailDrawer({ leverId, origenAnalisis }: {
   return (
     <div className="rounded-xl border border-white/10 bg-black/20 p-5">
       <div className="flex items-center gap-2 mb-4">
-        <span className="w-1.5 h-1.5 rounded-full bg-[#1D9E75]" />
+        <span className="w-1.5 h-1.5 rounded-full bg-[#c9a227]" />
         <h4 className="text-[12px] font-bold uppercase tracking-wider text-white">{TITULOS[leverId]}</h4>
         {delAnalisis !== undefined && (
           delAnalisis ? (
-            <span className="text-[9px] font-bold text-[#1D9E75] bg-[#1D9E75]/10 px-2 py-0.5 rounded-full uppercase tracking-wide">● Del análisis</span>
+            <span className="text-[9px] font-bold text-[#ddc06a] bg-[#c9a227]/10 px-2 py-0.5 rounded-full uppercase tracking-wide">● Del análisis</span>
           ) : (
             <span className="text-[9px] font-medium text-white/30 bg-white/5 px-2 py-0.5 rounded-full uppercase tracking-wide">○ Valor por default</span>
           )

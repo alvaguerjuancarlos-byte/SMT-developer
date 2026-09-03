@@ -103,21 +103,21 @@ export function BocetoVolumetria({ tipologia }: { tipologia: TipologiaPropuesta 
   const nivelesHabitacional = Math.max(totalNiveles - nivelesComercial, tipologia.habitacional ? 1 : 0)
 
   if (nivelesComercial === 0 && nivelesHabitacional === 0) {
-    return <p className="text-[12px] text-[#9aab9f] italic px-1">Sin datos de niveles para graficar.</p>
+    return <p className="text-[12px] text-[#5f6a80] italic px-1">Sin datos de niveles para graficar.</p>
   }
 
   return (
     <div>
-      <div className="bg-[#FAFAF7] border border-[#E2E8E4] rounded-xl px-4 py-5 flex justify-center">
+      <div className="bg-[#0b1d3a] border border-[#2a3f5c] rounded-xl px-4 py-5 flex justify-center">
         <EdificioSketch nivelesComercial={nivelesComercial} nivelesHabitacional={nivelesHabitacional} tieneAmenidades={!!tipologia.tamanoAmenidades} />
       </div>
       <div className="flex items-center gap-4 mt-2 flex-wrap px-1">
-        <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-[#FEF3C7] border border-[#B45309]" /><span className="text-[10px] text-[#5a7065]">PB / Comercial</span></div>
-        <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-[#F0FBF6] border border-[#0F6E56]" /><span className="text-[10px] text-[#5a7065]">Habitacional</span></div>
+        <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-[#FEF3C7] border border-[#B45309]" /><span className="text-[10px] text-[#8b96ab]">PB / Comercial</span></div>
+        <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-[#F0FBF6] border border-[#0F6E56]" /><span className="text-[10px] text-[#8b96ab]">Habitacional</span></div>
         {!!tipologia.tamanoAmenidades && (
           <div className="flex items-center gap-1.5">
             <span className="w-2.5 h-2.5 rounded-sm bg-[#F5F3FF] border border-dashed border-[#6D28D9]" />
-            <span className="text-[10px] text-[#5a7065]">Amenidades (azotea) · no ocupa nivel exclusivo</span>
+            <span className="text-[10px] text-[#8b96ab]">Amenidades (azotea) · no ocupa nivel exclusivo</span>
           </div>
         )}
       </div>
@@ -143,7 +143,7 @@ export function VistaAereaTerreno({
   areaLibreYVerde?: { m2: number; porcentajeLote: string }
 }) {
   if (superficieTerreno <= 0 || superficieConstruida <= 0) {
-    return <p className="text-[12px] text-[#9aab9f] italic px-1">Sin datos de terreno para graficar la vista aérea.</p>
+    return <p className="text-[12px] text-[#5f6a80] italic px-1">Sin datos de terreno para graficar la vista aérea.</p>
   }
 
   const huella = Math.min(superficieConstruida / Math.max(niveles || 1, 1), superficieTerreno * 0.95)
@@ -205,12 +205,12 @@ export function VistaAereaTerreno({
         </g>
       </svg>
       <div className="flex items-center gap-4 flex-wrap justify-center px-1">
-        <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-[#E1F5EE] border border-[#0F6E56]" /><span className="text-[10px] text-[#5a7065]">Terreno · {Math.round(superficieTerreno).toLocaleString('es-MX')} m²</span></div>
-        <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-[#F7F1E3] border border-[#8a6f3f]" /><span className="text-[10px] text-[#5a7065]">Huella construida · {Math.round(huella).toLocaleString('es-MX')} m²</span></div>
+        <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-[#E1F5EE] border border-[#0F6E56]" /><span className="text-[10px] text-[#8b96ab]">Terreno · {Math.round(superficieTerreno).toLocaleString('es-MX')} m²</span></div>
+        <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-[#F7F1E3] border border-[#8a6f3f]" /><span className="text-[10px] text-[#8b96ab]">Huella construida · {Math.round(huella).toLocaleString('es-MX')} m²</span></div>
         {zonaEstacionamiento && (
           <div className="flex items-center gap-1.5">
             <span className="w-2.5 h-2.5 rounded-sm bg-[#F0F4F2] border border-[#5a7065]" />
-            <span className="text-[10px] text-[#5a7065]">
+            <span className="text-[10px] text-[#8b96ab]">
               Estacionamiento{zonaEstacionamiento.cajonesEstimados ? ` · ${zonaEstacionamiento.cajonesEstimados} cajones` : ''} · {Math.round(zonaEstacionamiento.m2).toLocaleString('es-MX')} m²
             </span>
           </div>
@@ -218,7 +218,7 @@ export function VistaAereaTerreno({
         {areaLibreYVerde && (
           <div className="flex items-center gap-1.5">
             <span className="w-2.5 h-2.5 rounded-sm bg-[#9FE1CB] border border-[#0F6E56]" />
-            <span className="text-[10px] text-[#5a7065]">Área libre y verde · {Math.round(areaLibreYVerde.m2).toLocaleString('es-MX')} m² ({areaLibreYVerde.porcentajeLote} del lote)</span>
+            <span className="text-[10px] text-[#8b96ab]">Área libre y verde · {Math.round(areaLibreYVerde.m2).toLocaleString('es-MX')} m² ({areaLibreYVerde.porcentajeLote} del lote)</span>
           </div>
         )}
       </div>

@@ -23,7 +23,7 @@ export default function Panel({
     >
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-white/50 flex items-center gap-2">
-          <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: accent ?? '#1D9E75' }} />
+          <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: accent ?? '#c9a227' }} />
           {titulo}
         </h3>
         {action}

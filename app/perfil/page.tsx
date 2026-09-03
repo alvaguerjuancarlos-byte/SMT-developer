@@ -3,6 +3,10 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { Fraunces, IBM_Plex_Mono } from 'next/font/google'
+
+const fraunces = Fraunces({ subsets: ['latin'], weight: ['500', '600'], style: ['normal', 'italic'], variable: '--font-fraunces' })
+const plexMono = IBM_Plex_Mono({ subsets: ['latin'], weight: ['400', '500'], variable: '--font-plex-mono' })
 
 export default function PerfilPage() {
   const router = useRouter()
@@ -55,19 +59,26 @@ export default function PerfilPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0C0F0E] flex items-center justify-center px-4">
+    <div
+      className={`${fraunces.variable} ${plexMono.variable} min-h-screen bg-[#0b1d3a] flex items-center justify-center px-4`}
+      style={{
+        backgroundImage:
+          'linear-gradient(rgba(244,240,230,0.11) 1px, transparent 1px), linear-gradient(90deg, rgba(244,240,230,0.11) 1px, transparent 1px)',
+        backgroundSize: '64px 64px',
+      }}
+    >
       <div className="w-full max-w-[400px]">
 
-        <div className="bg-white rounded-2xl border border-[#E2E8E4] shadow-sm p-8">
-          <h2 className="text-[18px] font-bold text-[#111d17] mb-1">
+        <div className="bg-[#132a4d] rounded-2xl border border-[#2a3f5c] shadow-sm p-8">
+          <h2 className="text-[18px] font-semibold text-[#f4f0e6] mb-1" style={{ fontFamily: 'var(--font-fraunces)' }}>
             {esRecuperacion ? 'Establece tu nueva contraseña' : 'Mi cuenta'}
           </h2>
-          <p className="text-[13px] text-[#9aab9f] mb-6">{email}</p>
+          <p className="text-[13px] text-[#8b96ab] mb-6">{email}</p>
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
 
             <div className="flex flex-col gap-1.5">
-              <label className="text-[11px] font-semibold text-[#5a7065] uppercase tracking-[0.1em]">
+              <label className="text-[11px] font-semibold text-[#8b96ab] uppercase tracking-[0.1em]" style={{ fontFamily: 'var(--font-plex-mono)' }}>
                 Nueva contraseña
               </label>
               <input
@@ -76,12 +87,12 @@ export default function PerfilPage() {
                 onChange={e => setPassword(e.target.value)}
                 placeholder="Mínimo 6 caracteres"
                 required
-                className="w-full px-4 py-3 rounded-xl border border-[#E2E8E4] bg-[#F7F8F6] text-[14px] text-[#111d17] placeholder-[#c4cfc8] focus:outline-none focus:border-[#1D9E75] focus:ring-2 focus:ring-[#1D9E75]/10 transition-all"
+                className="w-full px-4 py-3 rounded-xl border border-[#2a3f5c] bg-[#0b1d3a] text-[14px] text-[#f4f0e6] placeholder-[#5f6a80] focus:outline-none focus:border-[#c9a227] focus:ring-2 focus:ring-[#c9a227]/10 transition-all"
               />
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <label className="text-[11px] font-semibold text-[#5a7065] uppercase tracking-[0.1em]">
+              <label className="text-[11px] font-semibold text-[#8b96ab] uppercase tracking-[0.1em]" style={{ fontFamily: 'var(--font-plex-mono)' }}>
                 Confirmar nueva contraseña
               </label>
               <input
@@ -90,26 +101,27 @@ export default function PerfilPage() {
                 onChange={e => setConfirm(e.target.value)}
                 placeholder="Repite la contraseña"
                 required
-                className="w-full px-4 py-3 rounded-xl border border-[#E2E8E4] bg-[#F7F8F6] text-[14px] text-[#111d17] placeholder-[#c4cfc8] focus:outline-none focus:border-[#1D9E75] focus:ring-2 focus:ring-[#1D9E75]/10 transition-all"
+                className="w-full px-4 py-3 rounded-xl border border-[#2a3f5c] bg-[#0b1d3a] text-[14px] text-[#f4f0e6] placeholder-[#5f6a80] focus:outline-none focus:border-[#c9a227] focus:ring-2 focus:ring-[#c9a227]/10 transition-all"
               />
             </div>
 
             {error && (
-              <div className="bg-[#FEE2E2] border border-[#FECACA] rounded-xl px-4 py-3">
-                <p className="text-[12px] text-[#991B1B] leading-snug">{error}</p>
+              <div className="bg-[#2e1414] border border-[#5c2a2a] rounded-xl px-4 py-3">
+                <p className="text-[12px] text-[#FCA5A5] leading-snug">{error}</p>
               </div>
             )}
 
             {ok && (
-              <div className="bg-[#E1F5EE] border border-[#BEE8D8] rounded-xl px-4 py-3">
-                <p className="text-[12px] text-[#0F6E56] leading-snug">Contraseña actualizada.</p>
+              <div className="bg-[#c9a227]/10 border border-[#c9a227]/40 rounded-xl px-4 py-3">
+                <p className="text-[12px] text-[#ddc06a] leading-snug">Contraseña actualizada.</p>
               </div>
             )}
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3.5 rounded-xl bg-[#1D9E75] text-white text-[14px] font-semibold hover:bg-[#0F6E56] transition-colors disabled:opacity-60 disabled:cursor-not-allowed mt-1"
+              className="w-full py-3.5 rounded-xl bg-[#c9a227] text-[#070f22] text-[14px] font-semibold hover:bg-[#ddc06a] transition-colors disabled:opacity-60 disabled:cursor-not-allowed mt-1"
+              style={{ fontFamily: 'var(--font-plex-mono)' }}
             >
               {loading ? 'Guardando…' : 'Guardar contraseña'}
             </button>
@@ -117,7 +129,7 @@ export default function PerfilPage() {
             <button
               type="button"
               onClick={() => router.back()}
-              className="w-full py-2 text-[13px] text-[#9aab9f] hover:text-[#5a7065] transition-colors"
+              className="w-full py-2 text-[13px] text-[#5f6a80] hover:text-[#8b96ab] transition-colors"
             >
               Volver
             </button>

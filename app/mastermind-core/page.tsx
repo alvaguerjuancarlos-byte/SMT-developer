@@ -60,7 +60,8 @@ function MastermindCoreContent() {
   // El nombre del proyecto vive en la URL de analizando (?proyecto=...), no en el snapshot —
   // sin reconstruirlo aquí, router.push('/analisis/analizando') a secas perdía el query string y
   // saveProyecto fallaba con "nombre requerido" al aprobar Financiero (bug real visto en
-  // producción). Ver abrirMastermind1 en app/analisis/analizando/page.tsx.
+  // producción). Esta ruta standalone queda como fallback de deep-link — el camino normal hoy
+  // es el overlay de Mastermind dentro del cockpit (MastermindOverlay.tsx), que no navega.
   const volverAlPipeline = () => {
     const proyecto = localStorage.getItem('smt_mastermind1_return_proyecto') || ''
     router.push(proyecto ? `/analisis/analizando?proyecto=${encodeURIComponent(proyecto)}` : '/analisis/analizando')
@@ -100,32 +101,32 @@ function MastermindCoreContent() {
   if (!cargado) return null
 
   return (
-    <div className="min-h-screen bg-[#0C0F0E]">
+    <div className="min-h-screen bg-[#0b1d3a]">
       <div className="px-6 pt-6 pb-0 max-w-7xl mx-auto">
-        <div className="flex items-center gap-2 text-[12px] text-white/30">
-          <button onClick={volverAlPipeline} className="text-[#1D9E75] font-medium hover:underline">
+        <div className="flex items-center gap-2 text-[12px] text-[#5f6a80]">
+          <button onClick={volverAlPipeline} className="text-[#c9a227] font-medium hover:underline">
             Pipeline
           </button>
           <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4 2L8 6L4 10" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" /></svg>
-          <span className="text-white font-medium">Mastermind 1 · Costos e ingresos</span>
+          <span className="text-[#f4f0e6] font-medium">Mastermind · Costos e ingresos</span>
         </div>
       </div>
 
       <div className="max-w-7xl mx-auto px-6 py-8">
         <div className="mb-8 flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-[24px] font-bold text-white mb-1">Mastermind 1</h1>
-            <p className="text-[14px] text-white/50">
+            <h1 className="text-[24px] font-bold text-[#f4f0e6] mb-1">Mastermind</h1>
+            <p className="text-[14px] text-[#8b96ab]">
               Calibra el core del proyecto — terreno, construcción, precio y unidades — antes de
               correr el plan financiero completo. Lo que ajustes aquí alimenta el resto del pipeline.
             </p>
           </div>
           <button
             onClick={aplicarYVolver}
-            className="shrink-0 flex items-center gap-1.5 text-[12px] font-semibold text-white bg-[#1D9E75] hover:bg-[#0F6E56] px-4 py-2.5 rounded-xl transition-colors cursor-pointer"
+            className="shrink-0 flex items-center gap-1.5 text-[12px] font-semibold text-[#070f22] bg-[#c9a227] hover:bg-[#ddc06a] px-4 py-2.5 rounded-xl transition-colors cursor-pointer"
           >
             Aplicar calibración y volver al pipeline
-            <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><path d="M5 3l4 4-4 4" stroke="white" strokeWidth="1.5" strokeLinecap="round"/></svg>
+            <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><path d="M5 3l4 4-4 4" stroke="#070f22" strokeWidth="1.5" strokeLinecap="round"/></svg>
           </button>
         </div>
 

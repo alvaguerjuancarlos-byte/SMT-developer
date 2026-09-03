@@ -14,9 +14,9 @@ function fmtCompact(n: number) {
 // Mastermind 1 costos.financieros siempre es 0 (no hay plan financiero todavía, ver
 // calcularMastermindCore en lib/mastermind/motor.ts), así que ese segmento no aporta nada.
 const COLORES: Record<string, string> = {
-  Terreno: '#0F6E56',
-  Construcción: '#1D9E75',
-  Administrativo: '#5DCAA5',
+  Terreno: '#8A6508',
+  Construcción: '#c9a227',
+  Administrativo: '#ddc06a',
 }
 
 export default function CostosGaugeCore() {

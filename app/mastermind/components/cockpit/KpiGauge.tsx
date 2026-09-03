@@ -25,7 +25,7 @@ export default function KpiGauge({ tirAnalisisOriginal }: { tirAnalisisOriginal?
   const sMargen = semaforoMargen(u.margenNeto)
 
   return (
-    <Panel titulo="KPIs financieros" accent="#1D9E75">
+    <Panel titulo="KPIs financieros" accent="#c9a227">
       <div className="flex justify-center gap-2 mb-3">
         <InstrumentDial
           value={r.tirSocioAnual}
@@ -67,11 +67,11 @@ export default function KpiGauge({ tirAnalisisOriginal }: { tirAnalisisOriginal?
       {/* Estructura de capital — mismo peso visual que las TIR, no solo dentro de la palanca Financiero */}
       <div className="mb-3">
         <div className="flex items-center justify-between mb-1.5">
-          <span className="text-[10px] font-bold text-[#1D9E75]">Socio {(100 - inputs.financiamiento.porcentajeFinanciado)}%</span>
+          <span className="text-[10px] font-bold text-[#c9a227]">Socio {(100 - inputs.financiamiento.porcentajeFinanciado)}%</span>
           <span className="text-[10px] font-bold text-[#818CF8]">Banca {inputs.financiamiento.porcentajeFinanciado}%</span>
         </div>
         <div className="flex h-2.5 rounded-full overflow-hidden">
-          <div className="bg-[#1D9E75] transition-all duration-500" style={{ width: `${100 - inputs.financiamiento.porcentajeFinanciado}%` }} />
+          <div className="bg-[#c9a227] transition-all duration-500" style={{ width: `${100 - inputs.financiamiento.porcentajeFinanciado}%` }} />
           <div className="bg-[#818CF8]" style={{ width: `${inputs.financiamiento.porcentajeFinanciado}%` }} />
         </div>
         <div className="flex justify-between mt-1">

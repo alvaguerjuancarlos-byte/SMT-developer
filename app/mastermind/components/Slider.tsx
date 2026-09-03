@@ -31,7 +31,7 @@ export default function Slider({
             type="number"
             value={Number.isFinite(value) ? value : 0}
             onChange={e => onChange(e.target.valueAsNumber || 0)}
-            className="w-20 text-[12px] font-mono text-right bg-black/30 border border-white/15 rounded-lg px-2 py-0.5 text-white focus:outline-none focus:border-[#1D9E75] focus:ring-1 focus:ring-[#1D9E75]"
+            className="w-20 text-[12px] font-mono text-right bg-black/30 border border-white/15 rounded-lg px-2 py-0.5 text-white focus:outline-none focus:border-[#c9a227] focus:ring-1 focus:ring-[#c9a227]"
           />
           {unit && <span className="text-[11px] text-white/40">{unit}</span>}
         </div>
@@ -43,8 +43,8 @@ export default function Slider({
         step={step}
         value={clamped}
         onChange={e => onChange(e.target.valueAsNumber)}
-        className="w-full h-1.5 rounded-full cursor-pointer appearance-none accent-[#1D9E75]"
-        style={{ background: `linear-gradient(to right, #1D9E75 ${pct}%, rgba(255,255,255,0.1) ${pct}%)` }}
+        className="w-full h-1.5 rounded-full cursor-pointer appearance-none accent-[#c9a227]"
+        style={{ background: `linear-gradient(to right, #c9a227 ${pct}%, rgba(255,255,255,0.1) ${pct}%)` }}
       />
       <div className="flex justify-between text-[9px] font-mono text-white/25 mt-1">
         <span>{min.toLocaleString('es-MX')}{unit}</span>

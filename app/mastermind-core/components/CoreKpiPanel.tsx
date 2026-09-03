@@ -31,7 +31,7 @@ export default function CoreKpiPanel() {
   const spreadBajo = spreadVentaConstruccion !== null && spreadVentaConstruccion < SPREAD_MINIMO_SANO
 
   return (
-    <Panel titulo="Indicadores core" accent="#1D9E75">
+    <Panel titulo="Indicadores core" accent="#c9a227">
       <div className="text-center mb-4">
         <div className="font-mono text-[32px] font-black leading-none" style={{ color: sMargen.color }}>
           {utilidad.margenBruto.toFixed(1)}%

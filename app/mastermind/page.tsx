@@ -126,22 +126,22 @@ function MastermindContent() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0C0F0E]">
+    <div className="min-h-screen bg-[#0b1d3a]">
       <div className="px-6 pt-6 pb-0 max-w-7xl mx-auto">
-        <div className="flex items-center gap-2 text-[12px] text-white/30">
-          <button onClick={() => router.push('/analisis')} className="text-[#1D9E75] font-medium hover:underline">
+        <div className="flex items-center gap-2 text-[12px] text-[#5f6a80]">
+          <button onClick={() => router.push('/analisis')} className="text-[#c9a227] font-medium hover:underline">
             Análisis
           </button>
           <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4 2L8 6L4 10" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" /></svg>
-          <span className="text-white font-medium">Mastermind 2 · Plan financiero</span>
+          <span className="text-[#f4f0e6] font-medium">Mastermind · Plan financiero</span>
         </div>
       </div>
 
       <div className="max-w-7xl mx-auto px-6 py-8">
         <div className="mb-8 flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-[24px] font-bold text-white mb-1">Mastermind 2</h1>
-            <p className="text-[14px] text-white/50">
+            <h1 className="text-[24px] font-bold text-[#f4f0e6] mb-1">Mastermind</h1>
+            <p className="text-[14px] text-[#8b96ab]">
               Ajusta los parámetros del proyecto y ve la TIR recalcularse en vivo, o fija una TIR objetivo para saber qué necesitas alcanzarla.
             </p>
           </div>
@@ -149,7 +149,7 @@ function MastermindContent() {
             {analisisData && (
               <button
                 onClick={() => cargarDelAnalisis(analisisData)}
-                className="flex items-center gap-1.5 text-[12px] font-medium text-white/70 hover:text-white border border-white/15 hover:border-white/30 px-3 py-2 rounded-xl transition-colors cursor-pointer"
+                className="flex items-center gap-1.5 text-[12px] font-medium text-[#8b96ab] hover:text-[#f4f0e6] border border-[#2a3f5c] hover:border-[#a68f52] px-3 py-2 rounded-xl transition-colors cursor-pointer"
               >
                 <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
                   <path d="M12 7A5 5 0 1 1 10.5 3.3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
@@ -164,7 +164,7 @@ function MastermindContent() {
                 disabled={guardando}
                 title="Actualiza costos, ingresos, margen, TIR y flujo de caja en el análisis guardado con lo calibrado aquí — no vuelve a llamar al Agente Financiero, la narrativa del reporte se queda igual."
                 className={`flex items-center gap-1.5 text-[12px] font-semibold px-3 py-2 rounded-xl transition-colors cursor-pointer ${
-                  guardado ? 'bg-[#1D9E75]/20 text-[#1D9E75] border border-[#1D9E75]/40' : 'bg-[#1D9E75] text-white hover:bg-[#0F6E56]'
+                  guardado ? 'bg-[#c9a227]/20 text-[#ddc06a] border border-[#c9a227]/40' : 'bg-[#c9a227] text-[#070f22] hover:bg-[#ddc06a]'
                 } disabled:opacity-60 disabled:cursor-not-allowed`}
               >
                 {guardado ? (

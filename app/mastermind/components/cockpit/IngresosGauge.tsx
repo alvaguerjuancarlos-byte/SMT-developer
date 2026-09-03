@@ -18,21 +18,21 @@ export default function IngresosGauge() {
   const pctComercial = 100 - pctHab
 
   return (
-    <Panel titulo="Ingresos" accent="#1D9E75">
+    <Panel titulo="Ingresos" accent="#818CF8">
       <div className="text-center mb-4">
-        <div className="font-mono text-[32px] font-black text-[#1D9E75] leading-none">{fmtCompact(i.ingresoNeto)}</div>
+        <div className="font-mono text-[32px] font-black text-[#818CF8] leading-none">{fmtCompact(i.ingresoNeto)}</div>
         <div className="text-[10px] text-white/30 mt-1 uppercase tracking-wider">Ingreso neto (bruto {fmtCompact(i.ingresoBrutoTotal)})</div>
       </div>
 
       {total > 0 && (
         <div className="flex h-2 rounded-full overflow-hidden bg-white/5 mb-2">
-          {pctHab > 0 && <div style={{ width: `${pctHab}%` }} className="bg-[#1D9E75]" />}
+          {pctHab > 0 && <div style={{ width: `${pctHab}%` }} className="bg-[#818CF8]" />}
           {pctComercial > 0 && <div style={{ width: `${pctComercial}%` }} className="bg-[#C9A227]" />}
         </div>
       )}
       <div className="flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-white/40">
         <span className="flex items-center gap-1">
-          <span className="w-1.5 h-1.5 rounded-full bg-[#1D9E75]" />
+          <span className="w-1.5 h-1.5 rounded-full bg-[#818CF8]" />
           Habitacional <span className="text-white/25">{pctHab.toFixed(0)}%</span>
         </span>
         {i.ingresoBrutoComercial > 0 && (

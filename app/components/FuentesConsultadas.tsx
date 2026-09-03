@@ -56,50 +56,50 @@ export default function FuentesConsultadas() {
   const [open, setOpen] = useState(false)
 
   return (
-    <div className="border border-[#E2E8E4] rounded-2xl overflow-hidden bg-white">
+    <div className="border border-[#2a3f5c] rounded-2xl overflow-hidden bg-[#132a4d]">
       <button
         onClick={() => setOpen(v => !v)}
-        className="w-full flex items-center justify-between px-6 py-4 hover:bg-[#F7F8F6] transition-colors cursor-pointer"
+        className="w-full flex items-center justify-between px-6 py-4 hover:bg-[#1c304b] transition-colors cursor-pointer"
       >
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-[#F0FBF6] border border-[#9FE1CB] flex items-center justify-center shrink-0">
+          <div className="w-8 h-8 rounded-lg bg-[#c9a227]/15 border border-[#c9a227]/40 flex items-center justify-center shrink-0">
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-              <path d="M2 3h10M2 7h7M2 11h5" stroke="#1D9E75" strokeWidth="1.5" strokeLinecap="round"/>
+              <path d="M2 3h10M2 7h7M2 11h5" stroke="#ddc06a" strokeWidth="1.5" strokeLinecap="round"/>
             </svg>
           </div>
           <div className="text-left">
-            <p className="text-[13px] font-bold text-[#111d17]">Fuentes consultadas en este análisis</p>
-            <p className="text-[11px] text-[#9aab9f]">32 fuentes · 8 categorías · Normativa, mercado, fiscal, registral</p>
+            <p className="text-[13px] font-bold text-[#f4f0e6]">Fuentes consultadas en este análisis</p>
+            <p className="text-[11px] text-[#8b96ab]">32 fuentes · 8 categorías · Normativa, mercado, fiscal, registral</p>
           </div>
         </div>
         <svg
           width="16" height="16" viewBox="0 0 16 16" fill="none"
           className={`shrink-0 transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
         >
-          <path d="M4 6l4 4 4-4" stroke="#9aab9f" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+          <path d="M4 6l4 4 4-4" stroke="#8b96ab" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
         </svg>
       </button>
 
       {open && (
-        <div className="border-t border-[#E2E8E4] px-6 py-5">
+        <div className="border-t border-[#2a3f5c] px-6 py-5">
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
             {FUENTES_DATA.map(cat => (
-              <div key={cat.titulo} className="bg-[#F7F8F6] rounded-xl border border-[#E2E8E4] overflow-hidden flex flex-col">
-                <div className="px-4 pt-4 pb-3 border-b border-[#EAECEB]">
+              <div key={cat.titulo} className="bg-[#0b1d3a] rounded-xl border border-[#2a3f5c] overflow-hidden flex flex-col">
+                <div className="px-4 pt-4 pb-3 border-b border-[#2a3f5c]">
                   <div className="flex items-center gap-2 mb-1">
                     <div className="w-2 h-2 rounded-full shrink-0" style={{ background: cat.color }} />
-                    <span className="text-[12px] font-bold text-[#111d17]">{cat.titulo}</span>
+                    <span className="text-[12px] font-bold text-[#f4f0e6]">{cat.titulo}</span>
                   </div>
-                  <p className="text-[10px] text-[#9aab9f] uppercase tracking-widest font-semibold pl-4">{cat.sub}</p>
+                  <p className="text-[10px] text-[#8b96ab] uppercase tracking-widest font-semibold pl-4">{cat.sub}</p>
                 </div>
                 <ul className="px-4 py-3 space-y-2.5 flex-1">
                   {cat.items.map(([nombre, uso, fecha]) => (
                     <li key={nombre}>
                       <div className="flex items-baseline justify-between gap-2">
-                        <div className="text-[11px] font-semibold text-[#111d17] leading-tight">{nombre}</div>
-                        <span className="text-[9px] text-[#b0bdb6] font-medium shrink-0 whitespace-nowrap">{fecha}</span>
+                        <div className="text-[11px] font-semibold text-[#f4f0e6] leading-tight">{nombre}</div>
+                        <span className="text-[9px] text-[#5f6a80] font-medium shrink-0 whitespace-nowrap">{fecha}</span>
                       </div>
-                      <div className="text-[10px] text-[#9aab9f] mt-0.5 leading-snug">{uso}</div>
+                      <div className="text-[10px] text-[#8b96ab] mt-0.5 leading-snug">{uso}</div>
                     </li>
                   ))}
                 </ul>

@@ -3,6 +3,13 @@
 import { useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import FuentesConsultadas from '@/app/components/FuentesConsultadas'
+import { Fraunces, IBM_Plex_Mono } from 'next/font/google'
+
+// Look & feel — espejo azul del navy/oro de Flujo A (ver app/prospeccion/flujo-a/page.tsx).
+// Los colores semanticos (verde=positivo, ambar=precaucion, rojo=riesgo) y el codigo
+// tricolor Scout/Legal/Mercado se preservan — solo se adapto su fondo claro para navy.
+const fraunces = Fraunces({ subsets: ['latin'], weight: ['500', '600'], style: ['normal', 'italic'], variable: '--font-fraunces' })
+const plexMono = IBM_Plex_Mono({ subsets: ['latin'], weight: ['400', '500'], variable: '--font-plex-mono' })
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -174,10 +181,10 @@ const METRIC_ROWS: { key: string; label: string }[] = [
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
-    <h2 className="text-[11px] font-bold text-[#9aab9f] tracking-[0.14em] uppercase mb-4 flex items-center gap-3">
-      <span className="flex-1 h-px bg-[#E2E8E4]" />
+    <h2 className="text-[11px] font-bold text-[#5f6a80] tracking-[0.14em] uppercase mb-4 flex items-center gap-3" style={{ fontFamily: 'var(--font-plex-mono)' }}>
+      <span className="flex-1 h-px bg-[#2a3f5c]" />
       {children}
-      <span className="flex-1 h-px bg-[#E2E8E4]" />
+      <span className="flex-1 h-px bg-[#2a3f5c]" />
     </h2>
   )
 }
@@ -188,18 +195,18 @@ function ScoreArc({ score }: { score: number }) {
   const dash = (score / 100) * circ
   const color = score >= 70 ? '#1D9E75' : score >= 50 ? '#D97706' : '#DC2626'
   const label = score >= 70 ? 'Proyecto Viable' : score >= 50 ? 'Revisar Supuestos' : 'Riesgo Elevado'
-  const labelColor = score >= 70 ? '#0F6E56' : score >= 50 ? '#92600A' : '#991B1B'
+  const labelColor = score >= 70 ? '#5FD4A8' : score >= 50 ? '#E8B84B' : '#F87171'
   return (
     <div className="flex flex-col items-center gap-1">
       <div className="relative" style={{ width: 120, height: 72 }}>
         <svg width="120" height="72" viewBox="0 0 120 72" fill="none" style={{ overflow: 'visible' }}>
-          <path d="M 12 60 A 48 48 0 0 1 108 60" stroke="#E2E8E4" strokeWidth="10" strokeLinecap="round" fill="none"/>
+          <path d="M 12 60 A 48 48 0 0 1 108 60" stroke="#2a3f5c" strokeWidth="10" strokeLinecap="round" fill="none"/>
           <path d="M 12 60 A 48 48 0 0 1 108 60" stroke={color} strokeWidth="10" strokeLinecap="round" fill="none"
             strokeDasharray={`${dash} ${circ}`} style={{ transition: 'stroke-dasharray 1s ease' }}/>
         </svg>
         <div className="absolute bottom-0 left-0 right-0 flex flex-col items-center">
           <span className="text-[28px] font-black leading-none" style={{ color }}>{score}</span>
-          <span className="text-[10px] text-[#9aab9f]">/ 100</span>
+          <span className="text-[10px] text-[#5f6a80]">/ 100</span>
         </div>
       </div>
       <span className="text-[11px] font-bold" style={{ color: labelColor }}>{label}</span>
@@ -259,36 +266,43 @@ function AnalisisflujoB() {
   const factibilidadDot = (status: string) =>
     status === 'Disponible' ? '#1D9E75' : status === 'Con condicionante' ? '#D97706' : '#DC2626'
   const riesgoCfg = (r?: string) =>
-    r === 'Bajo' ? { bg: 'bg-[#E1F5EE]', text: 'text-[#0F6E56]' }
-    : r === 'Medio' ? { bg: 'bg-[#FEF3C7]', text: 'text-[#92600A]' }
-    : { bg: 'bg-[#FEE2E2]', text: 'text-[#991B1B]' }
+    r === 'Bajo' ? { bg: 'bg-[#14301f]', text: 'text-[#5FD4A8]' }
+    : r === 'Medio' ? { bg: 'bg-[#2e2510]', text: 'text-[#E8B84B]' }
+    : { bg: 'bg-[#2e1414]', text: 'text-[#F87171]' }
   const alertaColor = (s: string) =>
-    s === 'green' ? { dot: '#1D9E75', bg: '#E1F5EE', text: '#0F6E56' }
-    : s === 'amber' ? { dot: '#D97706', bg: '#FEF3C7', text: '#92600A' }
-    : { dot: '#DC2626', bg: '#FEE2E2', text: '#991B1B' }
+    s === 'green' ? { dot: '#1D9E75', bg: '#14301f', text: '#5FD4A8' }
+    : s === 'amber' ? { dot: '#D97706', bg: '#2e2510', text: '#E8B84B' }
+    : { dot: '#DC2626', bg: '#2e1414', text: '#F87171' }
 
   return (
-    <div className="min-h-screen bg-[#F7F8F6] flex flex-col">
+    <div
+      className={`${fraunces.variable} ${plexMono.variable} min-h-screen bg-[#0b1d3a] flex flex-col`}
+      style={{
+        backgroundImage:
+          'linear-gradient(rgba(244,240,230,0.11) 1px, transparent 1px), linear-gradient(90deg, rgba(244,240,230,0.11) 1px, transparent 1px)',
+        backgroundSize: '64px 64px',
+      }}
+    >
 
       {/* Header */}
-      <header className="px-8 py-4 flex items-center gap-3 border-b border-[#E2E8E4] bg-white sticky top-0 z-20">
-        <div className="w-8 h-8 rounded-lg bg-[#1D9E75] flex items-center justify-center shrink-0">
+      <header className="px-8 py-4 flex items-center gap-3 border-b border-white/10 bg-[#070f22] sticky top-0 z-20">
+        <div className="w-8 h-8 rounded-lg bg-[#5B8FD4] flex items-center justify-center shrink-0">
           <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-            <path d="M9 2L16 6V12L9 16L2 12V6L9 2Z" stroke="white" strokeWidth="1.5" fill="none"/>
-            <path d="M9 2V16M2 6L16 12M16 6L2 12" stroke="white" strokeWidth="1" strokeOpacity="0.5"/>
+            <path d="M9 2L16 6V12L9 16L2 12V6L9 2Z" stroke="#f4f0e6" strokeWidth="1.5" fill="none"/>
+            <path d="M9 2V16M2 6L16 12M16 6L2 12" stroke="#f4f0e6" strokeWidth="1" strokeOpacity="0.5"/>
           </svg>
         </div>
         <div>
-          <span className="text-[15px] font-medium text-[#1a1a1a] tracking-wide">SMT Developer</span>
-          <span className="block text-[10px] text-[#6b7c74] tracking-[0.12em] uppercase">Inteligencia inmobiliaria</span>
+          <span className="text-[15px] tracking-wide" style={{ fontFamily: 'var(--font-fraunces)', fontWeight: 500 }}>SMT <em style={{ fontStyle: 'normal', color: '#8FB6E8' }}>Developer</em></span>
+          <span className="block text-[10px] text-[#8b96ab] tracking-[0.12em] uppercase">Inteligencia inmobiliaria</span>
         </div>
         <div className="ml-auto flex items-center gap-3">
           {aiGenerated && (
-            <span className="text-[10px] font-bold tracking-[0.12em] uppercase bg-[#E1F5EE] border border-[#9FE1CB] text-[#0F6E56] px-2.5 py-1 rounded-full">
+            <span className="text-[10px] font-bold tracking-[0.12em] uppercase bg-[#5B8FD4]/10 border border-[#5B8FD4]/40 text-[#8FB6E8] px-2.5 py-1 rounded-full">
               IA generado
             </span>
           )}
-          <button onClick={() => router.push('/dashboard')} className="flex items-center gap-1.5 text-[13px] text-[#5a7065] hover:text-[#111d17] border border-[#E2E8E4] hover:border-[#C8D5CF] px-3 py-1.5 rounded-xl transition-colors">
+          <button onClick={() => router.push('/dashboard')} className="flex items-center gap-1.5 text-[13px] text-[#8b96ab] hover:text-[#f4f0e6] border border-[#2a3f5c] hover:border-[#3f5a85] px-3 py-1.5 rounded-xl transition-colors">
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
               <rect x="1" y="1" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.3"/>
               <rect x="8" y="1" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.3"/>
@@ -299,7 +313,7 @@ function AnalisisflujoB() {
           </button>
           <button
             onClick={() => router.push('/prospeccion/flujo-b/buscando')}
-            className="flex items-center gap-1.5 text-[13px] text-[#5a7065] hover:text-[#111d17] transition-colors"
+            className="flex items-center gap-1.5 text-[13px] text-[#8b96ab] hover:text-[#f4f0e6] transition-colors"
           >
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
               <path d="M10 4L6 8L10 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
@@ -313,57 +327,57 @@ function AnalisisflujoB() {
         <div className="w-full max-w-[900px] mx-auto flex flex-col gap-10">
 
           {/* 1 · Hero banner */}
-          <div className="rounded-2xl overflow-hidden" style={{ background: 'linear-gradient(135deg, #0a1a12 0%, #111d17 55%, #0c1f15 100%)' }}>
+          <div className="rounded-2xl overflow-hidden" style={{ background: 'linear-gradient(135deg, #070f22 0%, #0b1d3a 55%, #091529 100%)' }}>
             <div className="px-8 pt-8 pb-8">
               <div className="flex items-start justify-between mb-6">
                 <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-[#1D9E75] flex items-center justify-center">
+                  <div className="w-9 h-9 rounded-xl bg-[#5B8FD4] flex items-center justify-center">
                     <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-                      <path d="M9 2L16 6V12L9 16L2 12V6L9 2Z" stroke="white" strokeWidth="1.5" fill="none"/>
-                      <path d="M9 2V16M2 6L16 12M16 6L2 12" stroke="white" strokeWidth="1" strokeOpacity="0.5"/>
+                      <path d="M9 2L16 6V12L9 16L2 12V6L9 2Z" stroke="#f4f0e6" strokeWidth="1.5" fill="none"/>
+                      <path d="M9 2V16M2 6L16 12M16 6L2 12" stroke="#f4f0e6" strokeWidth="1" strokeOpacity="0.5"/>
                     </svg>
                   </div>
                   <div>
-                    <p className="text-[14px] font-semibold text-white">SMT Developer</p>
-                    <p className="text-[10px] text-white/40 tracking-[0.12em] uppercase">Inteligencia inmobiliaria</p>
+                    <p className="text-[14px] font-semibold text-[#f4f0e6]">SMT Developer</p>
+                    <p className="text-[10px] text-[#f4f0e6]/40 tracking-[0.12em] uppercase">Inteligencia inmobiliaria</p>
                   </div>
                 </div>
-                <span className="text-[10px] font-bold tracking-[0.14em] uppercase bg-[#1D9E75]/20 border border-[#1D9E75]/40 text-[#9FE1CB] px-3 py-1 rounded-full">
+                <span className="text-[10px] font-bold tracking-[0.14em] uppercase bg-[#5B8FD4]/20 border border-[#5B8FD4]/40 text-[#8FB6E8] px-3 py-1 rounded-full">
                   Análisis Comparativo · {candidates.length} Candidatos
                 </span>
               </div>
-              <p className="text-[11px] font-bold text-[#9FE1CB] tracking-[0.14em] uppercase mb-2">Reporte Scout IA · Flujo B</p>
-              <h1 className="text-[32px] font-black text-white leading-tight mb-2">{proyecto}</h1>
-              <p className="text-[14px] text-white/50">{recCand?.zona || ''} · {today}</p>
+              <p className="text-[11px] font-bold text-[#8FB6E8] tracking-[0.14em] uppercase mb-2">Reporte Scout IA · Flujo B</p>
+              <h1 className="text-[32px] font-black text-[#f4f0e6] leading-tight mb-2">{proyecto}</h1>
+              <p className="text-[14px] text-[#f4f0e6]/50">{recCand?.zona || ''} · {today}</p>
             </div>
           </div>
 
           {/* 2 · Comparative table */}
           <div>
             <SectionTitle>Tabla Comparativa de Terrenos</SectionTitle>
-            <div className="bg-white rounded-2xl border border-[#E2E8E4] shadow-sm overflow-hidden">
+            <div className="bg-[#132a4d] rounded-2xl border border-[#2a3f5c] shadow-sm overflow-hidden">
               <table className="w-full">
                 <thead>
-                  <tr className="border-b border-[#E2E8E4]" style={{ background: 'linear-gradient(135deg, #0a1a12, #111d17)' }}>
-                    <th className="px-5 py-4 text-left text-[10px] font-bold text-white/50 uppercase tracking-wide w-[200px]">Indicador</th>
+                  <tr className="border-b border-[#2a3f5c]" style={{ background: 'linear-gradient(135deg, #070f22, #0b1d3a)' }}>
+                    <th className="px-5 py-4 text-left text-[10px] font-bold text-[#f4f0e6]/50 uppercase tracking-wide w-[200px]">Indicador</th>
                     {candidates.map((c, i) => (
                       <th key={c.id} className="px-5 py-4 text-center">
-                        <p className="text-[13px] font-bold text-white">{c.nombre}</p>
-                        <p className="text-[10px] text-white/40 mt-0.5 font-normal">{ID_LABELS[i]} · {c.zona}</p>
+                        <p className="text-[13px] font-bold text-[#f4f0e6]">{c.nombre}</p>
+                        <p className="text-[10px] text-[#f4f0e6]/40 mt-0.5 font-normal">{ID_LABELS[i]} · {c.zona}</p>
                       </th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {METRIC_ROWS.map((row, ri) => (
-                    <tr key={row.key} className={`border-b border-[#F0F4F2] last:border-0 ${ri % 2 === 0 ? '' : 'bg-[#FAFBFA]'}`}>
-                      <td className="px-5 py-3.5 text-[12px] font-semibold text-[#5a7065]">{row.label}</td>
+                    <tr key={row.key} className={`border-b border-[#2a3f5c] last:border-0 ${ri % 2 === 0 ? '' : 'bg-[#0e2038]'}`}>
+                      <td className="px-5 py-3.5 text-[12px] font-semibold text-[#8b96ab]">{row.label}</td>
                       {candidates.map((c, ci) => {
                         const val = metricsPerCand[ci]?.[row.key as keyof typeof metricsPerCand[0]] || '—'
                         const isBest = bestFlags[ci]?.[row.key] ?? false
                         return (
                           <td key={c.id} className="px-5 py-3.5 text-center">
-                            <span className={`inline-block text-[13px] font-semibold px-2.5 py-1 rounded-lg ${isBest ? 'bg-[#E1F5EE] text-[#0F6E56]' : 'text-[#111d17]'}`}>
+                            <span className={`inline-block text-[13px] font-semibold px-2.5 py-1 rounded-lg ${isBest ? 'bg-[#14301f] text-[#5FD4A8]' : 'text-[#f4f0e6]'}`}>
                               {val}
                             </span>
                           </td>
@@ -382,18 +396,18 @@ function AnalisisflujoB() {
             <div className="grid grid-cols-3 gap-4">
               {candidates.map((c, i) => {
                 const score = c.score ?? 75
-                const scoreBg = score >= 80 ? 'bg-[#E1F5EE] text-[#0F6E56]' : score >= 70 ? 'bg-[#FEF3C7] text-[#92600A]' : 'bg-[#FEE2E2] text-[#991B1B]'
+                const scoreBg = score >= 80 ? 'bg-[#14301f] text-[#5FD4A8]' : score >= 70 ? 'bg-[#2e2510] text-[#E8B84B]' : 'bg-[#2e1414] text-[#F87171]'
                 return (
-                  <div key={c.id} className="bg-white rounded-2xl border border-[#E2E8E4] shadow-sm overflow-hidden flex flex-col">
-                    <div className="px-5 pt-5 pb-4 border-b border-[#F0F4F2]">
+                  <div key={c.id} className="bg-[#132a4d] rounded-2xl border border-[#2a3f5c] shadow-sm overflow-hidden flex flex-col">
+                    <div className="px-5 pt-5 pb-4 border-b border-[#2a3f5c]">
                       <div className="flex items-start justify-between mb-1">
-                        <div className="w-8 h-8 rounded-lg bg-[#111d17] flex items-center justify-center text-white font-black text-[13px] shrink-0">
+                        <div className="w-8 h-8 rounded-lg bg-[#5B8FD4] flex items-center justify-center text-[#f4f0e6] font-black text-[13px] shrink-0">
                           {ID_LABELS[i]}
                         </div>
                         <span className={`text-[11px] font-black px-2.5 py-1 rounded-full ${scoreBg}`}>{score}/100</span>
                       </div>
-                      <p className="text-[14px] font-bold text-[#111d17] mt-2 leading-tight">{c.nombre}</p>
-                      <p className="text-[11px] text-[#9aab9f] mt-0.5 leading-snug">{c.ubicacion || c.zona}</p>
+                      <p className="text-[14px] font-bold text-[#f4f0e6] mt-2 leading-tight">{c.nombre}</p>
+                      <p className="text-[11px] text-[#5f6a80] mt-0.5 leading-snug">{c.ubicacion || c.zona}</p>
                     </div>
                     <div className="px-5 py-4 flex flex-col gap-3 flex-1">
                       {(c.pros?.length ?? 0) > 0 && (
@@ -402,12 +416,12 @@ function AnalisisflujoB() {
                           <ul className="flex flex-col gap-1.5">
                             {(c.pros || []).map((p, pi) => (
                               <li key={pi} className="flex items-start gap-2">
-                                <span className="w-4 h-4 rounded-full bg-[#E1F5EE] flex items-center justify-center shrink-0 mt-0.5">
+                                <span className="w-4 h-4 rounded-full bg-[#14301f] flex items-center justify-center shrink-0 mt-0.5">
                                   <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
                                     <path d="M1.5 4L3.5 6L6.5 2" stroke="#1D9E75" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
                                   </svg>
                                 </span>
-                                <span className="text-[11px] text-[#5a7065] leading-snug">{p}</span>
+                                <span className="text-[11px] text-[#8b96ab] leading-snug">{p}</span>
                               </li>
                             ))}
                           </ul>
@@ -419,12 +433,12 @@ function AnalisisflujoB() {
                           <ul className="flex flex-col gap-1.5">
                             {(c.contras || []).map((con, ci2) => (
                               <li key={ci2} className="flex items-start gap-2">
-                                <span className="w-4 h-4 rounded-full bg-[#FEF3C7] flex items-center justify-center shrink-0 mt-0.5">
+                                <span className="w-4 h-4 rounded-full bg-[#2e2510] flex items-center justify-center shrink-0 mt-0.5">
                                   <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
                                     <path d="M4 2.5V4.5M4 5.5V5.6" stroke="#D97706" strokeWidth="1.3" strokeLinecap="round"/>
                                   </svg>
                                 </span>
-                                <span className="text-[11px] text-[#5a7065] leading-snug">{con}</span>
+                                <span className="text-[11px] text-[#8b96ab] leading-snug">{con}</span>
                               </li>
                             ))}
                           </ul>
@@ -445,13 +459,13 @@ function AnalisisflujoB() {
                 {candidates.map((c, i) => {
                   const rc = riesgoCfg(c.legal?.nivelRiesgo)
                   return (
-                    <div key={c.id} className="bg-white rounded-2xl border border-[#E2E8E4] shadow-sm overflow-hidden flex flex-col">
+                    <div key={c.id} className="bg-[#132a4d] rounded-2xl border border-[#2a3f5c] shadow-sm overflow-hidden flex flex-col">
                       {/* Card header */}
-                      <div className="px-5 py-4 border-b border-[#F0F4F2]">
+                      <div className="px-5 py-4 border-b border-[#2a3f5c]">
                         <div className="flex items-center justify-between mb-2">
                           <div className="flex items-center gap-2">
-                            <span className="w-7 h-7 rounded-lg bg-[#111d17] flex items-center justify-center text-white font-black text-[11px] shrink-0">{ID_LABELS[i]}</span>
-                            <span className="text-[12px] font-bold text-[#111d17] truncate">{c.nombre}</span>
+                            <span className="w-7 h-7 rounded-lg bg-[#5B8FD4] flex items-center justify-center text-[#f4f0e6] font-black text-[11px] shrink-0">{ID_LABELS[i]}</span>
+                            <span className="text-[12px] font-bold text-[#f4f0e6] truncate">{c.nombre}</span>
                           </div>
                           {c.legal?.nivelRiesgo && (
                             <span className={`text-[9px] font-black px-2 py-0.5 rounded-full shrink-0 ${rc.bg} ${rc.text}`}>
@@ -463,15 +477,15 @@ function AnalisisflujoB() {
                         {(c.legal?.usoSueloActual || c.legal?.usoSueloPermitido) && (
                           <div className="mt-2 flex flex-col gap-1 text-[11px]">
                             <div className="flex items-center justify-between">
-                              <span className="text-[#9aab9f]">Actual</span>
-                              <span className="font-medium text-[#5a7065] truncate ml-2 max-w-[120px]">{c.legal.usoSueloActual}</span>
+                              <span className="text-[#5f6a80]">Actual</span>
+                              <span className="font-medium text-[#8b96ab] truncate ml-2 max-w-[120px]">{c.legal.usoSueloActual}</span>
                             </div>
                             <div className="flex items-center justify-between">
-                              <span className="text-[#9aab9f]">Permitido</span>
-                              <span className="font-medium text-[#111d17] truncate ml-2 max-w-[120px]">{c.legal.usoSueloPermitido}</span>
+                              <span className="text-[#5f6a80]">Permitido</span>
+                              <span className="font-medium text-[#f4f0e6] truncate ml-2 max-w-[120px]">{c.legal.usoSueloPermitido}</span>
                             </div>
                             {c.legal?.compatible !== undefined && (
-                              <div className={`mt-1.5 text-[10px] font-bold px-2 py-1 rounded-lg text-center ${c.legal.compatible ? 'bg-[#E1F5EE] text-[#0F6E56]' : 'bg-[#FEE2E2] text-[#991B1B]'}`}>
+                              <div className={`mt-1.5 text-[10px] font-bold px-2 py-1 rounded-lg text-center ${c.legal.compatible ? 'bg-[#14301f] text-[#5FD4A8]' : 'bg-[#2e1414] text-[#F87171]'}`}>
                                 {c.legal.compatible ? '✓ Compatible — uso directo' : '✗ Requiere cambio de uso'}
                               </div>
                             )}
@@ -481,19 +495,19 @@ function AnalisisflujoB() {
 
                       {/* Factibilidades */}
                       {c.legal?.factibilidades && (
-                        <div className="px-5 py-3 border-b border-[#F0F4F2]">
-                          <p className="text-[9px] font-bold text-[#9aab9f] uppercase tracking-[0.12em] mb-2">Factibilidades</p>
+                        <div className="px-5 py-3 border-b border-[#2a3f5c]">
+                          <p className="text-[9px] font-bold text-[#5f6a80] uppercase tracking-[0.12em] mb-2">Factibilidades</p>
                           {(['agua', 'drenaje', 'cfe'] as const).map(svc => {
                             const f = c.legal.factibilidades![svc]
                             return (
                               <div key={svc} className="flex items-start justify-between py-1 gap-2">
-                                <span className="text-[11px] text-[#5a7065] shrink-0">{svc === 'cfe' ? 'CFE' : svc.charAt(0).toUpperCase() + svc.slice(1)}</span>
+                                <span className="text-[11px] text-[#8b96ab] shrink-0">{svc === 'cfe' ? 'CFE' : svc.charAt(0).toUpperCase() + svc.slice(1)}</span>
                                 <div className="flex flex-col items-end">
                                   <div className="flex items-center gap-1.5">
                                     <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: factibilidadDot(f.status) }} />
-                                    <span className="text-[10px] font-semibold text-[#111d17]">{f.status}</span>
+                                    <span className="text-[10px] font-semibold text-[#f4f0e6]">{f.status}</span>
                                   </div>
-                                  {f.nota && <span className="text-[9px] text-[#9aab9f] text-right leading-snug mt-0.5">{f.nota}</span>}
+                                  {f.nota && <span className="text-[9px] text-[#5f6a80] text-right leading-snug mt-0.5">{f.nota}</span>}
                                 </div>
                               </div>
                             )
@@ -504,7 +518,7 @@ function AnalisisflujoB() {
                       {/* Alertas */}
                       {c.legal?.alertasLegales && c.legal.alertasLegales.length > 0 && (
                         <div className="px-5 py-3 flex-1">
-                          <p className="text-[9px] font-bold text-[#9aab9f] uppercase tracking-[0.12em] mb-2">Alertas Legales</p>
+                          <p className="text-[9px] font-bold text-[#5f6a80] uppercase tracking-[0.12em] mb-2">Alertas Legales</p>
                           {c.legal.alertasLegales.map((a, ai) => {
                             const ac = alertaColor(a.status)
                             return (
@@ -513,8 +527,8 @@ function AnalisisflujoB() {
                                   <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: ac.dot }} />
                                   <span className="text-[10px] font-bold" style={{ color: ac.text }}>{a.tipo}</span>
                                 </div>
-                                <p className="text-[10px] text-[#5a7065] leading-snug">{a.descripcion}</p>
-                                {a.impacto && <p className="text-[9px] text-[#9aab9f] mt-1">{a.impacto}</p>}
+                                <p className="text-[10px] text-[#8b96ab] leading-snug">{a.descripcion}</p>
+                                {a.impacto && <p className="text-[9px] text-[#5f6a80] mt-1">{a.impacto}</p>}
                               </div>
                             )
                           })}
@@ -533,25 +547,25 @@ function AnalisisflujoB() {
               <SectionTitle>Comparables y Segmentación por Zona</SectionTitle>
               <div className="grid grid-cols-3 gap-4">
                 {candidates.map((c, i) => (
-                  <div key={c.id} className="bg-white rounded-2xl border border-[#E2E8E4] shadow-sm overflow-hidden">
-                    <div className="px-5 py-3 border-b border-[#F0F4F2] bg-[#FAFBFA] flex items-center gap-2">
-                      <span className="w-6 h-6 rounded-md bg-[#111d17] flex items-center justify-center text-white font-black text-[10px] shrink-0">{ID_LABELS[i]}</span>
-                      <span className="text-[12px] font-bold text-[#111d17] truncate">{c.zona}</span>
+                  <div key={c.id} className="bg-[#132a4d] rounded-2xl border border-[#2a3f5c] shadow-sm overflow-hidden">
+                    <div className="px-5 py-3 border-b border-[#2a3f5c] bg-[#0e2038] flex items-center gap-2">
+                      <span className="w-6 h-6 rounded-md bg-[#5B8FD4] flex items-center justify-center text-[#f4f0e6] font-black text-[10px] shrink-0">{ID_LABELS[i]}</span>
+                      <span className="text-[12px] font-bold text-[#f4f0e6] truncate">{c.zona}</span>
                     </div>
 
                     {/* Comparables */}
                     {c.mercado?.comparables && c.mercado.comparables.length > 0 && (
-                      <div className="px-5 py-3 border-b border-[#F0F4F2]">
-                        <p className="text-[9px] font-bold text-[#9aab9f] uppercase tracking-[0.12em] mb-2">Competencia Activa</p>
+                      <div className="px-5 py-3 border-b border-[#2a3f5c]">
+                        <p className="text-[9px] font-bold text-[#5f6a80] uppercase tracking-[0.12em] mb-2">Competencia Activa</p>
                         {c.mercado.comparables.map((comp, ci) => (
                           <div key={ci} className="mb-2.5 last:mb-0">
-                            <p className="text-[11px] font-semibold text-[#111d17] leading-snug">{comp.nombre}</p>
+                            <p className="text-[11px] font-semibold text-[#f4f0e6] leading-snug">{comp.nombre}</p>
                             <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                               <span className="text-[10px] text-[#1D9E75] font-semibold">${comp.precioM2.toLocaleString('es-MX')}/m²</span>
-                              <span className="text-[#E2E8E4] text-[10px]">·</span>
-                              <span className="text-[10px] text-[#9aab9f]">{comp.avanceObra}</span>
-                              <span className="text-[#E2E8E4] text-[10px]">·</span>
-                              <span className="text-[10px] text-[#9aab9f]">{comp.absorcion}</span>
+                              <span className="text-[#2a3f5c] text-[10px]">·</span>
+                              <span className="text-[10px] text-[#5f6a80]">{comp.avanceObra}</span>
+                              <span className="text-[#2a3f5c] text-[10px]">·</span>
+                              <span className="text-[10px] text-[#5f6a80]">{comp.absorcion}</span>
                             </div>
                           </div>
                         ))}
@@ -561,22 +575,22 @@ function AnalisisflujoB() {
                     {/* Segmentación */}
                     {c.mercado?.segmentacion && c.mercado.segmentacion.length > 0 && (
                       <div className="px-5 py-3">
-                        <p className="text-[9px] font-bold text-[#9aab9f] uppercase tracking-[0.12em] mb-2">Segmentación de Demanda</p>
+                        <p className="text-[9px] font-bold text-[#5f6a80] uppercase tracking-[0.12em] mb-2">Segmentación de Demanda</p>
                         {c.mercado.segmentacion.map((seg, si) => {
                           const pct = parseFloat(seg.participacion) || 0
                           return (
                             <div key={si} className="mb-2.5 last:mb-0">
                               <div className="flex items-center justify-between mb-1">
-                                <span className="text-[10px] text-[#5a7065] truncate flex-1 mr-2">{seg.tipo}</span>
-                                <span className="text-[10px] font-bold text-[#111d17] shrink-0">{seg.participacion}</span>
+                                <span className="text-[10px] text-[#8b96ab] truncate flex-1 mr-2">{seg.tipo}</span>
+                                <span className="text-[10px] font-bold text-[#f4f0e6] shrink-0">{seg.participacion}</span>
                               </div>
-                              <div className="h-1.5 rounded-full bg-[#F0F4F2] overflow-hidden">
+                              <div className="h-1.5 rounded-full bg-[#2a3f5c] overflow-hidden">
                                 <div className="h-full rounded-full bg-[#1D9E75] transition-all duration-700" style={{ width: `${pct}%` }} />
                               </div>
                               <div className="flex items-center gap-1.5 mt-0.5">
-                                <span className="text-[9px] text-[#9aab9f]">${seg.precioM2.toLocaleString('es-MX')}/m²</span>
-                                <span className="text-[#E2E8E4] text-[9px]">·</span>
-                                <span className="text-[9px] text-[#9aab9f]">{seg.absorcionMensual}</span>
+                                <span className="text-[9px] text-[#5f6a80]">${seg.precioM2.toLocaleString('es-MX')}/m²</span>
+                                <span className="text-[#2a3f5c] text-[9px]">·</span>
+                                <span className="text-[9px] text-[#5f6a80]">{seg.absorcionMensual}</span>
                               </div>
                             </div>
                           )
@@ -593,37 +607,37 @@ function AnalisisflujoB() {
           {ms && (
             <div>
               <SectionTitle>Metodología del Score · Comparativa</SectionTitle>
-              <div className="bg-white rounded-2xl border border-[#E2E8E4] shadow-sm overflow-hidden">
-                <div className="px-6 py-4 border-b border-[#F0F4F2] bg-[#FAFBFA]">
-                  <p className="text-[13px] text-[#5a7065] leading-relaxed">{ms.descripcion}</p>
+              <div className="bg-[#132a4d] rounded-2xl border border-[#2a3f5c] shadow-sm overflow-hidden">
+                <div className="px-6 py-4 border-b border-[#2a3f5c] bg-[#0e2038]">
+                  <p className="text-[13px] text-[#8b96ab] leading-relaxed">{ms.descripcion}</p>
                 </div>
-                <div className="divide-y divide-[#F0F4F2]">
+                <div className="divide-y divide-[#2a3f5c]">
                   {ms.dimensiones.map((dim, di) => (
                     <div key={di} className="px-6 py-5">
                       <div className="flex items-center gap-2 mb-4">
-                        <span className="text-[13px] font-bold text-[#111d17]">{dim.nombre}</span>
-                        <span className="text-[10px] bg-[#F0F4F2] text-[#9aab9f] px-2 py-0.5 rounded-full font-bold">{dim.peso}</span>
+                        <span className="text-[13px] font-bold text-[#f4f0e6]">{dim.nombre}</span>
+                        <span className="text-[10px] bg-[#2a3f5c] text-[#5f6a80] px-2 py-0.5 rounded-full font-bold">{dim.peso}</span>
                       </div>
                       <div className="grid grid-cols-3 gap-3 mb-3">
                         {dim.scores.map(s => {
                           const cand = candidates.find(c => c.id === s.candidatoId)
                           const ci = cand ? candidates.indexOf(cand) : 0
-                          const sc = s.score >= 80 ? { color: '#1D9E75', bg: '#E1F5EE' } : s.score >= 70 ? { color: '#D97706', bg: '#FEF3C7' } : { color: '#DC2626', bg: '#FEE2E2' }
+                          const sc = s.score >= 80 ? { color: '#1D9E75', bg: '#14301f' } : s.score >= 70 ? { color: '#D97706', bg: '#2e2510' } : { color: '#DC2626', bg: '#2e1414' }
                           return (
-                            <div key={s.candidatoId} className="rounded-xl p-3 border border-[#F0F4F2]" style={{ background: sc.bg + '60' }}>
+                            <div key={s.candidatoId} className="rounded-xl p-3 border border-[#2a3f5c]" style={{ background: sc.bg + '60' }}>
                               <div className="flex items-center justify-between mb-1.5">
                                 <div className="flex items-center gap-1.5">
-                                  <span className="w-5 h-5 rounded-md bg-[#111d17] flex items-center justify-center text-white font-black text-[9px]">{ID_LABELS[ci]}</span>
-                                  <span className="text-[10px] text-[#9aab9f] font-medium">{cand?.nombre?.split(' ').slice(1).join(' ') || `Candidato ${ID_LABELS[ci]}`}</span>
+                                  <span className="w-5 h-5 rounded-md bg-[#5B8FD4] flex items-center justify-center text-[#f4f0e6] font-black text-[9px]">{ID_LABELS[ci]}</span>
+                                  <span className="text-[10px] text-[#5f6a80] font-medium">{cand?.nombre?.split(' ').slice(1).join(' ') || `Candidato ${ID_LABELS[ci]}`}</span>
                                 </div>
                                 <span className="text-[16px] font-black leading-none" style={{ color: sc.color }}>{s.score}</span>
                               </div>
-                              <p className="text-[10px] text-[#5a7065] leading-snug">{s.razon}</p>
+                              <p className="text-[10px] text-[#8b96ab] leading-snug">{s.razon}</p>
                             </div>
                           )
                         })}
                       </div>
-                      <p className="text-[12px] text-[#5a7065] italic leading-relaxed">{dim.interpretacion}</p>
+                      <p className="text-[12px] text-[#8b96ab] italic leading-relaxed">{dim.interpretacion}</p>
                     </div>
                   ))}
                 </div>
@@ -635,7 +649,7 @@ function AnalisisflujoB() {
           {recCand && (
             <div>
               <SectionTitle>Recomendación Mastermind</SectionTitle>
-              <div className="rounded-2xl overflow-hidden border border-[#9FE1CB]" style={{ background: 'linear-gradient(135deg, #0a1a12 0%, #0f2a1c 100%)' }}>
+              <div className="rounded-2xl overflow-hidden border border-[#5B8FD4]/40" style={{ background: 'linear-gradient(135deg, #070f22 0%, #0b1d3a 100%)' }}>
                 <div className="px-8 py-7">
                   <div className="flex items-start gap-6">
                     <div className="shrink-0">
@@ -643,16 +657,16 @@ function AnalisisflujoB() {
                     </div>
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-3">
-                        <span className="text-[10px] font-bold tracking-[0.14em] uppercase bg-[#1D9E75]/20 border border-[#1D9E75]/40 text-[#9FE1CB] px-3 py-1 rounded-full">
+                        <span className="text-[10px] font-bold tracking-[0.14em] uppercase bg-[#5B8FD4]/20 border border-[#5B8FD4]/40 text-[#8FB6E8] px-3 py-1 rounded-full">
                           Candidato Recomendado
                         </span>
                         <span className="text-[10px] font-bold text-[#4ade80]/60 uppercase tracking-wide">
                           Score {rec?.scoreResiliencia ?? recCand.score ?? 81}/100
                         </span>
                       </div>
-                      <h3 className="text-[22px] font-black text-white mb-1">{recCand.nombre} — Candidato {ID_LABELS[candidates.indexOf(recCand)] || 'A'}</h3>
-                      <p className="text-[13px] text-white/50 mb-4">{recCand.ubicacion || recCand.zona}</p>
-                      <p className="text-[13px] text-white/70 leading-relaxed">{rec?.texto || FALLBACK.recomendacion!.texto}</p>
+                      <h3 className="text-[22px] font-black text-[#f4f0e6] mb-1">{recCand.nombre} — Candidato {ID_LABELS[candidates.indexOf(recCand)] || 'A'}</h3>
+                      <p className="text-[13px] text-[#f4f0e6]/50 mb-4">{recCand.ubicacion || recCand.zona}</p>
+                      <p className="text-[13px] text-[#f4f0e6]/70 leading-relaxed">{rec?.texto || FALLBACK.recomendacion!.texto}</p>
                     </div>
                   </div>
                   <div className="mt-6 grid grid-cols-4 gap-4 pt-6 border-t border-white/10">
@@ -663,8 +677,8 @@ function AnalisisflujoB() {
                       { label: 'Plusvalía 3 a.',  value: recCand.mercado?.plusvalia || '—', green: true  },
                     ].map((m, mi) => (
                       <div key={mi} className="text-center">
-                        <p className="text-[10px] text-white/40 uppercase tracking-wide mb-1">{m.label}</p>
-                        <p className={`text-[22px] font-black leading-none ${m.green ? 'text-[#4ade80]' : 'text-white'}`}>{m.value}</p>
+                        <p className="text-[10px] text-[#f4f0e6]/40 uppercase tracking-wide mb-1">{m.label}</p>
+                        <p className={`text-[22px] font-black leading-none ${m.green ? 'text-[#4ade80]' : 'text-[#f4f0e6]'}`}>{m.value}</p>
                       </div>
                     ))}
                   </div>
@@ -677,12 +691,12 @@ function AnalisisflujoB() {
           {ec && (
             <div>
               <SectionTitle>Estructura de Capital · Candidato Recomendado</SectionTitle>
-              <div className="bg-white rounded-2xl border border-[#E2E8E4] shadow-sm overflow-hidden">
+              <div className="bg-[#132a4d] rounded-2xl border border-[#2a3f5c] shadow-sm overflow-hidden">
                 <div className="px-6 pt-6 pb-5">
                   {/* Equity / Deuda bar */}
                   <div className="mb-5">
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-[12px] font-bold text-[#111d17]">Mezcla Financiera</span>
+                      <span className="text-[12px] font-bold text-[#f4f0e6]">Mezcla Financiera</span>
                       <div className="flex items-center gap-3">
                         <span className="text-[11px] text-[#1D9E75] font-bold">Equity {ec.equity}%</span>
                         <span className="text-[11px] text-[#378ADD] font-bold">Deuda {ec.deuda}%</span>
@@ -692,7 +706,7 @@ function AnalisisflujoB() {
                       <div className="h-full bg-[#1D9E75] rounded-l-full transition-all duration-700" style={{ width: `${ec.equity}%` }} />
                       <div className="h-full bg-[#378ADD] rounded-r-full transition-all duration-700" style={{ width: `${ec.deuda}%` }} />
                     </div>
-                    <div className="flex items-center justify-between mt-1.5 text-[11px] text-[#9aab9f]">
+                    <div className="flex items-center justify-between mt-1.5 text-[11px] text-[#5f6a80]">
                       <span>{fmt(ec.montoEquity)} MXN</span>
                       <span>{fmt(ec.montoDeuda)} MXN</span>
                     </div>
@@ -707,23 +721,23 @@ function AnalisisflujoB() {
                       { label: 'ISR estimado',         value: fmt(ec.isrEstimado) + ' MXN' },
                       { label: 'Utilidad neta',        value: fmt(ec.utilidadNeta) + ' MXN' },
                     ].map((item, ii) => (
-                      <div key={ii} className="flex items-center justify-between py-1.5 border-b border-[#F0F4F2] last:border-0">
-                        <span className="text-[12px] text-[#9aab9f]">{item.label}</span>
-                        <span className="text-[12px] font-semibold text-[#111d17]">{item.value}</span>
+                      <div key={ii} className="flex items-center justify-between py-1.5 border-b border-[#2a3f5c] last:border-0">
+                        <span className="text-[12px] text-[#5f6a80]">{item.label}</span>
+                        <span className="text-[12px] font-semibold text-[#f4f0e6]">{item.value}</span>
                       </div>
                     ))}
                   </div>
                   {/* Preventa mínima */}
-                  <div className="bg-[#EEF2FF] rounded-xl p-4">
-                    <p className="text-[10px] font-bold text-[#3730A3] uppercase tracking-[0.12em] mb-1">Preventa Mínima Requerida</p>
+                  <div className="bg-[#1c2440] rounded-xl p-4">
+                    <p className="text-[10px] font-bold text-[#A5B4FC] uppercase tracking-[0.12em] mb-1">Preventa Mínima Requerida</p>
                     <div className="flex items-baseline gap-2 mb-1">
-                      <span className="text-[22px] font-black text-[#3730A3]">{ec.preventa.unidadesMinimas}</span>
-                      <span className="text-[12px] text-[#3730A3]/70">unidades · {ec.preventa.porcentajeMinimo} del proyecto</span>
+                      <span className="text-[22px] font-black text-[#A5B4FC]">{ec.preventa.unidadesMinimas}</span>
+                      <span className="text-[12px] text-[#A5B4FC]/70">unidades · {ec.preventa.porcentajeMinimo} del proyecto</span>
                     </div>
-                    <p className="text-[11px] text-[#3730A3]/70">{fmt(ec.preventa.montoMinimo)} MXN — {ec.preventa.condicion}</p>
+                    <p className="text-[11px] text-[#A5B4FC]/70">{fmt(ec.preventa.montoMinimo)} MXN — {ec.preventa.condicion}</p>
                   </div>
                   {ec.descripcion && (
-                    <p className="text-[12px] text-[#9aab9f] mt-4 leading-relaxed">{ec.descripcion}</p>
+                    <p className="text-[12px] text-[#5f6a80] mt-4 leading-relaxed">{ec.descripcion}</p>
                   )}
                 </div>
               </div>
@@ -734,27 +748,27 @@ function AnalisisflujoB() {
           {flujo && flujo.length > 0 && (
             <div>
               <SectionTitle>Flujo de Caja Proyectado · Candidato Recomendado</SectionTitle>
-              <div className="bg-white rounded-2xl border border-[#E2E8E4] shadow-sm overflow-hidden">
+              <div className="bg-[#132a4d] rounded-2xl border border-[#2a3f5c] shadow-sm overflow-hidden">
                 <table className="w-full text-[12px]">
                   <thead>
-                    <tr className="border-b border-[#E2E8E4] bg-[#FAFBFA]">
-                      <th className="px-5 py-3 text-left text-[10px] font-bold text-[#9aab9f] uppercase tracking-wide">Mes</th>
-                      <th className="px-5 py-3 text-left text-[10px] font-bold text-[#9aab9f] uppercase tracking-wide">Fase</th>
-                      <th className="px-5 py-3 text-right text-[10px] font-bold text-[#9aab9f] uppercase tracking-wide">Egresos</th>
-                      <th className="px-5 py-3 text-right text-[10px] font-bold text-[#9aab9f] uppercase tracking-wide">Ingresos</th>
-                      <th className="px-5 py-3 text-right text-[10px] font-bold text-[#9aab9f] uppercase tracking-wide">Acumulado</th>
-                      <th className="px-5 py-3 text-left text-[10px] font-bold text-[#9aab9f] uppercase tracking-wide">Nota</th>
+                    <tr className="border-b border-[#2a3f5c] bg-[#0e2038]">
+                      <th className="px-5 py-3 text-left text-[10px] font-bold text-[#5f6a80] uppercase tracking-wide">Mes</th>
+                      <th className="px-5 py-3 text-left text-[10px] font-bold text-[#5f6a80] uppercase tracking-wide">Fase</th>
+                      <th className="px-5 py-3 text-right text-[10px] font-bold text-[#5f6a80] uppercase tracking-wide">Egresos</th>
+                      <th className="px-5 py-3 text-right text-[10px] font-bold text-[#5f6a80] uppercase tracking-wide">Ingresos</th>
+                      <th className="px-5 py-3 text-right text-[10px] font-bold text-[#5f6a80] uppercase tracking-wide">Acumulado</th>
+                      <th className="px-5 py-3 text-left text-[10px] font-bold text-[#5f6a80] uppercase tracking-wide">Nota</th>
                     </tr>
                   </thead>
                   <tbody>
                     {flujo.map((f, fi) => (
-                      <tr key={fi} className={`border-b border-[#F0F4F2] last:border-0 ${fi % 2 === 1 ? 'bg-[#FAFBFA]' : ''}`}>
-                        <td className="px-5 py-3 font-bold text-[#111d17]">M{f.mes}</td>
-                        <td className="px-5 py-3 text-[#5a7065]">{f.fase}</td>
+                      <tr key={fi} className={`border-b border-[#2a3f5c] last:border-0 ${fi % 2 === 1 ? 'bg-[#0e2038]' : ''}`}>
+                        <td className="px-5 py-3 font-bold text-[#f4f0e6]">M{f.mes}</td>
+                        <td className="px-5 py-3 text-[#8b96ab]">{f.fase}</td>
                         <td className="px-5 py-3 text-right text-[#DC2626] font-semibold">{fmt(f.egresos)}</td>
                         <td className="px-5 py-3 text-right text-[#1D9E75] font-semibold">{fmt(f.ingresos)}</td>
                         <td className={`px-5 py-3 text-right font-bold ${f.acumulado >= 0 ? 'text-[#1D9E75]' : 'text-[#DC2626]'}`}>{fmt(f.acumulado)}</td>
-                        <td className="px-5 py-3 text-[#9aab9f] text-[11px]">{f.nota}</td>
+                        <td className="px-5 py-3 text-[#5f6a80] text-[11px]">{f.nota}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -767,20 +781,20 @@ function AnalisisflujoB() {
           {pq && (
             <div>
               <SectionTitle>Punto de Quiebre · Candidato Recomendado</SectionTitle>
-              <div className="bg-white rounded-2xl border border-[#E2E8E4] shadow-sm p-6">
+              <div className="bg-[#132a4d] rounded-2xl border border-[#2a3f5c] shadow-sm p-6">
                 <div className="grid grid-cols-3 gap-4 mb-4">
                   {[
                     { label: 'Desviación máx. de costos', value: pq.desviacionMaxCostos, color: '#D97706' },
                     { label: 'Absorción mínima viable',   value: pq.absorcionMinViable,  color: '#D97706' },
                     { label: 'Precio de venta mínimo',    value: pq.precioVentaMinimo,   color: '#DC2626' },
                   ].map((item, ii) => (
-                    <div key={ii} className="bg-[#FEF3C7] border border-[#FDE68A] rounded-xl p-4 text-center">
-                      <p className="text-[9px] font-bold text-[#92600A] uppercase tracking-[0.12em] mb-2">{item.label}</p>
+                    <div key={ii} className="bg-[#2e2510] border border-[#D97706] rounded-xl p-4 text-center">
+                      <p className="text-[9px] font-bold text-[#E8B84B] uppercase tracking-[0.12em] mb-2">{item.label}</p>
                       <p className="text-[24px] font-black" style={{ color: item.color }}>{item.value}</p>
                     </div>
                   ))}
                 </div>
-                <p className="text-[13px] text-[#5a7065] leading-relaxed">{pq.resumen}</p>
+                <p className="text-[13px] text-[#8b96ab] leading-relaxed">{pq.resumen}</p>
               </div>
             </div>
           )}
@@ -791,19 +805,19 @@ function AnalisisflujoB() {
             <div className="grid grid-cols-3 gap-4">
               {stressTests.map(s => {
                 const cfg = {
-                  amber: { dot: '#D97706', badge: 'bg-[#FEF3C7] text-[#92600A]', border: 'border-[#FDE68A]', label: 'Tolerable' },
-                  red:   { dot: '#DC2626', badge: 'bg-[#FEE2E2] text-[#991B1B]', border: 'border-[#FECACA]', label: 'Crítico'   },
-                  green: { dot: '#1D9E75', badge: 'bg-[#E1F5EE] text-[#0F6E56]', border: 'border-[#9FE1CB]', label: 'Tolerable' },
+                  amber: { dot: '#D97706', badge: 'bg-[#2e2510] text-[#E8B84B]', border: 'border-[#D97706]/50', label: 'Tolerable' },
+                  red:   { dot: '#DC2626', badge: 'bg-[#2e1414] text-[#F87171]', border: 'border-[#DC2626]/50', label: 'Crítico'   },
+                  green: { dot: '#1D9E75', badge: 'bg-[#14301f] text-[#5FD4A8]', border: 'border-[#1D9E75]/50', label: 'Tolerable' },
                 }[s.status]
                 return (
-                  <div key={s.titulo} className={`bg-white rounded-2xl border ${cfg.border} p-5 shadow-sm`}>
+                  <div key={s.titulo} className={`bg-[#132a4d] rounded-2xl border ${cfg.border} p-5 shadow-sm`}>
                     <div className="flex items-center gap-2 mb-3">
                       <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: cfg.dot }} />
                       <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${cfg.badge}`}>{cfg.label}</span>
                     </div>
-                    <p className="text-[13px] font-bold text-[#111d17] mb-2">{s.titulo}</p>
-                    <p className="text-[12px] text-[#5a7065] leading-relaxed mb-3">{s.escenario}</p>
-                    <p className="text-[12px] font-semibold text-[#111d17]">{s.impacto}</p>
+                    <p className="text-[13px] font-bold text-[#f4f0e6] mb-2">{s.titulo}</p>
+                    <p className="text-[12px] text-[#8b96ab] leading-relaxed mb-3">{s.escenario}</p>
+                    <p className="text-[12px] font-semibold text-[#f4f0e6]">{s.impacto}</p>
                   </div>
                 )
               })}
@@ -816,27 +830,27 @@ function AnalisisflujoB() {
               <SectionTitle>Fuentes de Información Consultadas</SectionTitle>
               <div className="grid grid-cols-3 gap-4">
                 {([
-                  { key: 'scout',   label: 'Scout IA',          color: '#1D9E75', bg: '#E1F5EE', icon: 'M9 2L16 6V12L9 16L2 12V6L9 2Z' },
-                  { key: 'legal',   label: 'Agente Legal',       color: '#378ADD', bg: '#E6F1FB', icon: 'M2 6l3 3 5-5' },
-                  { key: 'mercado', label: 'Agente de Mercado',  color: '#8B5CF6', bg: '#F3EEFF', icon: 'M1 9l3-4 2.5 2 3-5' },
+                  { key: 'scout',   label: 'Scout IA',          color: '#1D9E75', bg: '#14301f', icon: 'M9 2L16 6V12L9 16L2 12V6L9 2Z' },
+                  { key: 'legal',   label: 'Agente Legal',       color: '#378ADD', bg: '#101f38', icon: 'M2 6l3 3 5-5' },
+                  { key: 'mercado', label: 'Agente de Mercado',  color: '#8B5CF6', bg: '#211a38', icon: 'M1 9l3-4 2.5 2 3-5' },
                 ] as const).map(({ key, label, color, bg, icon }) => {
                   const items: Fuente[] = scoutData.fuentes?.[key] ?? []
                   if (!items.length) return null
                   return (
-                    <div key={key} className="bg-white rounded-2xl border border-[#E2E8E4] shadow-sm overflow-hidden">
-                      <div className="px-5 py-4 border-b border-[#F0F4F2] flex items-center gap-2.5" style={{ background: bg }}>
+                    <div key={key} className="bg-[#132a4d] rounded-2xl border border-[#2a3f5c] shadow-sm overflow-hidden">
+                      <div className="px-5 py-4 border-b border-[#2a3f5c] flex items-center gap-2.5" style={{ background: bg }}>
                         <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ background: color }}>
                           <svg width="13" height="13" viewBox="0 0 12 12" fill="none">
-                            <path d={icon} stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                            <path d={icon} stroke="#f4f0e6" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                           </svg>
                         </div>
                         <p className="text-[12px] font-bold" style={{ color }}>{label}</p>
                       </div>
-                      <ul className="divide-y divide-[#F0F4F2]">
+                      <ul className="divide-y divide-[#2a3f5c]">
                         {items.map((f, fi) => (
                           <li key={fi} className="px-5 py-3">
-                            <p className="text-[12px] font-semibold text-[#111d17] leading-snug">{f.nombre}</p>
-                            <p className="text-[10px] text-[#9aab9f] mt-0.5 uppercase tracking-wide">{f.tipo}</p>
+                            <p className="text-[12px] font-semibold text-[#f4f0e6] leading-snug">{f.nombre}</p>
+                            <p className="text-[10px] text-[#5f6a80] mt-0.5 uppercase tracking-wide">{f.tipo}</p>
                           </li>
                         ))}
                       </ul>
@@ -851,20 +865,20 @@ function AnalisisflujoB() {
           <FuentesConsultadas />
 
           {/* 13 · CTA */}
-          <div className="bg-white rounded-2xl border border-[#E2E8E4] shadow-sm p-6 flex items-center justify-between">
+          <div className="bg-[#132a4d] rounded-2xl border border-[#2a3f5c] shadow-sm p-6 flex items-center justify-between">
             <div>
-              <p className="text-[15px] font-bold text-[#0F6E56] mb-1">Análisis completo · Listo para presentar</p>
-              <p className="text-[13px] text-[#5a7065]">Genera la propuesta comparativa con los tres candidatos para inversionistas.</p>
+              <p className="text-[15px] font-bold text-[#5FD4A8] mb-1">Análisis completo · Listo para presentar</p>
+              <p className="text-[13px] text-[#8b96ab]">Genera la propuesta comparativa con los tres candidatos para inversionistas.</p>
             </div>
             <button
               onClick={() => {
                 router.push(`/propuesta/flujo-b?proyecto=${encodeURIComponent(proyecto)}`)
               }}
-              className="flex items-center gap-2 bg-[#1D9E75] text-white px-6 py-3.5 rounded-xl text-[14px] font-semibold hover:bg-[#0F6E56] transition-colors cursor-pointer shrink-0 ml-6"
+              className="flex items-center gap-2 bg-[#5B8FD4] text-[#f4f0e6] px-6 py-3.5 rounded-xl text-[14px] font-semibold hover:bg-[#8FB6E8] transition-colors cursor-pointer shrink-0 ml-6"
             >
               Generar Propuesta Comparativa
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                <path d="M6 4l4 4-4 4" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
+                <path d="M6 4l4 4-4 4" stroke="#f4f0e6" strokeWidth="1.5" strokeLinecap="round"/>
               </svg>
             </button>
           </div>
@@ -878,8 +892,8 @@ function AnalisisflujoB() {
 export default function AnalisisflujoB_Page() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-[#F7F8F6] flex items-center justify-center">
-        <p className="text-[#9aab9f]">Cargando análisis comparativo…</p>
+      <div className="min-h-screen bg-[#0b1d3a] flex items-center justify-center">
+        <p className="text-[#5f6a80]">Cargando análisis comparativo…</p>
       </div>
     }>
       <AnalisisflujoB />

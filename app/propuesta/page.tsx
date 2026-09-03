@@ -327,35 +327,35 @@ function PropuestaContent() {
   const f = d.financiero
 
   return (
-    <div className="min-h-screen bg-[#F7F8F6] flex flex-col">
-      <header className="no-print px-8 py-4 flex items-center gap-3 border-b border-[rgba(0,0,0,0.08)] bg-white sticky top-0 z-20">
-        <div className="w-8 h-8 rounded-lg bg-[#1D9E75] flex items-center justify-center shrink-0">
+    <div className="min-h-screen bg-[#0b1d3a] flex flex-col">
+      <header className="no-print px-8 py-4 flex items-center gap-3 border-b border-[#2a3f5c] bg-[#070f22] sticky top-0 z-20">
+        <div className="w-8 h-8 rounded-lg bg-[#c9a227] flex items-center justify-center shrink-0">
           <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-            <path d="M9 2L16 6V12L9 16L2 12V6L9 2Z" stroke="white" strokeWidth="1.5" fill="none"/>
-            <path d="M9 2V16M2 6L16 12M16 6L2 12" stroke="white" strokeWidth="1" strokeOpacity="0.5"/>
+            <path d="M9 2L16 6V12L9 16L2 12V6L9 2Z" stroke="#070f22" strokeWidth="1.5" fill="none"/>
+            <path d="M9 2V16M2 6L16 12M16 6L2 12" stroke="#070f22" strokeWidth="1" strokeOpacity="0.6"/>
           </svg>
         </div>
         <div>
-          <span className="text-[15px] font-medium text-[#1a1a1a] tracking-wide">SMT Developer</span>
-          <span className="block text-[10px] text-[#6b7c74] tracking-[0.12em] uppercase">Inteligencia inmobiliaria</span>
+          <span className="text-[15px] font-medium text-[#f4f0e6] tracking-wide">SMT Developer</span>
+          <span className="block text-[10px] text-[#8b96ab] tracking-[0.12em] uppercase">Inteligencia inmobiliaria</span>
         </div>
         <div className="ml-auto flex items-center gap-2">
           {modoRapido && (
-            <span className="text-[10px] font-bold tracking-[0.12em] uppercase bg-[#FBF1DC] border border-[#E6C97A] text-[#8A6508] px-3 py-1 rounded-full">
+            <span className="text-[10px] font-bold tracking-[0.12em] uppercase bg-[#2e2510] border border-[#7a5f1f] text-[#FBBF24] px-3 py-1 rounded-full">
               ⚡ Camino corto
             </span>
           )}
           {aiGenerated && (
-            <span className="text-[10px] font-bold tracking-[0.12em] uppercase bg-[#E1F5EE] border border-[#9FE1CB] text-[#0F6E56] px-3 py-1 rounded-full">
+            <span className="text-[10px] font-bold tracking-[0.12em] uppercase bg-[#c9a227]/15 border border-[#c9a227]/40 text-[#ddc06a] px-3 py-1 rounded-full">
               IA generado
             </span>
           )}
           {modoRapido && !todoExpandido && (
-            <button onClick={() => setTodoExpandido(true)} className="no-print flex items-center gap-1.5 text-[13px] font-medium text-[#5C7186] hover:text-[#111d17] border border-[rgba(0,0,0,0.08)] hover:border-[#C8D5CF] px-3 py-1.5 rounded-xl transition-colors mr-1">
+            <button onClick={() => setTodoExpandido(true)} className="no-print flex items-center gap-1.5 text-[13px] font-medium text-[#8b96ab] hover:text-[#f4f0e6] border border-[#2a3f5c] hover:border-[#a68f52] px-3 py-1.5 rounded-xl transition-colors mr-1">
               Ver todo el detalle
             </button>
           )}
-          <button onClick={() => router.push('/dashboard')} className="flex items-center gap-1.5 text-[13px] text-[#5C7186] hover:text-[#111d17] border border-[rgba(0,0,0,0.08)] hover:border-[#C8D5CF] px-3 py-1.5 rounded-xl transition-colors mr-1">
+          <button onClick={() => router.push('/dashboard')} className="flex items-center gap-1.5 text-[13px] text-[#8b96ab] hover:text-[#f4f0e6] border border-[#2a3f5c] hover:border-[#a68f52] px-3 py-1.5 rounded-xl transition-colors mr-1">
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
               <rect x="1" y="1" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.3"/>
               <rect x="8" y="1" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.3"/>
@@ -366,7 +366,7 @@ function PropuestaContent() {
           </button>
           <button
             onClick={() => router.push(`/analisis${proyecto !== 'Proyecto de Inversión' ? `?proyecto=${encodeURIComponent(proyecto)}` : ''}`)}
-            className="flex items-center gap-1.5 text-[13px] text-[#5C7186] hover:text-[#111d17] transition-colors mr-2"
+            className="flex items-center gap-1.5 text-[13px] text-[#8b96ab] hover:text-[#f4f0e6] transition-colors mr-2"
           >
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
               <path d="M10 4L6 8L10 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
@@ -376,7 +376,7 @@ function PropuestaContent() {
           <button
             onClick={handleDownloadPDF}
             disabled={pdfLoading}
-            className="flex items-center gap-1.5 text-[13px] font-medium px-4 py-2 rounded-xl border transition-colors text-[#0F6E56] border-[#9FE1CB] bg-[#E1F5EE] hover:bg-[#1D9E75] hover:text-white hover:border-[#1D9E75] cursor-pointer disabled:opacity-60 disabled:cursor-wait"
+            className="flex items-center gap-1.5 text-[13px] font-medium px-4 py-2 rounded-xl border transition-colors text-[#ddc06a] border-[#c9a227]/40 bg-[#c9a227]/10 hover:bg-[#c9a227] hover:text-[#070f22] hover:border-[#c9a227] cursor-pointer disabled:opacity-60 disabled:cursor-wait"
           >
             {pdfLoading ? (
               <>
@@ -1026,7 +1026,7 @@ function PropuestaContent() {
 
 export default function PropuestaPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-[#F7F8F6] flex items-center justify-center"><p className="text-[#9aab9f]">Generando propuesta…</p></div>}>
+    <Suspense fallback={<div className="min-h-screen bg-[#0b1d3a] flex items-center justify-center"><p className="text-[#5f6a80]">Generando propuesta…</p></div>}>
       <PropuestaContent />
     </Suspense>
   )

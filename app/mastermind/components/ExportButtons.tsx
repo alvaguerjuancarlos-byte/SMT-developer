@@ -32,14 +32,14 @@ export default function ExportButtons({ nombreProyecto }: { nombreProyecto: stri
       <button
         onClick={handlePDF}
         disabled={exportando !== null}
-        className="text-[12px] font-medium px-4 py-2 rounded-xl border border-[#9FE1CB] bg-[#F0FBF6] text-[#1D9E75] hover:bg-[#E1F5EE] transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+        className="text-[12px] font-medium px-4 py-2 rounded-xl border border-[#c9a227]/40 bg-[#c9a227]/10 text-[#ddc06a] hover:bg-[#c9a227]/15 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
       >
         {exportando === 'pdf' ? 'Generando…' : 'Descargar PDF'}
       </button>
       <button
         onClick={handleExcel}
         disabled={exportando !== null}
-        className="text-[12px] font-medium px-4 py-2 rounded-xl border border-[#E2E8E4] bg-white text-[#111d17] hover:bg-[#FAFBFA] transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+        className="text-[12px] font-medium px-4 py-2 rounded-xl border border-[#2a3f5c] bg-[#132a4d] text-[#f4f0e6] hover:bg-[#1c304b] transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
       >
         {exportando === 'excel' ? 'Generando…' : 'Descargar Excel'}
       </button>

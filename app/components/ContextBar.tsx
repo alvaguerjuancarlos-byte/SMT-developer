@@ -20,15 +20,28 @@ export default function ContextBar() {
   // PREFORMA es una pantalla completa aparte, sin el breadcrumb de pasos de SMT Developer.
   if (pathname?.startsWith('/preforma')) return null
 
+  // El selector de camino (portada) trae su propio header navy/oro — sin chrome duplicado.
+  if (pathname === '/prospeccion') return null
+
+  // Pantallas de auth (login/registro/recuperar) traen su propio header navy — sin chrome duplicado.
+  if (pathname === '/login' || pathname === '/registro' || pathname === '/recuperar') return null
+
+  // Mismo criterio que Topbar.tsx — Mastermind trae su propio breadcrumb local.
+  if (pathname === '/mastermind' || pathname === '/mastermind-core') return null
+
   // Mismo alcance/criterio que Topbar.tsx — navy/oro solo en Camino A, match exacto.
   const esFlujoA = pathname === '/prospeccion/flujo-a' || pathname === '/analisis'
     || pathname === '/analisis/analizando' || pathname === '/propuesta'
 
-  // En Camino A, Topbar.tsx fusiona esta barra con la suya en una sola — no se duplica aquí.
-  if (esFlujoA) return null
+  // Mismo criterio para Camino B (navy/azul) — match exacto de las 4 pantallas propias.
+  const esFlujoB = pathname === '/prospeccion/flujo-b' || pathname === '/prospeccion/flujo-b/buscando'
+    || pathname === '/analisis/flujo-b' || pathname === '/propuesta/flujo-b'
+
+  // En Camino A y Camino B, Topbar.tsx fusiona esta barra con la suya en una sola — no se duplica aquí.
+  if (esFlujoA || esFlujoB) return null
 
   return (
-    <div className={esFlujoA ? 'bg-[#132a4d] border-b border-[#2a3f5c]' : 'bg-[#0a6b52] border-b border-[#085041]/50'}>
+    <div className="bg-[#132a4d] border-b border-[#2a3f5c]">
       <div className="max-w-7xl mx-auto px-6 h-12 flex items-center justify-between">
         <nav className="flex items-center gap-1">
           {steps.map((s, i) => {
@@ -39,35 +52,22 @@ export default function ContextBar() {
             return (
               <div key={s.step} className="flex items-center">
                 {i > 0 && (
-                  <svg className={esFlujoA ? 'w-4 h-4 text-[#5f6a80] mx-1' : 'w-4 h-4 text-white/30 mx-1'} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg className="w-4 h-4 text-[#5f6a80] mx-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                   </svg>
                 )}
                 <Link
                   href={s.href}
-                  className={esFlujoA
-                    ? `flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium transition-all
-                      ${isActive
-                        ? 'bg-[#c9a227] text-[#070f22] shadow'
-                        : isCompleted
-                          ? 'bg-[#c9a227]/15 text-[#f4f0e6] hover:bg-[#c9a227]/25'
-                          : 'text-[#5f6a80] cursor-not-allowed pointer-events-none'
-                      }`
-                    : `flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium transition-all
-                      ${isActive
-                        ? 'bg-white text-[#085041] shadow'
-                        : isCompleted
-                          ? 'bg-white/20 text-white hover:bg-white/30'
-                          : 'text-white/50 cursor-not-allowed pointer-events-none'
-                      }`
-                  }
+                  className={`flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium transition-all
+                    ${isActive
+                      ? 'bg-[#c9a227] text-[#070f22] shadow'
+                      : isCompleted
+                        ? 'bg-[#c9a227]/15 text-[#f4f0e6] hover:bg-[#c9a227]/25'
+                        : 'text-[#5f6a80] cursor-not-allowed pointer-events-none'
+                    }`}
                 >
-                  <span className={esFlujoA
-                    ? `w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold
-                      ${isActive ? 'bg-[#070f22] text-[#ddc06a]' : isCompleted ? 'bg-[#c9a227]/40 text-[#f4f0e6]' : 'bg-white/5 text-[#5f6a80]'}`
-                    : `w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold
-                      ${isActive ? 'bg-[#085041] text-white' : isCompleted ? 'bg-white/40 text-white' : 'bg-white/10 text-white/40'}`
-                  }>
+                  <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold
+                    ${isActive ? 'bg-[#070f22] text-[#ddc06a]' : isCompleted ? 'bg-[#c9a227]/40 text-[#f4f0e6]' : 'bg-white/5 text-[#5f6a80]'}`}>
                     {isCompleted && !isActive ? '✓' : s.step}
                   </span>
                   {s.label}
@@ -80,17 +80,17 @@ export default function ContextBar() {
         <div className="flex items-center gap-2">
           {terrain.nombre ? (
             <>
-              <svg className={esFlujoA ? 'w-4 h-4 text-[#8b96ab]' : 'w-4 h-4 text-white/60'} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="w-4 h-4 text-[#8b96ab]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
               </svg>
-              <span className={esFlujoA ? 'text-[#f4f0e6] font-medium text-sm truncate max-w-xs' : 'text-white font-medium text-sm truncate max-w-xs'}>{terrain.nombre}</span>
+              <span className="text-[#f4f0e6] font-medium text-sm truncate max-w-xs">{terrain.nombre}</span>
               {terrain.municipio && (
-                <span className={esFlujoA ? 'text-[#8b96ab] text-xs' : 'text-white/50 text-xs'}>— {terrain.municipio}, {terrain.estado}</span>
+                <span className="text-[#8b96ab] text-xs">— {terrain.municipio}, {terrain.estado}</span>
               )}
             </>
           ) : (
-            <span className={esFlujoA ? 'text-[#5f6a80] text-sm italic' : 'text-white/40 text-sm italic'}>Sin terreno activo</span>
+            <span className="text-[#5f6a80] text-sm italic">Sin terreno activo</span>
           )}
         </div>
       </div>

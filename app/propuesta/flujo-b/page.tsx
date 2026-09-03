@@ -4,6 +4,13 @@ import { useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { downloadPDF, autoSavePDF } from '@/lib/downloadPDF'
 import { saveProyecto } from '@/lib/saveProyecto'
+import { Fraunces, IBM_Plex_Mono } from 'next/font/google'
+
+// Look & feel — espejo azul del navy/oro de Flujo A (ver app/prospeccion/flujo-a/page.tsx).
+// Los colores semanticos (verde=positivo, ambar=precaucion, rojo=riesgo) se preservan
+// adaptando solo su fondo claro para que se lean bien sobre navy.
+const fraunces = Fraunces({ subsets: ['latin'], weight: ['500', '600'], style: ['normal', 'italic'], variable: '--font-fraunces' })
+const plexMono = IBM_Plex_Mono({ subsets: ['latin'], weight: ['400', '500'], variable: '--font-plex-mono' })
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -112,17 +119,17 @@ const FALLBACK: ScoutData = {
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
-    <h2 className="text-[11px] font-bold text-[#9aab9f] tracking-[0.14em] uppercase mb-4 flex items-center gap-3">
-      <span className="flex-1 h-px bg-[#E2E8E4]" />
+    <h2 className="text-[11px] font-bold text-[#5f6a80] tracking-[0.14em] uppercase mb-4 flex items-center gap-3" style={{ fontFamily: 'var(--font-plex-mono)' }}>
+      <span className="flex-1 h-px bg-[#2a3f5c]" />
       {children}
-      <span className="flex-1 h-px bg-[#E2E8E4]" />
+      <span className="flex-1 h-px bg-[#2a3f5c]" />
     </h2>
   )
 }
 
 function Card({ children, className = '' }: { children: React.ReactNode; className?: string }) {
   return (
-    <div className={`bg-white rounded-2xl border border-[#E2E8E4] shadow-sm ${className}`}>
+    <div className={`bg-[#132a4d] rounded-2xl border border-[#2a3f5c] shadow-sm ${className}`}>
       {children}
     </div>
   )
@@ -132,13 +139,13 @@ function TableRow({ label, value, highlight = false, sub }: {
   label: string; value: string; highlight?: boolean; sub?: string
 }) {
   return (
-    <tr className={`${highlight ? 'bg-[#F0FBF6]' : ''} border-b border-[#F0F4F2] last:border-0`}>
+    <tr className={`${highlight ? 'bg-[#14301f]/40' : ''} border-b border-[#2a3f5c] last:border-0`}>
       <td className="px-6 py-3">
-        <p className={`text-[13px] ${highlight ? 'font-bold text-[#0F6E56]' : 'text-[#5a7065]'}`}>{label}</p>
-        {sub && <p className="text-[11px] text-[#9aab9f]">{sub}</p>}
+        <p className={`text-[13px] ${highlight ? 'font-bold text-[#5FD4A8]' : 'text-[#8b96ab]'}`}>{label}</p>
+        {sub && <p className="text-[11px] text-[#5f6a80]">{sub}</p>}
       </td>
       <td className="px-6 py-3 text-right">
-        <p className={`text-[13px] ${highlight ? 'font-bold text-[#0F6E56]' : 'font-semibold text-[#111d17]'}`}>{value}</p>
+        <p className={`text-[13px] ${highlight ? 'font-bold text-[#5FD4A8]' : 'font-semibold text-[#f4f0e6]'}`}>{value}</p>
       </td>
     </tr>
   )
@@ -150,18 +157,18 @@ function ScoreArc({ score }: { score: number }) {
   const dash = (score / 100) * circ
   const color = score >= 70 ? '#1D9E75' : score >= 50 ? '#D97706' : '#DC2626'
   const label = score >= 70 ? 'Proyecto Viable' : score >= 50 ? 'Revisar Supuestos' : 'Riesgo Elevado'
-  const labelColor = score >= 70 ? '#0F6E56' : score >= 50 ? '#92600A' : '#991B1B'
+  const labelColor = score >= 70 ? '#5FD4A8' : score >= 50 ? '#E8B84B' : '#F87171'
   return (
     <div className="flex flex-col items-center gap-1">
       <div className="relative" style={{ width: 120, height: 72 }}>
         <svg width="120" height="72" viewBox="0 0 120 72" fill="none" style={{ overflow: 'visible' }}>
-          <path d="M 12 60 A 48 48 0 0 1 108 60" stroke="#E2E8E4" strokeWidth="10" strokeLinecap="round" fill="none"/>
+          <path d="M 12 60 A 48 48 0 0 1 108 60" stroke="#2a3f5c" strokeWidth="10" strokeLinecap="round" fill="none"/>
           <path d="M 12 60 A 48 48 0 0 1 108 60" stroke={color} strokeWidth="10" strokeLinecap="round" fill="none"
             strokeDasharray={`${dash} ${circ}`} style={{ transition: 'stroke-dasharray 1s ease' }}/>
         </svg>
         <div className="absolute bottom-0 left-0 right-0 flex flex-col items-center">
           <span className="text-[28px] font-black leading-none" style={{ color }}>{score}</span>
-          <span className="text-[10px] text-[#9aab9f]">/ 100</span>
+          <span className="text-[10px] text-[#5f6a80]">/ 100</span>
         </div>
       </div>
       <span className="text-[11px] font-bold" style={{ color: labelColor }}>{label}</span>
@@ -171,20 +178,20 @@ function ScoreArc({ score }: { score: number }) {
 
 function StressRow({ titulo, escenario, impacto, status }: StressItem) {
   const cfg = {
-    green: { badge: 'bg-[#E1F5EE] text-[#0F6E56]', dot: '#1D9E75', label: 'Tolerable' },
-    amber: { badge: 'bg-[#FEF3C7] text-[#92600A]', dot: '#D97706', label: 'Monitorear' },
-    red:   { badge: 'bg-[#FEE2E2] text-[#991B1B]', dot: '#DC2626', label: 'Crítico'   },
+    green: { badge: 'bg-[#14301f] text-[#5FD4A8]', dot: '#1D9E75', label: 'Tolerable' },
+    amber: { badge: 'bg-[#2e2510] text-[#E8B84B]', dot: '#D97706', label: 'Monitorear' },
+    red:   { badge: 'bg-[#2e1414] text-[#F87171]', dot: '#DC2626', label: 'Crítico'   },
   }[status]
   return (
-    <div className="flex items-start gap-4 py-4 border-b border-[#F0F4F2] last:border-0">
+    <div className="flex items-start gap-4 py-4 border-b border-[#2a3f5c] last:border-0">
       <span className="w-2.5 h-2.5 rounded-full mt-1 shrink-0" style={{ backgroundColor: cfg.dot }} />
       <div className="flex-1">
         <div className="flex items-center gap-2 mb-1">
-          <p className="text-[13px] font-bold text-[#111d17]">{titulo}</p>
+          <p className="text-[13px] font-bold text-[#f4f0e6]">{titulo}</p>
           <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${cfg.badge}`}>{cfg.label}</span>
         </div>
-        <p className="text-[12px] text-[#5a7065] mb-1">{escenario}</p>
-        <p className="text-[12px] font-semibold text-[#111d17]">{impacto}</p>
+        <p className="text-[12px] text-[#8b96ab] mb-1">{escenario}</p>
+        <p className="text-[12px] font-semibold text-[#f4f0e6]">{impacto}</p>
       </div>
     </div>
   )
@@ -253,27 +260,34 @@ function PropuestaFlujoBContent() {
   const backUrl = `/analisis/flujo-b${proyecto ? `?proyecto=${encodeURIComponent(proyecto)}` : ''}`
 
   return (
-    <div className="min-h-screen bg-[#F7F8F6] flex flex-col">
+    <div
+      className={`${fraunces.variable} ${plexMono.variable} min-h-screen bg-[#0b1d3a] flex flex-col`}
+      style={{
+        backgroundImage:
+          'linear-gradient(rgba(244,240,230,0.11) 1px, transparent 1px), linear-gradient(90deg, rgba(244,240,230,0.11) 1px, transparent 1px)',
+        backgroundSize: '64px 64px',
+      }}
+    >
 
       {/* Sticky header */}
-      <header className="px-8 py-4 flex items-center gap-3 border-b border-[#E2E8E4] bg-white sticky top-0 z-20">
-        <div className="w-8 h-8 rounded-lg bg-[#1D9E75] flex items-center justify-center shrink-0">
+      <header className="px-8 py-4 flex items-center gap-3 border-b border-white/10 bg-[#070f22] sticky top-0 z-20">
+        <div className="w-8 h-8 rounded-lg bg-[#5B8FD4] flex items-center justify-center shrink-0">
           <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-            <path d="M9 2L16 6V12L9 16L2 12V6L9 2Z" stroke="white" strokeWidth="1.5" fill="none"/>
-            <path d="M9 2V16M2 6L16 12M16 6L2 12" stroke="white" strokeWidth="1" strokeOpacity="0.5"/>
+            <path d="M9 2L16 6V12L9 16L2 12V6L9 2Z" stroke="#f4f0e6" strokeWidth="1.5" fill="none"/>
+            <path d="M9 2V16M2 6L16 12M16 6L2 12" stroke="#f4f0e6" strokeWidth="1" strokeOpacity="0.5"/>
           </svg>
         </div>
         <div>
-          <span className="text-[15px] font-medium text-[#1a1a1a] tracking-wide">SMT Developer</span>
-          <span className="block text-[10px] text-[#6b7c74] tracking-[0.12em] uppercase">Inteligencia inmobiliaria</span>
+          <span className="text-[15px] tracking-wide" style={{ fontFamily: 'var(--font-fraunces)', fontWeight: 500 }}>SMT <em style={{ fontStyle: 'normal', color: '#8FB6E8' }}>Developer</em></span>
+          <span className="block text-[10px] text-[#8b96ab] tracking-[0.12em] uppercase">Inteligencia inmobiliaria</span>
         </div>
         <div className="ml-auto flex items-center gap-2">
           {aiGenerated && (
-            <span className="text-[10px] font-bold tracking-[0.12em] uppercase bg-[#E1F5EE] border border-[#9FE1CB] text-[#0F6E56] px-2.5 py-1 rounded-full">
+            <span className="text-[10px] font-bold tracking-[0.12em] uppercase bg-[#5B8FD4]/10 border border-[#5B8FD4]/40 text-[#8FB6E8] px-2.5 py-1 rounded-full">
               IA generado
             </span>
           )}
-          <button onClick={() => router.push('/dashboard')} className="flex items-center gap-1.5 text-[13px] text-[#5a7065] hover:text-[#111d17] border border-[#E2E8E4] hover:border-[#C8D5CF] px-3 py-1.5 rounded-xl transition-colors">
+          <button onClick={() => router.push('/dashboard')} className="flex items-center gap-1.5 text-[13px] text-[#8b96ab] hover:text-[#f4f0e6] border border-[#2a3f5c] hover:border-[#3f5a85] px-3 py-1.5 rounded-xl transition-colors">
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
               <rect x="1" y="1" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.3"/>
               <rect x="8" y="1" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.3"/>
@@ -284,7 +298,7 @@ function PropuestaFlujoBContent() {
           </button>
           <button
             onClick={() => router.push(backUrl)}
-            className="flex items-center gap-1.5 text-[13px] text-[#5a7065] hover:text-[#111d17] transition-colors mr-2"
+            className="flex items-center gap-1.5 text-[13px] text-[#8b96ab] hover:text-[#f4f0e6] transition-colors mr-2"
           >
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
               <path d="M10 4L6 8L10 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
@@ -293,7 +307,7 @@ function PropuestaFlujoBContent() {
           </button>
           <button
             onClick={handleDownloadPDF}
-            className="flex items-center gap-1.5 text-[13px] font-medium px-4 py-2 rounded-xl border transition-colors text-[#0F6E56] border-[#9FE1CB] bg-[#E1F5EE] hover:bg-[#1D9E75] hover:text-white hover:border-[#1D9E75] cursor-pointer"
+            className="flex items-center gap-1.5 text-[13px] font-medium px-4 py-2 rounded-xl border transition-colors text-[#8FB6E8] border-[#5B8FD4]/40 bg-[#5B8FD4]/10 hover:bg-[#5B8FD4] hover:text-[#f4f0e6] hover:border-[#5B8FD4] cursor-pointer"
           >
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
               <path d="M7 1v8M4 6l3 3 3-3M2 11h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
@@ -301,7 +315,7 @@ function PropuestaFlujoBContent() {
             Descargar PDF
           </button>
           <div className="relative group">
-            <button disabled className="flex items-center gap-1.5 text-[13px] font-medium text-[#9aab9f] border border-[#E2E8E4] bg-[#F7F8F6] px-4 py-2 rounded-xl cursor-not-allowed">
+            <button disabled className="flex items-center gap-1.5 text-[13px] font-medium text-[#5f6a80] border border-[#2a3f5c] bg-[#0b1d3a] px-4 py-2 rounded-xl cursor-not-allowed">
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                 <circle cx="11" cy="3" r="1.5" stroke="currentColor" strokeWidth="1.3"/>
                 <circle cx="11" cy="11" r="1.5" stroke="currentColor" strokeWidth="1.3"/>
@@ -310,7 +324,7 @@ function PropuestaFlujoBContent() {
               </svg>
               Compartir
             </button>
-            <span className="absolute -top-7 left-1/2 -translate-x-1/2 bg-[#111d17] text-white text-[10px] font-semibold px-2 py-1 rounded-md whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+            <span className="absolute -top-7 left-1/2 -translate-x-1/2 bg-[#5B8FD4] text-[#f4f0e6] text-[10px] font-semibold px-2 py-1 rounded-md whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
               Próximamente
             </span>
           </div>
@@ -321,30 +335,30 @@ function PropuestaFlujoBContent() {
         <div id="propuesta-print" className="w-full max-w-[800px] mx-auto flex flex-col gap-10">
 
           {/* 1 · Cover */}
-          <div className="rounded-2xl overflow-hidden" style={{ background: 'linear-gradient(135deg, #0a1a12 0%, #111d17 55%, #0c1f15 100%)' }}>
+          <div className="rounded-2xl overflow-hidden" style={{ background: 'linear-gradient(135deg, #070f22 0%, #0b1d3a 55%, #091529 100%)' }}>
             <div className="px-8 pt-8 pb-6 border-b border-white/10">
               <div className="flex items-start justify-between mb-6">
                 <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-[#1D9E75] flex items-center justify-center">
+                  <div className="w-9 h-9 rounded-xl bg-[#5B8FD4] flex items-center justify-center">
                     <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-                      <path d="M9 2L16 6V12L9 16L2 12V6L9 2Z" stroke="white" strokeWidth="1.5" fill="none"/>
-                      <path d="M9 2V16M2 6L16 12M16 6L2 12" stroke="white" strokeWidth="1" strokeOpacity="0.5"/>
+                      <path d="M9 2L16 6V12L9 16L2 12V6L9 2Z" stroke="#f4f0e6" strokeWidth="1.5" fill="none"/>
+                      <path d="M9 2V16M2 6L16 12M16 6L2 12" stroke="#f4f0e6" strokeWidth="1" strokeOpacity="0.5"/>
                     </svg>
                   </div>
                   <div>
-                    <p className="text-[14px] font-semibold text-white">SMT Developer</p>
-                    <p className="text-[10px] text-white/40 tracking-[0.12em] uppercase">Inteligencia inmobiliaria</p>
+                    <p className="text-[14px] font-semibold text-[#f4f0e6]">SMT Developer</p>
+                    <p className="text-[10px] text-[#f4f0e6]/40 tracking-[0.12em] uppercase">Inteligencia inmobiliaria</p>
                   </div>
                 </div>
-                <span className="text-[10px] font-bold tracking-[0.14em] uppercase bg-[#1D9E75]/20 border border-[#1D9E75]/40 text-[#9FE1CB] px-3 py-1 rounded-full">
+                <span className="text-[10px] font-bold tracking-[0.14em] uppercase bg-[#5B8FD4]/20 border border-[#5B8FD4]/40 text-[#8FB6E8] px-3 py-1 rounded-full">
                   Confidencial
                 </span>
               </div>
-              <p className="text-[11px] font-bold text-[#9FE1CB] tracking-[0.14em] uppercase mb-2">
+              <p className="text-[11px] font-bold text-[#8FB6E8] tracking-[0.14em] uppercase mb-2">
                 Propuesta Comparativa de Inversión · {candidates.length} Candidatos
               </p>
-              <h1 className="text-[34px] font-black text-white leading-tight mb-2">{proyecto}</h1>
-              <p className="text-[14px] text-white/50">{recCand?.zona || ''} · {today}</p>
+              <h1 className="text-[34px] font-black text-[#f4f0e6] leading-tight mb-2">{proyecto}</h1>
+              <p className="text-[14px] text-[#f4f0e6]/50">{recCand?.zona || ''} · {today}</p>
             </div>
             <div className="grid grid-cols-4 divide-x divide-white/10">
               {[
@@ -354,9 +368,9 @@ function PropuestaFlujoBContent() {
                 { label: 'Score Resiliencia', value: `${rec?.scoreResiliencia ?? recCand?.score ?? 81}/100`, sub: 'Proyecto viable', green: true },
               ].map((m, i) => (
                 <div key={i} className="px-6 py-5">
-                  <p className="text-[10px] text-white/40 uppercase tracking-wide mb-1">{m.label}</p>
-                  <p className={`text-[24px] font-black leading-none ${m.green ? 'text-[#4ade80]' : 'text-white'}`}>{m.value}</p>
-                  <p className="text-[11px] text-white/30 mt-1">{m.sub}</p>
+                  <p className="text-[10px] text-[#f4f0e6]/40 uppercase tracking-wide mb-1">{m.label}</p>
+                  <p className={`text-[24px] font-black leading-none ${m.green ? 'text-[#4ade80]' : 'text-[#f4f0e6]'}`}>{m.value}</p>
+                  <p className="text-[11px] text-[#f4f0e6]/30 mt-1">{m.sub}</p>
                 </div>
               ))}
             </div>
@@ -368,30 +382,30 @@ function PropuestaFlujoBContent() {
             <div className="grid grid-cols-3 gap-4">
               {candidates.map((c, i) => {
                 const isRec = c.recomendado || c.id === rec?.candidatoId
-                const scoreBg = (c.score ?? 75) >= 80 ? 'bg-[#E1F5EE] text-[#0F6E56]' : 'bg-[#FEF3C7] text-[#92600A]'
+                const scoreBg = (c.score ?? 75) >= 80 ? 'bg-[#14301f] text-[#5FD4A8]' : 'bg-[#2e2510] text-[#E8B84B]'
                 return (
-                  <div key={c.id} className={`rounded-2xl border overflow-hidden shadow-sm ${isRec ? 'border-[#1D9E75]' : 'border-[#E2E8E4]'}`}>
-                    <div className={`px-5 py-4 border-b ${isRec ? 'bg-[#E1F5EE] border-[#9FE1CB]' : 'bg-white border-[#F0F4F2]'}`}>
+                  <div key={c.id} className={`rounded-2xl border overflow-hidden shadow-sm ${isRec ? 'border-[#1D9E75]' : 'border-[#2a3f5c]'}`}>
+                    <div className={`px-5 py-4 border-b ${isRec ? 'bg-[#14301f] border-[#1D9E75]/40' : 'bg-[#132a4d] border-[#2a3f5c]'}`}>
                       <div className="flex items-center justify-between mb-2">
-                        <div className="w-7 h-7 rounded-lg bg-[#111d17] flex items-center justify-center text-white font-black text-[12px]">{ID_LABELS[i]}</div>
+                        <div className="w-7 h-7 rounded-lg bg-[#5B8FD4] flex items-center justify-center text-[#f4f0e6] font-black text-[12px]">{ID_LABELS[i]}</div>
                         {isRec && (
-                          <span className="text-[9px] font-bold tracking-[0.12em] uppercase bg-[#1D9E75] text-white px-2 py-0.5 rounded-full">Recomendado</span>
+                          <span className="text-[9px] font-bold tracking-[0.12em] uppercase bg-[#1D9E75] text-[#f4f0e6] px-2 py-0.5 rounded-full">Recomendado</span>
                         )}
                       </div>
-                      <p className={`text-[13px] font-bold leading-tight ${isRec ? 'text-[#0F6E56]' : 'text-[#111d17]'}`}>{c.nombre}</p>
-                      <p className="text-[10px] text-[#9aab9f] mt-0.5">{c.zona}</p>
+                      <p className={`text-[13px] font-bold leading-tight ${isRec ? 'text-[#5FD4A8]' : 'text-[#f4f0e6]'}`}>{c.nombre}</p>
+                      <p className="text-[10px] text-[#5f6a80] mt-0.5">{c.zona}</p>
                     </div>
-                    <div className="px-5 py-4 bg-white flex flex-col gap-2">
+                    <div className="px-5 py-4 bg-[#132a4d] flex flex-col gap-2">
                       <div className="flex justify-between items-center">
-                        <span className="text-[11px] text-[#9aab9f]">TIR estimada</span>
-                        <span className={`text-[13px] font-bold ${isRec ? 'text-[#0F6E56]' : 'text-[#111d17]'}`}>{c.tir || '—'}</span>
+                        <span className="text-[11px] text-[#5f6a80]">TIR estimada</span>
+                        <span className={`text-[13px] font-bold ${isRec ? 'text-[#5FD4A8]' : 'text-[#f4f0e6]'}`}>{c.tir || '—'}</span>
                       </div>
                       <div className="flex justify-between items-center">
-                        <span className="text-[11px] text-[#9aab9f]">Precio terreno</span>
-                        <span className="text-[13px] font-semibold text-[#111d17]">{c.precio} MXN</span>
+                        <span className="text-[11px] text-[#5f6a80]">Precio terreno</span>
+                        <span className="text-[13px] font-semibold text-[#f4f0e6]">{c.precio} MXN</span>
                       </div>
                       <div className="flex justify-between items-center">
-                        <span className="text-[11px] text-[#9aab9f]">Score global</span>
+                        <span className="text-[11px] text-[#5f6a80]">Score global</span>
                         <span className={`text-[12px] font-bold px-2 py-0.5 rounded-full ${scoreBg}`}>{c.score ?? '—'}/100</span>
                       </div>
                     </div>
@@ -405,7 +419,7 @@ function PropuestaFlujoBContent() {
           {recCand && (
             <div>
               <SectionTitle>Terreno Recomendado · {recCand.nombre}</SectionTitle>
-              <div className="rounded-2xl overflow-hidden border border-[#9FE1CB]" style={{ background: 'linear-gradient(135deg, #0a1a12 0%, #0f2a1c 100%)' }}>
+              <div className="rounded-2xl overflow-hidden border border-[#5B8FD4]/40" style={{ background: 'linear-gradient(135deg, #070f22 0%, #0b1d3a 100%)' }}>
                 <div className="px-8 py-7">
                   <div className="flex items-start gap-6 mb-6">
                     <div className="shrink-0">
@@ -413,13 +427,13 @@ function PropuestaFlujoBContent() {
                     </div>
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">
-                        <span className="text-[10px] font-bold tracking-[0.14em] uppercase bg-[#1D9E75]/20 border border-[#1D9E75]/40 text-[#9FE1CB] px-3 py-1 rounded-full">
+                        <span className="text-[10px] font-bold tracking-[0.14em] uppercase bg-[#5B8FD4]/20 border border-[#5B8FD4]/40 text-[#8FB6E8] px-3 py-1 rounded-full">
                           Candidato {ID_LABELS[recIdx] || 'A'} · Seleccionado
                         </span>
                       </div>
-                      <h3 className="text-[22px] font-black text-white mb-1">{recCand.nombre}</h3>
-                      <p className="text-[13px] text-white/50 mb-4">{recCand.ubicacion || recCand.zona}</p>
-                      <p className="text-[13px] text-white/70 leading-relaxed">{rec?.texto || FALLBACK.recomendacion!.texto}</p>
+                      <h3 className="text-[22px] font-black text-[#f4f0e6] mb-1">{recCand.nombre}</h3>
+                      <p className="text-[13px] text-[#f4f0e6]/50 mb-4">{recCand.ubicacion || recCand.zona}</p>
+                      <p className="text-[13px] text-[#f4f0e6]/70 leading-relaxed">{rec?.texto || FALLBACK.recomendacion!.texto}</p>
                     </div>
                   </div>
                   <div className="grid grid-cols-4 gap-4 pt-6 border-t border-white/10">
@@ -430,8 +444,8 @@ function PropuestaFlujoBContent() {
                       { label: 'Horizonte',         value: fin.horizonte || '—',                    green: false },
                     ].map((m, i) => (
                       <div key={i} className="text-center">
-                        <p className="text-[10px] text-white/40 uppercase tracking-wide mb-1">{m.label}</p>
-                        <p className={`text-[20px] font-black leading-none ${m.green ? 'text-[#4ade80]' : 'text-white'}`}>{m.value}</p>
+                        <p className="text-[10px] text-[#f4f0e6]/40 uppercase tracking-wide mb-1">{m.label}</p>
+                        <p className={`text-[20px] font-black leading-none ${m.green ? 'text-[#4ade80]' : 'text-[#f4f0e6]'}`}>{m.value}</p>
                       </div>
                     ))}
                   </div>
@@ -446,8 +460,8 @@ function PropuestaFlujoBContent() {
             <Card className="p-0 overflow-hidden">
               <table className="w-full">
                 <thead>
-                  <tr className="border-b border-[#E2E8E4] bg-[#F7F8F6]">
-                    <th className="px-5 py-3 text-left text-[10px] font-bold text-[#9aab9f] uppercase tracking-wide w-[120px]">Candidato</th>
+                  <tr className="border-b border-[#2a3f5c] bg-[#0e2038]">
+                    <th className="px-5 py-3 text-left text-[10px] font-bold text-[#5f6a80] uppercase tracking-wide w-[120px]">Candidato</th>
                     <th className="px-5 py-3 text-left text-[10px] font-bold text-[#1D9E75] uppercase tracking-wide">Fortalezas</th>
                     <th className="px-5 py-3 text-left text-[10px] font-bold text-[#D97706] uppercase tracking-wide">Riesgos</th>
                   </tr>
@@ -456,12 +470,12 @@ function PropuestaFlujoBContent() {
                   {candidates.map((c, i) => {
                     const isRec = c.recomendado || c.id === rec?.candidatoId
                     return (
-                      <tr key={c.id} className={`border-b border-[#F0F4F2] last:border-0 ${isRec ? 'bg-[#F0FBF6]' : i % 2 !== 0 ? 'bg-[#FAFBFA]' : ''}`}>
+                      <tr key={c.id} className={`border-b border-[#2a3f5c] last:border-0 ${isRec ? 'bg-[#14301f]/40' : i % 2 !== 0 ? 'bg-[#0e2038]' : ''}`}>
                         <td className="px-5 py-4 align-top">
                           <div className="flex items-center gap-2">
-                            <div className="w-6 h-6 rounded-md bg-[#111d17] flex items-center justify-center text-white font-black text-[11px] shrink-0">{ID_LABELS[i]}</div>
+                            <div className="w-6 h-6 rounded-md bg-[#5B8FD4] flex items-center justify-center text-[#f4f0e6] font-black text-[11px] shrink-0">{ID_LABELS[i]}</div>
                             <div>
-                              <p className={`text-[12px] font-bold ${isRec ? 'text-[#0F6E56]' : 'text-[#111d17]'}`}>{c.nombre}</p>
+                              <p className={`text-[12px] font-bold ${isRec ? 'text-[#5FD4A8]' : 'text-[#f4f0e6]'}`}>{c.nombre}</p>
                               {isRec && <p className="text-[9px] text-[#1D9E75] font-semibold">Recomendado</p>}
                             </div>
                           </div>
@@ -471,7 +485,7 @@ function PropuestaFlujoBContent() {
                             {(c.pros || []).map((p, pi) => (
                               <li key={pi} className="flex items-start gap-1.5">
                                 <span className="text-[#1D9E75] font-bold text-[11px] mt-0.5">✓</span>
-                                <span className="text-[12px] text-[#5a7065]">{p}</span>
+                                <span className="text-[12px] text-[#8b96ab]">{p}</span>
                               </li>
                             ))}
                           </ul>
@@ -481,7 +495,7 @@ function PropuestaFlujoBContent() {
                             {(c.contras || []).map((con, ci) => (
                               <li key={ci} className="flex items-start gap-1.5">
                                 <span className="text-[#D97706] font-bold text-[11px] mt-0.5">▲</span>
-                                <span className="text-[12px] text-[#5a7065]">{con}</span>
+                                <span className="text-[12px] text-[#8b96ab]">{con}</span>
                               </li>
                             ))}
                           </ul>
@@ -560,12 +574,12 @@ function PropuestaFlujoBContent() {
                   },
                 ].map(s => (
                   <div key={s.n} className="flex items-start gap-4">
-                    <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 font-black text-[13px] text-white" style={{ backgroundColor: s.color }}>
+                    <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 font-black text-[13px] text-[#f4f0e6]" style={{ backgroundColor: s.color }}>
                       {s.n}
                     </div>
                     <div className="flex-1 pt-0.5">
-                      <p className="text-[14px] font-bold text-[#111d17] mb-1">{s.title}</p>
-                      <p className="text-[13px] text-[#5a7065] leading-relaxed">{s.desc}</p>
+                      <p className="text-[14px] font-bold text-[#f4f0e6] mb-1">{s.title}</p>
+                      <p className="text-[13px] text-[#8b96ab] leading-relaxed">{s.desc}</p>
                     </div>
                   </div>
                 ))}
@@ -574,28 +588,28 @@ function PropuestaFlujoBContent() {
           </div>
 
           {/* 8 · Footer */}
-          <div className="rounded-2xl overflow-hidden border border-[#E2E8E4]">
-            <div className="bg-[#111d17] px-8 py-6 flex items-center justify-between">
+          <div className="rounded-2xl overflow-hidden border border-[#2a3f5c]">
+            <div className="bg-[#070f22] px-8 py-6 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 rounded-xl bg-[#1D9E75] flex items-center justify-center">
                   <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-                    <path d="M9 2L16 6V12L9 16L2 12V6L9 2Z" stroke="white" strokeWidth="1.5" fill="none"/>
-                    <path d="M9 2V16M2 6L16 12M16 6L2 12" stroke="white" strokeWidth="1" strokeOpacity="0.5"/>
+                    <path d="M9 2L16 6V12L9 16L2 12V6L9 2Z" stroke="#f4f0e6" strokeWidth="1.5" fill="none"/>
+                    <path d="M9 2V16M2 6L16 12M16 6L2 12" stroke="#f4f0e6" strokeWidth="1" strokeOpacity="0.5"/>
                   </svg>
                 </div>
                 <div>
-                  <p className="text-[14px] font-bold text-white">SMT Developer</p>
-                  <p className="text-[11px] text-white/40">Inteligencia inmobiliaria</p>
+                  <p className="text-[14px] font-bold text-[#f4f0e6]">SMT Developer</p>
+                  <p className="text-[11px] text-[#f4f0e6]/40">Inteligencia inmobiliaria</p>
                 </div>
               </div>
               <div className="text-right">
-                <p className="text-[11px] text-white/40">Generado el {today}</p>
-                <p className="text-[11px] text-white/40 mt-0.5">Análisis Mastermind v1.0 · Flujo B</p>
+                <p className="text-[11px] text-[#f4f0e6]/40">Generado el {today}</p>
+                <p className="text-[11px] text-[#f4f0e6]/40 mt-0.5">Análisis Mastermind v1.0 · Flujo B</p>
               </div>
             </div>
-            <div className="bg-white px-8 py-4">
-              <p className="text-[11px] text-[#9aab9f] leading-relaxed">
-                <strong className="text-[#5a7065]">Aviso de confidencialidad:</strong> Este documento ha sido generado por SMT Developer con base en información de mercado disponible al {today} y constituye una proyección con fines informativos para inversionistas calificados. Las cifras son estimaciones y no garantizan rendimientos futuros. Se recomienda complementar con debida diligencia completa. Distribución restringida — uso exclusivo del destinatario.
+            <div className="bg-[#0e2038] px-8 py-4">
+              <p className="text-[11px] text-[#5f6a80] leading-relaxed">
+                <strong className="text-[#8b96ab]">Aviso de confidencialidad:</strong> Este documento ha sido generado por SMT Developer con base en información de mercado disponible al {today} y constituye una proyección con fines informativos para inversionistas calificados. Las cifras son estimaciones y no garantizan rendimientos futuros. Se recomienda complementar con debida diligencia completa. Distribución restringida — uso exclusivo del destinatario.
               </p>
             </div>
           </div>
@@ -609,8 +623,8 @@ function PropuestaFlujoBContent() {
 export default function PropuestaFlujoBPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-[#F7F8F6] flex items-center justify-center">
-        <p className="text-[#9aab9f]">Generando propuesta comparativa…</p>
+      <div className="min-h-screen bg-[#0b1d3a] flex items-center justify-center">
+        <p className="text-[#5f6a80]">Generando propuesta comparativa…</p>
       </div>
     }>
       <PropuestaFlujoBContent />

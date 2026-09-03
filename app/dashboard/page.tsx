@@ -3,6 +3,10 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { authedFetch } from '@/lib/apiClient'
+import { Fraunces, IBM_Plex_Mono } from 'next/font/google'
+
+const fraunces = Fraunces({ subsets: ['latin'], weight: ['500', '600'], style: ['normal', 'italic'], variable: '--font-fraunces' })
+const plexMono = IBM_Plex_Mono({ subsets: ['latin'], weight: ['400', '500'], variable: '--font-plex-mono' })
 
 interface Proyecto {
   id: string
@@ -103,13 +107,13 @@ export default function DashboardPage() {
   const statusCfg = (status: string) => {
     if (status === 'aprobado') return {
       label: 'Aprobado',
-      badge: 'bg-[#E1F5EE] text-[#0F6E56]',
-      dot: 'bg-[#1D9E75]',
+      badge: 'bg-[#14301f] text-[#4ADE80]',
+      dot: 'bg-[#4ADE80]',
     }
     return {
       label: 'En revisión',
-      badge: 'bg-[#FEF3C7] text-[#92600A]',
-      dot: 'bg-[#D97706]',
+      badge: 'bg-[#2e2510] text-[#FBBF24]',
+      dot: 'bg-[#FBBF24]',
     }
   }
 
@@ -140,32 +144,41 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#F7F8F6] flex items-center justify-center">
-        <p className="text-[#9aab9f] text-[14px]">Cargando proyectos…</p>
+      <div className="min-h-screen bg-[#0b1d3a] flex items-center justify-center">
+        <p className="text-[#5f6a80] text-[14px]">Cargando proyectos…</p>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-[#F7F8F6] flex flex-col">
+    <div
+      className={`${fraunces.variable} ${plexMono.variable} min-h-screen bg-[#0b1d3a] flex flex-col`}
+      style={{
+        backgroundImage:
+          'linear-gradient(rgba(244,240,230,0.11) 1px, transparent 1px), linear-gradient(90deg, rgba(244,240,230,0.11) 1px, transparent 1px)',
+        backgroundSize: '64px 64px',
+      }}
+    >
 
       {/* Header */}
-      <header className="bg-white border-b border-[#E2E8E4] px-8 py-4 flex items-center gap-3 sticky top-0 z-20">
-        <div className="w-8 h-8 rounded-lg bg-[#1D9E75] flex items-center justify-center shrink-0">
+      <header className="bg-[#132a4d] border-b border-[#2a3f5c] px-8 py-4 flex items-center gap-3 sticky top-0 z-20">
+        <div className="w-8 h-8 rounded-lg bg-[#c9a227] flex items-center justify-center shrink-0">
           <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-            <path d="M9 2L16 6V12L9 16L2 12V6L9 2Z" stroke="white" strokeWidth="1.5" fill="none"/>
-            <path d="M9 2V16M2 6L16 12M16 6L2 12" stroke="white" strokeWidth="1" strokeOpacity="0.5"/>
+            <path d="M9 2L16 6V12L9 16L2 12V6L9 2Z" stroke="#070f22" strokeWidth="1.5" fill="none"/>
+            <path d="M9 2V16M2 6L16 12M16 6L2 12" stroke="#070f22" strokeWidth="1" strokeOpacity="0.6"/>
           </svg>
         </div>
         <div>
-          <span className="text-[15px] font-medium text-[#1a1a1a] tracking-wide">SMT Developer</span>
-          <span className="block text-[10px] text-[#6b7c74] tracking-[0.12em] uppercase">Inteligencia inmobiliaria</span>
+          <span className="text-[15px]" style={{ fontFamily: 'var(--font-fraunces)', fontWeight: 500, color: '#f4f0e6' }}>
+            SMT <em style={{ fontStyle: 'normal', color: '#ddc06a' }}>Developer</em>
+          </span>
+          <span className="block text-[10px] text-[#8b96ab] tracking-[0.12em] uppercase" style={{ fontFamily: 'var(--font-plex-mono)' }}>Inteligencia inmobiliaria</span>
         </div>
-        <span className="text-[10px] text-[#9aab9f] font-medium ml-3">v2.3 · Jun 2026</span>
+        <span className="text-[10px] text-[#5f6a80] font-medium ml-3" style={{ fontFamily: 'var(--font-plex-mono)' }}>v2.3 · Jun 2026</span>
         <div className="ml-auto">
           <button
             onClick={() => router.push('/prospeccion')}
-            className="flex items-center gap-1.5 text-[13px] text-[#9aab9f] hover:text-[#111d17] border border-[#E2E8E4] px-3 py-1.5 rounded-xl transition-colors"
+            className="flex items-center gap-1.5 text-[13px] text-[#8b96ab] hover:text-[#f4f0e6] border border-[#2a3f5c] hover:border-[#a68f52] px-3 py-1.5 rounded-xl transition-colors"
           >
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
               <path d="M9 2L2 7L9 12" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
@@ -178,11 +191,11 @@ export default function DashboardPage() {
       <main className="flex-1 px-6 py-10">
         <div className="w-full max-w-[860px] mx-auto flex flex-col gap-6">
 
-          <div className="flex gap-0 border-b border-[#E2E8E4]">
+          <div className="flex gap-0 border-b border-[#2a3f5c]">
             <button
               onClick={() => setTab('proyectos')}
               className={`px-4 py-3 text-[13px] font-semibold border-b-2 -mb-px transition-colors ${
-                tab === 'proyectos' ? 'border-[#1D9E75] text-[#1D9E75]' : 'border-transparent text-[#9aab9f] hover:text-[#111d17]'
+                tab === 'proyectos' ? 'border-[#c9a227] text-[#ddc06a]' : 'border-transparent text-[#8b96ab] hover:text-[#f4f0e6]'
               }`}
             >
               Mis Proyectos
@@ -190,7 +203,7 @@ export default function DashboardPage() {
             <button
               onClick={() => setTab('fuentes')}
               className={`px-4 py-3 text-[13px] font-semibold border-b-2 -mb-px transition-colors ${
-                tab === 'fuentes' ? 'border-[#1D9E75] text-[#1D9E75]' : 'border-transparent text-[#9aab9f] hover:text-[#111d17]'
+                tab === 'fuentes' ? 'border-[#c9a227] text-[#ddc06a]' : 'border-transparent text-[#8b96ab] hover:text-[#f4f0e6]'
               }`}
             >
               Fuentes Consultadas
@@ -201,17 +214,17 @@ export default function DashboardPage() {
           {/* Header row */}
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-[22px] font-black text-[#111d17] leading-tight">Mis Proyectos</h1>
-              <p className="text-[13px] text-[#9aab9f] mt-0.5">
+              <h1 className="text-[22px] leading-tight" style={{ fontFamily: 'var(--font-fraunces)', fontWeight: 500, color: '#f4f0e6' }}>Mis Proyectos</h1>
+              <p className="text-[13px] text-[#8b96ab] mt-0.5">
                 {proyectos.length} {proyectos.length === 1 ? 'proyecto guardado' : 'proyectos guardados'}
               </p>
             </div>
             <button
               onClick={() => router.push('/prospeccion')}
-              className="flex items-center gap-2 bg-[#1D9E75] hover:bg-[#0F6E56] text-white text-[13px] font-semibold px-4 py-2.5 rounded-xl transition-colors"
+              className="flex items-center gap-2 bg-[#c9a227] hover:bg-[#ddc06a] text-[#070f22] text-[13px] font-semibold px-4 py-2.5 rounded-xl transition-colors"
             >
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                <path d="M7 2v10M2 7h10" stroke="white" strokeWidth="1.8" strokeLinecap="round"/>
+                <path d="M7 2v10M2 7h10" stroke="#070f22" strokeWidth="1.8" strokeLinecap="round"/>
               </svg>
               Nuevo análisis
             </button>
@@ -220,20 +233,20 @@ export default function DashboardPage() {
           {/* Lista */}
           <div>
             {proyectos.length === 0 ? (
-              <div className="bg-white rounded-2xl border border-[#E2E8E4] shadow-sm px-8 py-14 flex flex-col items-center gap-3 text-center">
-                <div className="w-14 h-14 rounded-2xl bg-[#F7F8F6] border border-[#E2E8E4] flex items-center justify-center mb-1">
+              <div className="bg-[#132a4d] rounded-2xl border border-[#2a3f5c] shadow-sm px-8 py-14 flex flex-col items-center gap-3 text-center">
+                <div className="w-14 h-14 rounded-2xl bg-[#0b1d3a] border border-[#2a3f5c] flex items-center justify-center mb-1">
                   <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
-                    <path d="M9 13h6M9 17h4M5 3h14a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z" stroke="#C4CFC8" strokeWidth="1.5" strokeLinecap="round"/>
-                    <path d="M9 7h6" stroke="#C4CFC8" strokeWidth="1.5" strokeLinecap="round"/>
+                    <path d="M9 13h6M9 17h4M5 3h14a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z" stroke="#5f6a80" strokeWidth="1.5" strokeLinecap="round"/>
+                    <path d="M9 7h6" stroke="#5f6a80" strokeWidth="1.5" strokeLinecap="round"/>
                   </svg>
                 </div>
-                <p className="text-[14px] font-semibold text-[#111d17]">Sin proyectos aún</p>
-                <p className="text-[13px] text-[#9aab9f] max-w-[280px]">
+                <p className="text-[14px] font-semibold text-[#f4f0e6]">Sin proyectos aún</p>
+                <p className="text-[13px] text-[#8b96ab] max-w-[280px]">
                   Inicia un análisis con Flujo A o Flujo B para ver tus proyectos aquí.
                 </p>
               </div>
             ) : (
-              <div className="bg-white rounded-2xl border border-[#E2E8E4] shadow-sm overflow-hidden">
+              <div className="bg-[#132a4d] rounded-2xl border border-[#2a3f5c] shadow-sm overflow-hidden">
                 {proyectos.map((p, i) => {
                   const { label, badge, dot } = statusCfg(p.status)
                   const isToggling = toggling === p.id
@@ -241,18 +254,18 @@ export default function DashboardPage() {
                     <div
                       key={p.id}
                       className={`flex items-center gap-4 px-6 py-4 ${
-                        i !== proyectos.length - 1 ? 'border-b border-[#F0F4F2]' : ''
-                      } hover:bg-[#FAFBFA] transition-colors`}
+                        i !== proyectos.length - 1 ? 'border-b border-[#1c304b]' : ''
+                      } hover:bg-[#16305a] transition-colors`}
                     >
                       {/* Flujo badge */}
-                      <div className="w-9 h-9 rounded-xl bg-[#F7F8F6] border border-[#E2E8E4] flex items-center justify-center shrink-0">
-                        <span className="text-[10px] font-black text-[#9aab9f]">{p.flujo || 'A'}</span>
+                      <div className="w-9 h-9 rounded-xl bg-[#0b1d3a] border border-[#2a3f5c] flex items-center justify-center shrink-0">
+                        <span className="text-[10px] font-black text-[#8b96ab]">{p.flujo || 'A'}</span>
                       </div>
 
                       {/* Info */}
                       <div className="flex-1 min-w-0">
-                        <p className="text-[14px] font-semibold text-[#111d17] truncate">{p.nombre}</p>
-                        <p className="text-[11px] text-[#9aab9f] mt-0.5">{formatDate(p.created_at)}</p>
+                        <p className="text-[14px] font-semibold text-[#f4f0e6] truncate">{p.nombre}</p>
+                        <p className="text-[11px] text-[#5f6a80] mt-0.5">{formatDate(p.created_at)}</p>
                       </div>
 
                       {/* Status toggle button */}
@@ -280,7 +293,7 @@ export default function DashboardPage() {
                           const path = p.flujo === 'B' ? '/analisis/flujo-b' : '/analisis'
                           router.push(`${path}?proyecto=${encodeURIComponent(p.nombre)}`)
                         }}
-                        className="shrink-0 text-[12px] font-semibold text-[#1D9E75] hover:text-[#0F6E56] border border-[#D4EFE3] hover:border-[#1D9E75] px-3 py-1.5 rounded-lg transition-colors"
+                        className="shrink-0 text-[12px] font-semibold text-[#ddc06a] hover:text-[#c9a227] border border-[#a68f52]/40 hover:border-[#c9a227] px-3 py-1.5 rounded-lg transition-colors"
                       >
                         Análisis
                       </button>
@@ -291,10 +304,10 @@ export default function DashboardPage() {
                           href={p.pdf_url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="shrink-0 text-[12px] font-semibold text-white bg-[#1D9E75] hover:bg-[#0F6E56] px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5"
+                          className="shrink-0 text-[12px] font-semibold text-[#070f22] bg-[#c9a227] hover:bg-[#ddc06a] px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5"
                         >
                           <svg width="12" height="12" viewBox="0 0 14 14" fill="none">
-                            <path d="M7 1v8M4 6l3 3 3-3M2 11h10" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                            <path d="M7 1v8M4 6l3 3 3-3M2 11h10" stroke="#070f22" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                           </svg>
                           Propuesta
                         </a>
@@ -312,7 +325,7 @@ export default function DashboardPage() {
                             const path = p.flujo === 'B' ? '/propuesta/flujo-b' : '/propuesta'
                             router.push(`${path}?proyecto=${encodeURIComponent(p.nombre)}`)
                           }}
-                          className="shrink-0 text-[12px] font-semibold text-[#9aab9f] hover:text-[#0F6E56] border border-[#E2E8E4] hover:border-[#1D9E75] px-3 py-1.5 rounded-lg transition-colors"
+                          className="shrink-0 text-[12px] font-semibold text-[#8b96ab] hover:text-[#ddc06a] border border-[#2a3f5c] hover:border-[#c9a227] px-3 py-1.5 rounded-lg transition-colors"
                         >
                           Propuesta
                         </button>
@@ -321,7 +334,7 @@ export default function DashboardPage() {
                       {/* Eliminar */}
                       <button
                         onClick={() => handleDelete(p.id)}
-                        className="shrink-0 w-8 h-8 flex items-center justify-center rounded-lg text-[#9aab9f] hover:text-red-500 hover:bg-red-50 border border-transparent hover:border-red-200 transition-colors"
+                        className="shrink-0 w-8 h-8 flex items-center justify-center rounded-lg text-[#5f6a80] hover:text-red-400 hover:bg-red-500/10 border border-transparent hover:border-red-500/30 transition-colors"
                       >
                         <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                           <path d="M2 3.5h10M5.5 3.5V2.5a.5.5 0 0 1 .5-.5h2a.5.5 0 0 1 .5.5v1M3.5 3.5l.5 8h6l.5-8" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
@@ -338,22 +351,22 @@ export default function DashboardPage() {
           {tab === 'fuentes' && (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
               {FUENTES_DATA.map(cat => (
-                <div key={cat.titulo} className="bg-white rounded-2xl border border-[#E2E8E4] shadow-sm overflow-hidden flex flex-col">
-                  <div className="px-5 pt-5 pb-4 border-b border-[#F0F4F2]">
+                <div key={cat.titulo} className="bg-[#132a4d] rounded-2xl border border-[#2a3f5c] shadow-sm overflow-hidden flex flex-col">
+                  <div className="px-5 pt-5 pb-4 border-b border-[#1c304b]">
                     <div className="flex items-center gap-2.5 mb-1">
                       <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: cat.color }} />
-                      <span className="text-[13px] font-bold text-[#111d17]">{cat.titulo}</span>
+                      <span className="text-[13px] font-bold text-[#f4f0e6]">{cat.titulo}</span>
                     </div>
-                    <p className="text-[11px] text-[#9aab9f] uppercase tracking-widest font-semibold pl-5">{cat.sub}</p>
+                    <p className="text-[11px] text-[#5f6a80] uppercase tracking-widest font-semibold pl-5">{cat.sub}</p>
                   </div>
                   <ul className="px-5 py-4 space-y-3 flex-1">
                     {cat.items.map(([nombre, uso, fecha]) => (
                       <li key={nombre}>
                         <div className="flex items-baseline justify-between gap-2">
-                          <div className="text-[12px] font-semibold text-[#111d17] leading-tight">{nombre}</div>
-                          <span className="text-[9px] text-[#b0bdb6] font-medium shrink-0 whitespace-nowrap">{fecha}</span>
+                          <div className="text-[12px] font-semibold text-[#f4f0e6] leading-tight">{nombre}</div>
+                          <span className="text-[9px] text-[#5f6a80] font-medium shrink-0 whitespace-nowrap">{fecha}</span>
                         </div>
-                        <div className="text-[11px] text-[#9aab9f] mt-0.5 leading-snug">{uso}</div>
+                        <div className="text-[11px] text-[#8b96ab] mt-0.5 leading-snug">{uso}</div>
                       </li>
                     ))}
                   </ul>

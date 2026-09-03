@@ -4,6 +4,13 @@ import { useEffect, useState, useRef, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { saveProyecto } from '@/lib/saveProyecto'
 import { authedFetch } from '@/lib/apiClient'
+import { Fraunces, IBM_Plex_Mono } from 'next/font/google'
+
+// Look & feel — espejo azul del navy/oro de Flujo A (ver app/prospeccion/flujo-a/page.tsx).
+// Los colores verde/azul/morado de Scout·Legal·Mercado son un código de identidad de agente
+// (no de marca) y se preservan tal cual para no perder esa distinción visual entre los 3.
+const fraunces = Fraunces({ subsets: ['latin'], weight: ['500', '600'], style: ['normal', 'italic'], variable: '--font-fraunces' })
+const plexMono = IBM_Plex_Mono({ subsets: ['latin'], weight: ['400', '500'], variable: '--font-plex-mono' })
 
 function loadGoogleMaps(): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -36,7 +43,7 @@ interface Candidate {
 
 type Stage = 1 | 2 | 3 | 4
 
-function AgentSpinner({ color = '#1D9E75' }: { color?: string }) {
+function AgentSpinner({ color = '#5B8FD4' }: { color?: string }) {
   return (
     <svg className="animate-spin" width="18" height="18" viewBox="0 0 24 24" fill="none">
       <circle cx="12" cy="12" r="10" stroke={color} strokeWidth="2" strokeOpacity="0.2"/>
@@ -61,7 +68,7 @@ function PulsingDots() {
   return (
     <span className="inline-flex gap-1 ml-1">
       {[0, 1, 2].map(i => (
-        <span key={i} className="w-1.5 h-1.5 rounded-full bg-[#1D9E75] inline-block animate-bounce"
+        <span key={i} className="w-1.5 h-1.5 rounded-full bg-[#5B8FD4] inline-block animate-bounce"
           style={{ animationDelay: `${i * 0.15}s` }} />
       ))}
     </span>
@@ -71,10 +78,10 @@ function PulsingDots() {
 function AgentBadge({ label, status, color }: { label: string; status: 'waiting' | 'running' | 'done'; color: string }) {
   return (
     <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-[12px] font-medium border transition-all duration-500 ${
-      status === 'done' ? 'bg-[#E1F5EE] border-[#9FE1CB] text-[#0F6E56]'
-      : status === 'running' ? 'bg-white border-[#E2E8E4] text-[#111d17] shadow-sm'
-      : 'bg-[#F7F8F6] border-[#E2E8E4] text-[#9aab9f]'
-    }`}>
+      status === 'done' ? 'bg-[#1D9E75]/10 border-[#1D9E75]/40 text-[#5FD4A8]'
+      : status === 'running' ? 'bg-[#132a4d] border-[#2a3f5c] text-[#f4f0e6] shadow-sm'
+      : 'bg-[#0e2038] border-[#2a3f5c] text-[#5f6a80]'
+    }`} style={{ fontFamily: 'var(--font-plex-mono)' }}>
       {status === 'done' ? (
         <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
           <path d="M2 6l3 3 5-5" stroke="#1D9E75" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
@@ -82,7 +89,7 @@ function AgentBadge({ label, status, color }: { label: string; status: 'waiting'
       ) : status === 'running' ? (
         <AgentSpinner color={color} />
       ) : (
-        <span className="w-3 h-3 rounded-full border border-[#D0DDD5]" />
+        <span className="w-3 h-3 rounded-full border border-[#3a4d6b]" />
       )}
       {label}
     </div>
@@ -95,8 +102,8 @@ function Dot({ color }: { color: string }) {
 
 function LegalSheet({ legal }: { legal: CandidateLegal }) {
   return (
-    <div className="px-5 pb-4 border-b border-[#F0F4F2]">
-      <p className="text-[10px] font-bold text-[#378ADD] tracking-[0.12em] uppercase mb-2 flex items-center gap-1.5">
+    <div className="px-5 pb-4 border-b border-[#2a3f5c]">
+      <p className="text-[10px] font-bold text-[#378ADD] tracking-[0.12em] uppercase mb-2 flex items-center gap-1.5" style={{ fontFamily: 'var(--font-plex-mono)' }}>
         <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
           <path d="M2 6l3 3 5-5" stroke="#378ADD" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
         </svg>
@@ -111,14 +118,14 @@ function LegalSheet({ legal }: { legal: CandidateLegal }) {
           { label: 'Municipio', value: legal.municipio },
         ].map(({ label, value }) => (
           <div key={label} className="flex items-center gap-1.5">
-            <Dot color="#1D9E75" />
-            <span className="text-[11px] text-[#5a7065]">{label}: <span className="font-semibold text-[#111d17]">{value}</span></span>
+            <Dot color="#378ADD" />
+            <span className="text-[11px] text-[#8b96ab]">{label}: <span className="font-semibold text-[#f4f0e6]">{value}</span></span>
           </div>
         ))}
       </div>
-      <div className="mt-2 flex items-start gap-1.5 bg-[#FFFBEB] border border-[#F5D97A] rounded-lg px-2.5 py-1.5">
-        <Dot color="#D97706" />
-        <span className="text-[11px] text-[#92600A]">{legal.restriccion}</span>
+      <div className="mt-2 flex items-start gap-1.5 bg-[#1c304b] border border-[#c9a227]/40 rounded-lg px-2.5 py-1.5">
+        <Dot color="#ddc06a" />
+        <span className="text-[11px] text-[#ddc06a]">{legal.restriccion}</span>
       </div>
     </div>
   )
@@ -127,11 +134,11 @@ function LegalSheet({ legal }: { legal: CandidateLegal }) {
 const CANDIDATE_COLORS: Record<string, string> = { green: '#1D9E75', blue: '#378ADD', purple: '#8B5CF6' }
 
 function MarketSheet({ mercado, color }: { mercado: CandidateMercado; color: string }) {
-  const headerColors: Record<string, string> = { green: 'text-[#0F6E56]', blue: 'text-[#185FA5]', purple: 'text-[#6B3FA0]' }
+  const headerColors: Record<string, string> = { green: 'text-[#5FD4A8]', blue: 'text-[#185FA5]', purple: 'text-[#B79CF0]' }
   const dotColor = CANDIDATE_COLORS[color] ?? '#1D9E75'
   return (
     <div className="px-5 pb-4">
-      <p className={`text-[10px] font-bold tracking-[0.12em] uppercase mb-2 flex items-center gap-1.5 ${headerColors[color]}`}>
+      <p className={`text-[10px] font-bold tracking-[0.12em] uppercase mb-2 flex items-center gap-1.5 ${headerColors[color]}`} style={{ fontFamily: 'var(--font-plex-mono)' }}>
         <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
           <path d="M1 9l3-4 2.5 2 3-5" stroke={dotColor} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
         </svg>
@@ -147,15 +154,15 @@ function MarketSheet({ mercado, color }: { mercado: CandidateMercado; color: str
         ].map(({ label, value }) => (
           <div key={label} className="flex items-center gap-1.5">
             <Dot color={dotColor} />
-            <span className="text-[11px] text-[#5a7065]">{label}: <span className="font-semibold text-[#111d17]">{value}</span></span>
+            <span className="text-[11px] text-[#8b96ab]">{label}: <span className="font-semibold text-[#f4f0e6]">{value}</span></span>
           </div>
         ))}
       </div>
-      <div className="flex items-start gap-1.5 bg-[#F0FBF6] border border-[#9FE1CB] rounded-lg px-2.5 py-1.5">
+      <div className="flex items-start gap-1.5 bg-[#5B8FD4]/10 border border-[#5B8FD4]/40 rounded-lg px-2.5 py-1.5">
         <svg width="11" height="11" viewBox="0 0 12 12" fill="none" className="mt-0.5 shrink-0">
-          <path d="M6 1l1.5 3 3.5.5-2.5 2.5.5 3.5L6 9l-3 1.5.5-3.5L1 4.5 4.5 4z" stroke="#1D9E75" strokeWidth="1" fill="#E1F5EE"/>
+          <path d="M6 1l1.5 3 3.5.5-2.5 2.5.5 3.5L6 9l-3 1.5.5-3.5L1 4.5 4.5 4z" stroke="#5B8FD4" strokeWidth="1" fill="#5B8FD4" fillOpacity="0.15"/>
         </svg>
-        <span className="text-[11px] text-[#0F6E56] font-medium">Producto recomendado: {mercado.producto}</span>
+        <span className="text-[11px] text-[#8FB6E8] font-medium">Producto recomendado: {mercado.producto}</span>
       </div>
     </div>
   )
@@ -168,35 +175,35 @@ function CandidateCard({ c, stage, index, highlighted }: { c: Candidate; stage: 
   return (
     <div
       id={`candidate-${c.id}`}
-      className={`bg-white rounded-2xl border shadow-sm overflow-hidden transition-all duration-500 ${
-        highlighted ? 'border-[#1D9E75] shadow-[0_0_0_2px_#1D9E75]' : 'border-[#E2E8E4]'
+      className={`bg-[#132a4d] rounded-2xl border shadow-sm overflow-hidden transition-all duration-500 ${
+        highlighted ? 'border-[#5B8FD4] shadow-[0_0_0_2px_#5B8FD4]' : 'border-[#2a3f5c]'
       }`}
       style={{ opacity: visible ? 1 : 0, transform: visible ? 'translateY(0)' : 'translateY(12px)', transitionDelay: `${index * 100}ms` }}
     >
-      <div className="px-5 py-4 border-b border-[#F0F4F2] flex items-center justify-between">
+      <div className="px-5 py-4 border-b border-[#2a3f5c] flex items-center justify-between">
         <div>
-          <span className="text-[10px] font-bold text-[#9aab9f] tracking-[0.12em] uppercase">Candidato #{c.id}</span>
-          <h3 className="text-[15px] font-semibold text-[#111d17] mt-0.5">{c.nombre}</h3>
-          <p className="text-[12px] text-[#7a9089]">{c.zona}</p>
+          <span className="text-[10px] font-bold text-[#5f6a80] tracking-[0.12em] uppercase" style={{ fontFamily: 'var(--font-plex-mono)' }}>Candidato #{c.id}</span>
+          <h3 className="text-[15px] font-semibold text-[#f4f0e6] mt-0.5">{c.nombre}</h3>
+          <p className="text-[12px] text-[#5f6a80]">{c.zona}</p>
         </div>
         <div className="text-right">
-          <p className="text-[18px] font-bold text-[#111d17]">{c.precio}</p>
-          <p className="text-[11px] text-[#9aab9f]">MXN</p>
+          <p className="text-[18px] font-bold text-[#f4f0e6]">{c.precio}</p>
+          <p className="text-[11px] text-[#5f6a80]">MXN</p>
         </div>
       </div>
-      <div className="px-5 py-3 flex gap-4 border-b border-[#F0F4F2]">
-        <div><p className="text-[10px] text-[#9aab9f] uppercase tracking-wide">Superficie</p><p className="text-[13px] font-semibold text-[#111d17]">{c.superficie}</p></div>
-        <div><p className="text-[10px] text-[#9aab9f] uppercase tracking-wide">Precio / m²</p><p className="text-[13px] font-semibold text-[#111d17]">{c.preciom2}</p></div>
-        <div><p className="text-[10px] text-[#9aab9f] uppercase tracking-wide">Uso de suelo</p><p className="text-[13px] font-semibold text-[#111d17]">{c.uso}</p></div>
+      <div className="px-5 py-3 flex gap-4 border-b border-[#2a3f5c]">
+        <div><p className="text-[10px] text-[#5f6a80] uppercase tracking-wide">Superficie</p><p className="text-[13px] font-semibold text-[#f4f0e6]">{c.superficie}</p></div>
+        <div><p className="text-[10px] text-[#5f6a80] uppercase tracking-wide">Precio / m²</p><p className="text-[13px] font-semibold text-[#f4f0e6]">{c.preciom2}</p></div>
+        <div><p className="text-[10px] text-[#5f6a80] uppercase tracking-wide">Uso de suelo</p><p className="text-[13px] font-semibold text-[#f4f0e6]">{c.uso}</p></div>
       </div>
       {!legalDone && (
         <div className="px-5 py-3">
           <div className="flex flex-wrap gap-2">
-            <div className="flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded-full border bg-[#F7F8F6] text-[#9aab9f] border-[#E2E8E4]">
-              <span className="w-2 h-2 rounded-full border border-[#D0DDD5]" />Normativa: verificando…
+            <div className="flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded-full border bg-[#0e2038] text-[#5f6a80] border-[#2a3f5c]">
+              <span className="w-2 h-2 rounded-full border border-[#3a4d6b]" />Normativa: verificando…
             </div>
-            <div className="flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded-full border bg-[#F7F8F6] text-[#9aab9f] border-[#E2E8E4]">
-              <span className="w-2 h-2 rounded-full border border-[#D0DDD5]" />Mercado: pendiente
+            <div className="flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded-full border bg-[#0e2038] text-[#5f6a80] border-[#2a3f5c]">
+              <span className="w-2 h-2 rounded-full border border-[#3a4d6b]" />Mercado: pendiente
             </div>
           </div>
         </div>
@@ -211,11 +218,11 @@ function AgentStatusBar({ stage }: { stage: Stage }) {
   return (
     <div className="flex items-center gap-2 flex-wrap justify-center mb-6">
       <AgentBadge label="Scout IA" status={stage === 1 ? 'running' : 'done'} color="#1D9E75" />
-      <svg width="12" height="12" viewBox="0 0 12 12" fill="none" className="text-[#D0DDD5]">
+      <svg width="12" height="12" viewBox="0 0 12 12" fill="none" className="text-[#3a4d6b]">
         <path d="M4 2l4 4-4 4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
       </svg>
       <AgentBadge label="Agente Legal" status={stage < 2 ? 'waiting' : stage === 2 ? 'running' : 'done'} color="#378ADD" />
-      <svg width="12" height="12" viewBox="0 0 12 12" fill="none" className="text-[#D0DDD5]">
+      <svg width="12" height="12" viewBox="0 0 12 12" fill="none" className="text-[#3a4d6b]">
         <path d="M4 2l4 4-4 4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
       </svg>
       <AgentBadge label="Agente de Mercado" status={stage < 3 ? 'waiting' : stage === 3 ? 'running' : 'done'} color="#8B5CF6" />
@@ -273,9 +280,9 @@ function CandidatesMap({ candidates, highlightedId, onPinClick }: { candidates: 
     })
   }, [highlightedId, candidates])
 
-  if (!ready) return <div className="w-full rounded-2xl border border-[#E2E8E4] bg-[#F7F8F6] flex items-center justify-center mb-4" style={{ height: 320 }}><p className="text-[13px] text-[#9aab9f]">Cargando mapa…</p></div>
+  if (!ready) return <div className="w-full rounded-2xl border border-[#2a3f5c] bg-[#0e2038] flex items-center justify-center mb-4" style={{ height: 320 }}><p className="text-[13px] text-[#5f6a80]">Cargando mapa…</p></div>
 
-  return <div ref={mapRef} className="w-full rounded-2xl overflow-hidden border border-[#E2E8E4] shadow-sm mb-4" style={{ height: 320 }} />
+  return <div ref={mapRef} className="w-full rounded-2xl overflow-hidden border border-[#2a3f5c] shadow-sm mb-4" style={{ height: 320 }} />
 }
 
 function BuscandoContent() {
@@ -346,20 +353,29 @@ function BuscandoContent() {
   const progressPct = stage === 1 ? 15 : stage === 2 ? 45 : stage === 3 ? 75 : 100
 
   return (
-    <div className="min-h-screen bg-[#F7F8F6] flex flex-col">
-      <header className="px-8 py-5 flex items-center gap-3 border-b border-[#E2E8E4] bg-white">
-        <div className="w-8 h-8 rounded-lg bg-[#1D9E75] flex items-center justify-center">
+    <div
+      className={`${fraunces.variable} ${plexMono.variable} min-h-screen bg-[#0b1d3a] flex flex-col`}
+      style={{
+        backgroundImage:
+          'linear-gradient(rgba(244,240,230,0.11) 1px, transparent 1px), linear-gradient(90deg, rgba(244,240,230,0.11) 1px, transparent 1px)',
+        backgroundSize: '64px 64px',
+      }}
+    >
+      <header className="sticky top-0 z-20 px-8 py-5 flex items-center gap-3 border-b border-white/10 bg-[#070f22]">
+        <div className="w-8 h-8 rounded-lg bg-[#5B8FD4] flex items-center justify-center">
           <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-            <path d="M9 2L16 6V12L9 16L2 12V6L9 2Z" stroke="white" strokeWidth="1.5" fill="none"/>
-            <path d="M9 2V16M2 6L16 12M16 6L2 12" stroke="white" strokeWidth="1" strokeOpacity="0.5"/>
+            <path d="M9 2L16 6V12L9 16L2 12V6L9 2Z" stroke="#f4f0e6" strokeWidth="1.5" fill="none"/>
+            <path d="M9 2V16M2 6L16 12M16 6L2 12" stroke="#f4f0e6" strokeWidth="1" strokeOpacity="0.5"/>
           </svg>
         </div>
         <div>
-          <span className="text-[15px] font-medium text-[#1a1a1a] tracking-wide">SMT Developer</span>
-          <span className="block text-[10px] text-[#6b7c74] tracking-[0.12em] uppercase">Inteligencia inmobiliaria</span>
+          <span className="text-[15px] tracking-wide" style={{ fontFamily: 'var(--font-fraunces)', fontWeight: 500, color: '#f4f0e6' }}>
+            SMT <em style={{ fontStyle: 'normal', color: '#8FB6E8' }}>Developer</em>
+          </span>
+          <span className="block text-[10px] text-[#8b96ab] tracking-[0.12em] uppercase" style={{ fontFamily: 'var(--font-plex-mono)' }}>Inteligencia inmobiliaria</span>
         </div>
-        <div className="ml-auto flex items-center gap-2 text-[12px] text-[#9aab9f]">
-          <span className="text-[#1D9E75] font-medium">Flujo B</span>
+        <div className="ml-auto flex items-center gap-2 text-[12px] text-[#5f6a80]" style={{ fontFamily: 'var(--font-plex-mono)' }}>
+          <span className="text-[#8FB6E8] font-medium">Flujo B</span>
           <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
             <path d="M4 2L8 6L4 10" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
           </svg>
@@ -367,18 +383,18 @@ function BuscandoContent() {
         </div>
       </header>
 
-      <div className="h-1 bg-[#E2E8E4]">
-        <div className="h-full bg-[#1D9E75] transition-all duration-700 ease-in-out" style={{ width: `${progressPct}%` }} />
+      <div className="h-1 bg-[#2a3f5c]">
+        <div className="h-full bg-[#5B8FD4] transition-all duration-700 ease-in-out" style={{ width: `${progressPct}%` }} />
       </div>
 
       <main className="flex-1 px-4 py-10">
         <div className="w-full max-w-[680px] mx-auto">
 
           {error ? (
-            <div className="bg-red-50 border border-red-200 rounded-2xl p-6 text-center">
-              <p className="text-[15px] font-bold text-red-700 mb-2">Error en el Scout IA</p>
-              <p className="text-[13px] text-red-600 mb-4">{error}</p>
-              <button onClick={() => router.push('/prospeccion/flujo-b')} className="text-[13px] text-[#1D9E75] hover:underline">
+            <div className="bg-red-950/40 border border-red-900 rounded-2xl p-6 text-center">
+              <p className="text-[15px] font-bold text-red-400 mb-2">Error en el Scout IA</p>
+              <p className="text-[13px] text-red-300 mb-4">{error}</p>
+              <button onClick={() => router.push('/prospeccion/flujo-b')} className="text-[13px] text-[#8FB6E8] hover:underline">
                 Volver al formulario
               </button>
             </div>
@@ -387,14 +403,14 @@ function BuscandoContent() {
               <div className="text-center mb-8">
                 <div className="inline-flex items-center gap-2 mb-3">
                   {stage < 4 ? (
-                    <><AgentSpinner color="#1D9E75" /><span className="text-[14px] font-medium text-[#111d17]">{statusText}</span><PulsingDots /></>
+                    <><AgentSpinner color="#5B8FD4" /><span className="text-[14px] font-medium text-[#f4f0e6]">{statusText}</span><PulsingDots /></>
                   ) : (
                     <>
                       <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-                        <circle cx="9" cy="9" r="8" fill="#E1F5EE" stroke="#1D9E75" strokeWidth="1.5"/>
-                        <path d="M5 9l3 3 5-5" stroke="#1D9E75" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                        <circle cx="9" cy="9" r="8" fill="#132a4d" stroke="#5B8FD4" strokeWidth="1.5"/>
+                        <path d="M5 9l3 3 5-5" stroke="#5B8FD4" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                       </svg>
-                      <span className="text-[14px] font-medium text-[#0F6E56]">{statusText}</span>
+                      <span className="text-[14px] font-medium text-[#8FB6E8]">{statusText}</span>
                     </>
                   )}
                 </div>
@@ -405,18 +421,18 @@ function BuscandoContent() {
                 <div className="flex flex-col items-center justify-center py-16 gap-6">
                   <BigSpinner color="#1D9E75" glow="#1D9E75" size={120} />
                   <div className="text-center">
-                    <p className="text-[15px] font-semibold text-[#111d17] mb-1">Escaneando el mercado</p>
-                    <p className="text-[13px] text-[#7a9089]">El Scout está analizando disponibilidad, precios y zonas…</p>
+                    <p className="text-[15px] font-semibold text-[#f4f0e6] mb-1">Escaneando el mercado</p>
+                    <p className="text-[13px] text-[#5f6a80]">El Scout está analizando disponibilidad, precios y zonas…</p>
                   </div>
                 </div>
               )}
 
               {stage === 3 && (
-                <div className="flex flex-col items-center gap-4 bg-white border border-[#E5DEFF] rounded-2xl px-5 py-8 shadow-sm mb-4">
+                <div className="flex flex-col items-center gap-4 bg-[#132a4d] border border-[#8B5CF6]/30 rounded-2xl px-5 py-8 shadow-sm mb-4">
                   <BigSpinner color="#8B5CF6" glow="#8B5CF6" size={120} />
                   <div className="text-center">
-                    <p className="text-[14px] font-semibold text-[#111d17]">Agente de Mercado trabajando</p>
-                    <p className="text-[12px] text-[#7a9089]">Analizando demanda, comparables y tendencias de la zona…</p>
+                    <p className="text-[14px] font-semibold text-[#f4f0e6]">Agente de Mercado trabajando</p>
+                    <p className="text-[12px] text-[#5f6a80]">Analizando demanda, comparables y tendencias de la zona…</p>
                   </div>
                 </div>
               )}
@@ -430,11 +446,11 @@ function BuscandoContent() {
               )}
 
               {stage === 2 && (
-                <div className="flex flex-col items-center gap-4 bg-white border border-[#D6E8F8] rounded-2xl px-5 py-8 shadow-sm mb-4">
+                <div className="flex flex-col items-center gap-4 bg-[#132a4d] border border-[#378ADD]/30 rounded-2xl px-5 py-8 shadow-sm mb-4">
                   <BigSpinner color="#378ADD" glow="#378ADD" size={120} />
                   <div className="text-center">
-                    <p className="text-[14px] font-semibold text-[#111d17]">Agente Legal trabajando</p>
-                    <p className="text-[12px] text-[#7a9089]">Verificando uso de suelo, normativa urbana y restricciones…</p>
+                    <p className="text-[14px] font-semibold text-[#f4f0e6]">Agente Legal trabajando</p>
+                    <p className="text-[12px] text-[#5f6a80]">Verificando uso de suelo, normativa urbana y restricciones…</p>
                   </div>
                 </div>
               )}
@@ -452,30 +468,31 @@ function BuscandoContent() {
 
               {stage === 4 && (
                 <>
-                  <div className="bg-[#F0FBF6] border border-[#1D9E75]/30 rounded-2xl p-6 text-center">
-                    <div className="w-12 h-12 rounded-2xl bg-[#1D9E75] flex items-center justify-center mx-auto mb-3">
+                  <div className="bg-[#1c304b] border border-[#5B8FD4]/30 rounded-2xl p-6 text-center">
+                    <div className="w-12 h-12 rounded-2xl bg-[#5B8FD4] flex items-center justify-center mx-auto mb-3">
                       <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                        <path d="M5 13l4 4L19 7" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        <path d="M5 13l4 4L19 7" stroke="#070f22" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                       </svg>
                     </div>
-                    <p className="text-[16px] font-bold text-[#0F6E56] mb-1">Análisis multi-agente completado</p>
-                    <p className="text-[13px] text-[#5a9078] mb-5">
+                    <p className="text-[16px] font-bold text-[#8FB6E8] mb-1">Análisis multi-agente completado</p>
+                    <p className="text-[13px] text-[#8b96ab] mb-5">
                       Scout, Legal y Mercado han procesado los 3 candidatos. El reporte completo está listo.
                     </p>
                     <button
                       onClick={() => router.push(`/analisis/flujo-b${proyecto ? `?proyecto=${encodeURIComponent(proyecto)}` : ''}`)}
-                      className="inline-flex items-center gap-2 bg-[#1D9E75] text-white px-8 py-3.5 rounded-xl text-[15px] font-semibold hover:bg-[#0F6E56] transition-colors cursor-pointer"
+                      className="inline-flex items-center gap-2 bg-[#5B8FD4] text-[#f4f0e6] px-8 py-3.5 rounded-xl text-[15px] font-semibold hover:bg-[#8FB6E8] transition-colors cursor-pointer"
+                      style={{ fontFamily: 'var(--font-plex-mono)' }}
                     >
                       Ver Análisis Completo
                       <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                        <path d="M6 4l4 4-4 4" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
+                        <path d="M6 4l4 4-4 4" stroke="#f4f0e6" strokeWidth="1.5" strokeLinecap="round"/>
                       </svg>
                     </button>
                   </div>
                   {saveError && (
-                    <div className="mt-3 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
-                      <p className="text-[12px] font-semibold text-red-700 mb-0.5">Error al guardar en Mis Proyectos</p>
-                      <p className="text-[11px] text-red-600 font-mono break-all">{saveError}</p>
+                    <div className="mt-3 bg-red-950/40 border border-red-900 rounded-xl px-4 py-3">
+                      <p className="text-[12px] font-semibold text-red-400 mb-0.5">Error al guardar en Mis Proyectos</p>
+                      <p className="text-[11px] text-red-300 font-mono break-all">{saveError}</p>
                     </div>
                   )}
                 </>
@@ -490,7 +507,7 @@ function BuscandoContent() {
 
 export default function BuscandoPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-[#F7F8F6] flex items-center justify-center"><p className="text-[#9aab9f]">Iniciando Scout…</p></div>}>
+    <Suspense fallback={<div className="min-h-screen bg-[#0b1d3a] flex items-center justify-center"><p className="text-[#5f6a80]">Iniciando Scout…</p></div>}>
       <BuscandoContent />
     </Suspense>
   )
