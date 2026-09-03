@@ -53,7 +53,7 @@ export default function LoginPage() {
       } catch { /* si falla, ir al dashboard igual */ }
     }
 
-    router.push('/prospeccion')
+    router.push('/dashboard')
   }
 
   return (
