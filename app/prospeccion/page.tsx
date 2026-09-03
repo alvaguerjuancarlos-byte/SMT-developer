@@ -1,8 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Fraunces, IBM_Plex_Mono } from 'next/font/google'
+import { supabase } from '@/lib/supabase'
 
 // Look & feel — continuación del navy/oro aplicado en Flujo A (ver
 // app/prospeccion/flujo-a/page.tsx para la paleta de referencia completa).
@@ -19,7 +20,20 @@ const plexMono = IBM_Plex_Mono({ subsets: ['latin'], weight: ['400', '500'], var
 export default function FlowSelector() {
   const [selected, setSelected] = useState<string | null>(null)
   const [hovering, setHovering] = useState<string | null>(null)
+  const [email, setEmail] = useState<string | undefined>(undefined)
   const router = useRouter()
+
+  // Esta pantalla (y /dashboard) traen su propio header y excluyen el Topbar genérico (evita
+  // el doble header) — pero el Topbar era el único lugar con botón "Salir". Sin esto, después
+  // de entrar no había manera de cerrar sesión desde el flujo principal (bug real reportado).
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => setEmail(session?.user?.email))
+  }, [])
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut()
+    router.push('/login')
+  }
 
   const handleContinue = () => {
     if (!selected) return
@@ -64,17 +78,33 @@ export default function FlowSelector() {
             Inteligencia inmobiliaria
           </span>
         </div>
-        <button onClick={() => router.push('/dashboard')}
-          className="ml-auto flex items-center gap-1.5 text-[13px] text-[#8b96ab] hover:text-[#f4f0e6] border border-[#2a3f5c] hover:border-[#a68f52] px-3 py-1.5 rounded-xl transition-colors"
-          style={{ fontFamily: 'var(--font-plex-mono)' }}>
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-            <rect x="1" y="1" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.3"/>
-            <rect x="8" y="1" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.3"/>
-            <rect x="1" y="8" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.3"/>
-            <rect x="8" y="8" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.3"/>
-          </svg>
-          Mis Proyectos
-        </button>
+        <div className="ml-auto flex items-center gap-3">
+          <button onClick={() => router.push('/dashboard')}
+            className="flex items-center gap-1.5 text-[13px] text-[#8b96ab] hover:text-[#f4f0e6] border border-[#2a3f5c] hover:border-[#a68f52] px-3 py-1.5 rounded-xl transition-colors"
+            style={{ fontFamily: 'var(--font-plex-mono)' }}>
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <rect x="1" y="1" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.3"/>
+              <rect x="8" y="1" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.3"/>
+              <rect x="1" y="8" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.3"/>
+              <rect x="8" y="8" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.3"/>
+            </svg>
+            Mis Proyectos
+          </button>
+          {email && (
+            <>
+              <button onClick={() => router.push('/perfil')}
+                className="w-8 h-8 rounded-full bg-[#132a4d] border border-[#c9a227]/40 flex items-center justify-center hover:border-[#c9a227] transition-colors shrink-0"
+                title={email}>
+                <span className="text-[#ddc06a] text-[11px] font-semibold">{email.slice(0, 2).toUpperCase()}</span>
+              </button>
+              <button onClick={handleLogout}
+                className="text-[13px] text-[#8b96ab] hover:text-[#ddc06a] transition-colors"
+                style={{ fontFamily: 'var(--font-plex-mono)' }}>
+                Salir
+              </button>
+            </>
+          )}
+        </div>
       </header>
 
       <main className="flex-1 flex flex-col items-center justify-center px-4 py-12">

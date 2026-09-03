@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { authedFetch } from '@/lib/apiClient'
+import { supabase } from '@/lib/supabase'
 import { Fraunces, IBM_Plex_Mono } from 'next/font/google'
 
 const fraunces = Fraunces({ subsets: ['latin'], weight: ['500', '600'], style: ['normal', 'italic'], variable: '--font-fraunces' })
@@ -74,6 +75,19 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
   const [toggling, setToggling] = useState<string | null>(null)
   const [tab, setTab] = useState<'proyectos' | 'fuentes'>('proyectos')
+  const [email, setEmail] = useState<string | undefined>(undefined)
+
+  // Este header propio excluye el Topbar genérico (evita doble header, ver Topbar.tsx) — pero
+  // el Topbar era el único lugar con botón "Salir". Sin esto no había forma de cerrar sesión
+  // desde el flujo principal (bug real reportado).
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => setEmail(session?.user?.email))
+  }, [])
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut()
+    router.push('/login')
+  }
 
   const load = async () => {
     setLoading(true)
@@ -174,7 +188,7 @@ export default function DashboardPage() {
           </span>
           <span className="block text-[10px] text-[#8b96ab] tracking-[0.12em] uppercase" style={{ fontFamily: 'var(--font-plex-mono)' }}>Inteligencia inmobiliaria</span>
         </div>
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-3">
           <button
             onClick={() => router.push('/prospeccion')}
             className="flex items-center gap-1.5 text-[13px] text-[#8b96ab] hover:text-[#f4f0e6] border border-[#2a3f5c] hover:border-[#a68f52] px-3 py-1.5 rounded-xl transition-colors"
@@ -184,6 +198,20 @@ export default function DashboardPage() {
             </svg>
             Nuevo análisis
           </button>
+          {email && (
+            <>
+              <button onClick={() => router.push('/perfil')}
+                className="w-8 h-8 rounded-full bg-[#0b1d3a] border border-[#c9a227]/40 flex items-center justify-center hover:border-[#c9a227] transition-colors shrink-0"
+                title={email}>
+                <span className="text-[#ddc06a] text-[11px] font-semibold">{email.slice(0, 2).toUpperCase()}</span>
+              </button>
+              <button onClick={handleLogout}
+                className="text-[13px] text-[#8b96ab] hover:text-[#ddc06a] transition-colors"
+                style={{ fontFamily: 'var(--font-plex-mono)' }}>
+                Salir
+              </button>
+            </>
+          )}
         </div>
       </header>
 
