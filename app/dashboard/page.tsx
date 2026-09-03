@@ -174,7 +174,6 @@ export default function DashboardPage() {
           </span>
           <span className="block text-[10px] text-[#8b96ab] tracking-[0.12em] uppercase" style={{ fontFamily: 'var(--font-plex-mono)' }}>Inteligencia inmobiliaria</span>
         </div>
-        <span className="text-[10px] text-[#5f6a80] font-medium ml-3" style={{ fontFamily: 'var(--font-plex-mono)' }}>v2.3 · Jun 2026</span>
         <div className="ml-auto">
           <button
             onClick={() => router.push('/prospeccion')}

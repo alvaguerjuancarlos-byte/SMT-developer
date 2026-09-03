@@ -53,19 +53,29 @@ export default function LoginPage() {
       } catch { /* si falla, ir al dashboard igual */ }
     }
 
-    router.push('/dashboard')
+    router.push('/prospeccion')
   }
 
   return (
-    <div
-      className={`${fraunces.variable} ${plexMono.variable} min-h-screen bg-[#0b1d3a] flex items-center justify-center px-4`}
-      style={{
-        backgroundImage:
-          'linear-gradient(rgba(244,240,230,0.11) 1px, transparent 1px), linear-gradient(90deg, rgba(244,240,230,0.11) 1px, transparent 1px)',
-        backgroundSize: '64px 64px',
-      }}
-    >
-      <div className="w-full max-w-[400px]">
+    <div className={`${fraunces.variable} ${plexMono.variable} min-h-screen bg-[#0b1d3a] flex items-center justify-center px-4 relative overflow-hidden`}>
+      {/* Video de fondo — mismo tratamiento que la portada (/prospeccion): dron sobre
+          Monterrey/San Pedro, overlay ligero (sin grid, el video ya da textura). */}
+      <video
+        autoPlay muted loop playsInline
+        className="absolute inset-0 w-full h-full object-cover"
+        style={{ zIndex: 0 }}
+      >
+        <source src="/videos/monterrey-skyline.mp4" type="video/mp4" />
+      </video>
+      <div
+        className="absolute inset-0"
+        style={{
+          zIndex: 1,
+          background: 'linear-gradient(180deg, rgba(7,15,34,0.55) 0%, rgba(11,29,58,0.4) 35%, rgba(11,29,58,0.6) 75%, rgba(11,29,58,0.8) 100%)',
+        }}
+      />
+
+      <div className="relative z-10 w-full max-w-[400px]">
 
         {/* Logo */}
         <div className="flex flex-col items-center mb-8">
@@ -75,10 +85,10 @@ export default function LoginPage() {
               <path d="M9 2V16M2 6L16 12M16 6L2 12" stroke="#070f22" strokeWidth="1" strokeOpacity="0.6"/>
             </svg>
           </div>
-          <h1 className="text-[22px] tracking-tight" style={{ fontFamily: 'var(--font-fraunces)', fontWeight: 500, color: '#f4f0e6' }}>
+          <h1 className="text-[22px] tracking-tight" style={{ fontFamily: 'var(--font-fraunces)', fontWeight: 500, color: '#f4f0e6', textShadow: '0 2px 16px rgba(7,15,34,0.6)' }}>
             SMT <em style={{ fontStyle: 'normal', color: '#ddc06a' }}>Developer</em>
           </h1>
-          <p className="text-[11px] text-[#8b96ab] tracking-[0.14em] uppercase mt-0.5" style={{ fontFamily: 'var(--font-plex-mono)' }}>Inteligencia inmobiliaria</p>
+          <p className="text-[11px] text-[#c7ccd6] tracking-[0.14em] uppercase mt-0.5" style={{ fontFamily: 'var(--font-plex-mono)', textShadow: '0 1px 10px rgba(7,15,34,0.6)' }}>Inteligencia inmobiliaria</p>
         </div>
 
         {/* Card */}
@@ -144,7 +154,7 @@ export default function LoginPage() {
         </div>
 
         {/* Register link */}
-        <p className="text-center text-[13px] text-[#8b96ab] mt-5">
+        <p className="text-center text-[13px] text-[#c7ccd6] mt-5" style={{ textShadow: '0 1px 10px rgba(7,15,34,0.6)' }}>
           ¿No tienes cuenta?{' '}
           <a href="/registro" className="text-[#c9a227] font-semibold hover:text-[#ddc06a] transition-colors">
             Regístrate aquí

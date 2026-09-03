@@ -29,6 +29,9 @@ export default function ContextBar() {
   // Mismo criterio que Topbar.tsx — Mastermind trae su propio breadcrumb local.
   if (pathname === '/mastermind' || pathname === '/mastermind-core') return null
 
+  // Mismo criterio que Topbar.tsx — Dashboard trae su propio header, sin chrome duplicado.
+  if (pathname === '/dashboard') return null
+
   // Mismo alcance/criterio que Topbar.tsx — navy/oro solo en Camino A, match exacto.
   const esFlujoA = pathname === '/prospeccion/flujo-a' || pathname === '/analisis'
     || pathname === '/analisis/analizando' || pathname === '/propuesta'

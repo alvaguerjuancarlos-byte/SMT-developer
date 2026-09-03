@@ -39,6 +39,11 @@ export default function Topbar() {
   // Pantallas de auth (login/registro/recuperar) traen su propio header navy — sin chrome duplicado.
   if (pathname === '/login' || pathname === '/registro' || pathname === '/recuperar') return null
 
+  // Dashboard ("Mis Proyectos") trae su propio header navy/oro (con botón "Nuevo análisis") —
+  // sin esto quedaban dos headers apilados con versiones distintas (bug real reportado en
+  // producción: "v3.0" arriba de este Topbar y "v2.3" del propio header de dashboard).
+  if (pathname === '/dashboard') return null
+
   // Mastermind (calibración core y plan financiero completo) trae su propio breadcrumb local —
   // el stepper genérico de aquí no reconoce estas rutas y se queda pegado en "Prospección" con
   // Análisis/Propuesta deshabilitados, justo los pasos que servirían para volver.

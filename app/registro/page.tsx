@@ -78,7 +78,7 @@ export default function RegistroPage() {
       } catch { /* si falla, ir al dashboard igual */ }
     }
 
-    router.push('/dashboard')
+    router.push('/prospeccion')
   }
 
   return (
