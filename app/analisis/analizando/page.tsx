@@ -109,6 +109,11 @@ export interface PipelineState {
   // real de San Pedro Garza García (único GeoServer municipal verificado hoy). Solo corre
   // cuando ciudad matchea ES_SAN_PEDRO; en cualquier otro municipio queda 'done' con data null.
   parcela:     { status: AgentStatus; data: any }
+  // MVP portado de PREFORMA (ver app/preforma/page.tsx::runMarketResumen) — motor determinístico
+  // lib/market/ (dedup, price/inventory/competitor/appreciation/productFit/opportunity engines)
+  // sobre los mismos comparablesVenta que ya trae Camino A. Independiente del Agente Mercado
+  // (LLM) de abajo: si falla, no tumba la corrida principal.
+  marketResumen: { status: AgentStatus; data: any }
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -1581,6 +1586,7 @@ function PipelineContent() {
     ubicacion:   { status: 'waiting', data: null },
     catastro:    { status: 'waiting', data: null },
     parcela:     { status: 'waiting', data: null },
+    marketResumen: { status: 'waiting', data: null },
   })
 
   // Candidato actualmente elegido por el analista en cada paso con "Ajustar parámetros"
@@ -1978,6 +1984,48 @@ function PipelineContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pipe.legal.status])
 
+  // Motor determinístico lib/market/ — MVP portado de PREFORMA (ver
+  // app/preforma/page.tsx::runMarketResumen). Independiente del Agente Mercado (LLM) de abajo:
+  // si falla, no tumba la corrida principal. Solo corre si hay comparables reales que resumir.
+  // productFit exige un envolvente normativo REAL: solo se arma si Legal ya corrió Y quedó
+  // `grounded` (búsqueda real por Serper, no memoria del LLM) — pasar un envolvente basado en
+  // una cifra inventada sería el mismo problema que se corrigió en el Agente Legal.
+  // unidadesObjetivo = "si se construyera al máximo de densidad que permite la norma" — una
+  // pregunta real de mercado, no un valor inventado.
+  const runMarketResumen = async (comparablesVenta: any[], fichaLegal?: any) => {
+    if (comparablesVenta.length === 0) {
+      setPipe(p => ({ ...p, marketResumen: { status: 'done', data: null } }))
+      return
+    }
+    setPipe(p => ({ ...p, marketResumen: { status: 'running', data: null } }))
+    const productFit = (fichaLegal?.grounded === true && typeof fichaLegal.densidadMaxUnidades === 'number')
+      ? { unidadesObjetivo: fichaLegal.densidadMaxUnidades, envolvente: { cumple: fichaLegal.compatible === true, unidadesMax: fichaLegal.densidadMaxUnidades } }
+      : undefined
+    try {
+      const res = await authedFetch('/api/market/resumen', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          comparables: comparablesVenta, ciudad: formData?.ciudad, colonia: formData?.colonia,
+          estado: formData?.estado, lat: formData?.lat, lng: formData?.lng, productFit,
+        }),
+      })
+      const json = await res.json()
+      if (json.error) throw new Error(json.error)
+      setPipe(p => ({ ...p, marketResumen: { status: 'done', data: json } }))
+    } catch {
+      setPipe(p => ({ ...p, marketResumen: { status: 'error', data: null } }))
+    }
+  }
+
+  // Segunda corrida de /api/market/resumen con productFit, cuando Legal termina -- ver comentario
+  // en runMarketResumen sobre por qué la primera (dentro de runMercado) casi nunca lo trae.
+  useEffect(() => {
+    if (pipe.legal.status === 'done' && pipe.comparablesVenta.status === 'done' && pipe.comparablesVenta.data.length > 0) {
+      runMarketResumen(pipe.comparablesVenta.data, pipe.legal.data?.fichaLegal)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pipe.legal.status])
+
   // Mercado tampoco depende de Terreno (verificado en mercado/route.ts — solo lee formData;
   // costoTerrenoM2/construccionM2 se mencionan en el prompt pero runMercado nunca los envía).
   // Corre desde el bootstrap, en paralelo con Terreno y Legal.
@@ -1992,6 +2040,7 @@ function PipelineContent() {
     const comparablesVenta = pipe.comparablesVenta.status === 'waiting'
       ? await runComparablesVenta(input)
       : pipe.comparablesVenta.data
+    runMarketResumen(comparablesVenta) // en paralelo, sin bloquear el Agente Mercado
     try {
       const res = await authedFetch('/api/agentes/mercado', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -3248,6 +3297,58 @@ function PipelineContent() {
                         />
                       </div>
                     </DoneCard>
+                  )
+                })()}
+
+                {/* Motor determinístico lib/market/ — independiente del Agente Mercado (LLM) de
+                    arriba: dedup + price/inventory/competitor/appreciation/productFit/opportunity
+                    sobre los mismos comparables de venta reales, con una segunda corrida (con
+                    productFit) en cuanto Legal termina. */}
+                {pipe.marketResumen.status !== 'waiting' && (() => {
+                  const mr = pipe.marketResumen.data
+                  const stats = mr?.prices?.askingPricePerM2
+                  return (
+                    <div className="bg-[#132a4d] rounded-2xl border border-[#2a3f5c] shadow-sm p-5">
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-[11px] font-bold text-[#5f6a80] uppercase tracking-widest">Resumen de mercado (lib/market/)</p>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#14301f] text-[#1D9E75]">Datos reales</span>
+                      </div>
+                      {pipe.marketResumen.status === 'running' ? (
+                        <p className="text-[11px] text-[#5f6a80]">Calculando…</p>
+                      ) : pipe.marketResumen.status === 'error' ? (
+                        <p className="text-[11px] text-[#5f6a80]">No se pudo calcular el resumen.</p>
+                      ) : !mr ? (
+                        <p className="text-[11px] text-[#5f6a80]">Sin comparables para resumir todavía.</p>
+                      ) : (
+                        <div className="flex flex-col gap-1.5">
+                          {stats ? (
+                            <div className="flex items-center justify-between">
+                              <span className="text-[13px] font-bold text-[#f4f0e6]">
+                                ${stats.median.toLocaleString('es-MX')}/m² <span className="text-[9.5px] text-[#5f6a80] font-normal">mediana</span>
+                              </span>
+                              <span className="text-[10px] text-[#8b96ab]">n={stats.n} · {stats.confidenceNivel}</span>
+                            </div>
+                          ) : (
+                            <p className="text-[11px] text-[#5f6a80]">Sin suficientes precios para estadística robusta.</p>
+                          )}
+                          <p className="text-[11px] text-[#8b96ab]">Confianza de datos <span className="text-[#f4f0e6] font-semibold">{mr.dataConfidence != null ? `${mr.dataConfidence}%` : '—'}</span></p>
+                          <p className="text-[11px] text-[#8b96ab]">Competidores detectados <span className="text-[#f4f0e6] font-semibold">{mr.competitors?.length ?? 0}</span></p>
+                          {mr.productFit && (
+                            <p className="text-[11px] text-[#8b96ab]">Fit de producto (máx. densidad) <span className="text-[#f4f0e6] font-semibold">{mr.productFit.finalScore != null ? `${mr.productFit.finalScore}/100` : '—'}</span></p>
+                          )}
+                          {mr.opportunityScore?.finalScore != null && (
+                            <p className="text-[11px] text-[#8b96ab]">Oportunidad <span className="text-[#f4f0e6] font-semibold">{mr.opportunityScore.finalScore}/100</span></p>
+                          )}
+                          {mr.warnings?.length > 0 && (
+                            <div className="mt-1">
+                              {mr.warnings.map((w: string, i: number) => (
+                                <p key={i} className="text-[9.5px] text-[#5f6a80] leading-snug">· {w}</p>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   )
                 })()}
               </section>
