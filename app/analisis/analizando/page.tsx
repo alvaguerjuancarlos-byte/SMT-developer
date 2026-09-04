@@ -142,6 +142,16 @@ function estatusEnvolvente(permitido: number | null, proyecto: number | null): E
   return 'excede'
 }
 
+// Hermano de estatusEnvolvente pero para un parámetro que es un MÍNIMO exigido (cajones de
+// estacionamiento), no un techo — la dirección de "cumple" se invierte. Mismo criterio que
+// estatusMinimo() en app/preforma/page.tsx.
+function estatusMinimo(permitido: number | null, proyecto: number | null): EstadoEnvolvente {
+  if (permitido == null || proyecto == null) return 'sin-dato'
+  if (proyecto >= permitido) return 'cumple'
+  if (proyecto >= permitido * 0.9) return 'limite'
+  return 'excede'
+}
+
 function Spinner({ color = '#c9a227', size = 18 }: { color?: string; size?: number }) {
   return (
     <svg className="animate-spin shrink-0" width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -3063,11 +3073,27 @@ function PipelineContent() {
                   // app/preforma/page.tsx tab "normativa") — puede no existir todavía si
                   // Arquitectura no ha terminado; las filas caen a "—" hasta que llegue.
                   const ba = arquitecturaActual?.bitacoraArquitectura
+
+                  // Cajones: fl.cajones viene como RATIO ("1.2 por unidad"), no como total —
+                  // a diferencia de COS/CUS/Altura no es comparable directo contra el total que
+                  // ya construyó Arquitectura. Se multiplica por las unidades del proyecto para
+                  // tener un "permitido total" en la misma unidad que cajonesEstimados (a
+                  // diferencia de app/preforma/page.tsx, que compara el ratio crudo contra el
+                  // total — mezcla unidades y casi siempre marcaría "excede").
+                  const totalUnidadesProyecto = ba?.tipologiaPropuesta?.habitacional?.totalDepartamentos ?? null
+                  const ratioCajones = parsearNumeroTexto(fl?.cajones)
+                  const cajonesPermitidoTotal = (ratioCajones != null && totalUnidadesProyecto != null)
+                    ? Math.ceil(ratioCajones * totalUnidadesProyecto) : null
+                  const zonaEstacionamiento = (ba?.desgloseZonas ?? []).find((z: any) => (z.zona || '').toLowerCase().includes('estacionamiento'))
+                  const cajonesProyecto = zonaEstacionamiento?.cajonesEstimados ?? null
+
                   const filasEnvolvente = [
-                    { param: 'COS', permitidoTexto: fl?.cos, proyectoTexto: ba?.cosEstimado, permitido: fl?.cosNum ?? parsearNumeroTexto(fl?.cos), proyecto: parsearNumeroTexto(ba?.cosEstimado) },
-                    { param: 'CUS', permitidoTexto: fl?.cus, proyectoTexto: ba?.cusEstimado, permitido: fl?.cusNum ?? parsearNumeroTexto(fl?.cus), proyecto: parsearNumeroTexto(ba?.cusEstimado) },
+                    { param: 'COS', permitidoTexto: fl?.cos, proyectoTexto: ba?.cosEstimado, permitido: fl?.cosNum ?? parsearNumeroTexto(fl?.cos), proyecto: parsearNumeroTexto(ba?.cosEstimado), minimo: false },
+                    { param: 'CUS', permitidoTexto: fl?.cus, proyectoTexto: ba?.cusEstimado, permitido: fl?.cusNum ?? parsearNumeroTexto(fl?.cus), proyecto: parsearNumeroTexto(ba?.cusEstimado), minimo: false },
                     { param: 'Altura', permitidoTexto: fl?.altura, proyectoTexto: ba?.tipologiaPropuesta?.niveles != null ? `${ba.tipologiaPropuesta.niveles} niveles` : null,
-                      permitido: fl?.nivelesMax ?? parsearNumeroTexto(fl?.altura), proyecto: ba?.tipologiaPropuesta?.niveles ?? null },
+                      permitido: fl?.nivelesMax ?? parsearNumeroTexto(fl?.altura), proyecto: ba?.tipologiaPropuesta?.niveles ?? null, minimo: false },
+                    { param: 'Cajones', permitidoTexto: fl?.cajones ? `${fl.cajones}${cajonesPermitidoTotal != null ? ` (${cajonesPermitidoTotal} tot.)` : ''}` : null,
+                      proyectoTexto: cajonesProyecto, permitido: cajonesPermitidoTotal, proyecto: cajonesProyecto, minimo: true },
                   ]
 
                   return (
@@ -3101,7 +3127,7 @@ function PipelineContent() {
                         <p className="text-[10px] font-bold text-[#5f6a80] uppercase tracking-widest mb-2">Envolvente normativa</p>
                         <div className="flex flex-col gap-2">
                           {filasEnvolvente.map(f => {
-                            const estado = estatusEnvolvente(f.permitido, f.proyecto)
+                            const estado = f.minimo ? estatusMinimo(f.permitido, f.proyecto) : estatusEnvolvente(f.permitido, f.proyecto)
                             const maxVal = Math.max(f.permitido ?? 0, f.proyecto ?? 0) || 1
                             const colorProyecto =
                               estado === 'cumple' ? '#1D9E75' : estado === 'limite' ? '#FBBF24' : estado === 'excede' ? '#F87171' : '#5f6a80'
@@ -3493,22 +3519,32 @@ function PipelineContent() {
                             />
                           </div>
                           <p className="text-[9px] text-[#5f6a80] italic">Bocetos ilustrativos a partir del programa propuesto — no sustituyen un plano arquitectónico ni asumen distribución real por nivel.</p>
-                          {tip.habitacional?.mix && tip.habitacional.mix.length > 0 && (
+                          {tip.habitacional?.mix && tip.habitacional.mix.length > 0 && (() => {
+                            // Ingresos por tipo — mismo cálculo que app/preforma/page.tsx tab
+                            // "arquitectura" (unidades × m²prom × precio de venta del Agente
+                            // Mercado). '—' si Mercado no ha corrido todavía.
+                            const precioVentaEfectivo = mercadoActual?.mercado?.precioVentaDepasM2 ?? null
+                            return (
                             <div className="rounded-xl border border-[#2a3f5c] overflow-hidden">
-                              <div className="grid grid-cols-3 bg-[#2a3f5c] px-3 py-1.5">
-                                {['Tipo', 'Unidades', 'm² prom.'].map(h => (
-                                  <span key={h} className="text-[9px] font-bold text-[#5f6a80] uppercase tracking-wider">{h}</span>
+                              <div className="grid grid-cols-4 bg-[#2a3f5c] px-3 py-1.5">
+                                {['Tipo', 'Unidades', 'm² prom.', 'Ingresos'].map(h => (
+                                  <span key={h} className={`text-[9px] font-bold text-[#5f6a80] uppercase tracking-wider ${h === 'Ingresos' ? 'text-right' : ''}`}>{h}</span>
                                 ))}
                               </div>
-                              {tip.habitacional.mix.map((row: any, i: number) => (
-                                <div key={i} className={`grid grid-cols-3 px-3 py-2 ${i % 2 === 0 ? 'bg-[#132a4d]' : 'bg-[#0f1f3a]'} border-t border-[#2a3f5c]`}>
-                                  <span className="text-[11px] font-semibold text-[#f4f0e6]">{row.tipo}</span>
-                                  <span className="text-[11px] text-[#8b96ab]">{row.unidades}</span>
-                                  <span className="text-[11px] text-[#8b96ab]">{row.m2Promedio} m²</span>
-                                </div>
-                              ))}
+                              {tip.habitacional.mix.map((row: any, i: number) => {
+                                const ingresoRow = precioVentaEfectivo != null ? (row.unidades || 0) * (row.m2Promedio || 0) * precioVentaEfectivo : null
+                                return (
+                                  <div key={i} className={`grid grid-cols-4 px-3 py-2 ${i % 2 === 0 ? 'bg-[#132a4d]' : 'bg-[#0f1f3a]'} border-t border-[#2a3f5c]`}>
+                                    <span className="text-[11px] font-semibold text-[#f4f0e6]">{row.tipo}</span>
+                                    <span className="text-[11px] text-[#8b96ab]">{row.unidades}</span>
+                                    <span className="text-[11px] text-[#8b96ab]">{row.m2Promedio} m²</span>
+                                    <span className="text-[11px] text-[#8b96ab] text-right">{ingresoRow != null ? fmt(ingresoRow) : '—'}</span>
+                                  </div>
+                                )
+                              })}
                             </div>
-                          )}
+                            )
+                          })()}
                           {tip.fijadoManualmente?.length > 0 && (
                             <p className="text-[9px] text-[#5f6a80]">Fijado manualmente: {tip.fijadoManualmente.join(', ')}</p>
                           )}
