@@ -185,6 +185,19 @@ function Sonar({ color = '#c9a227', size = 36 }: { color?: string; size?: number
   )
 }
 
+// Etiquetas para los campos de lib/market/ (MarketMaster) que se muestran en la tarjeta
+// "Resumen de mercado" — mismos enums que lib/market/tipos.ts (EtapaInventario/VentanaPlusvalia/
+// TipoComparable), sin importar el archivo entero solo por estos labels.
+const ETAPA_INVENTARIO_LABELS: Record<string, string> = {
+  preventa: 'Preventa', en_obra: 'En obra', entregado: 'Entregado', sin_dato: 'Sin dato',
+}
+const VENTANA_PLUSVALIA_LABELS: Record<string, string> = {
+  mensual: '1 mes', trimestral: '3 meses', anual: 'Anual', '3_anios': '3 años', '5_anios': '5 años', '10_anios': '10 años',
+}
+const TIPO_COMPARABLE_LABELS: Record<string, string> = {
+  DIRECT: 'Directo', SUBSTITUTE: 'Sustituto', ASPIRATIONAL: 'Aspiracional', FLOOR: 'Piso',
+}
+
 // Un color por agente, consistente en toda la pantalla del pipeline.
 const AGENTE_COLOR = {
   terreno: '#1D9E75',
@@ -3371,6 +3384,72 @@ function PipelineContent() {
                               {mr.warnings.map((w: string, i: number) => (
                                 <p key={i} className="text-[9.5px] text-[#5f6a80] leading-snug">· {w}</p>
                               ))}
+                            </div>
+                          )}
+
+                          {/* Inventario, plusvalía real, comparables con score y evidencia — el
+                              motor lib/market/ ya los calcula, pero ni Preforma ni Camino A los
+                              mostraban hasta hoy (solo se usaba una fracción de MarketMaster). */}
+                          {mr.inventory?.length > 0 && (
+                            <div className="mt-2 pt-2 border-t border-[#2a3f5c]">
+                              <p className="text-[9px] font-bold text-[#5f6a80] uppercase tracking-wide mb-1.5">Inventario por etapa</p>
+                              <div className="grid grid-cols-2 gap-1.5">
+                                {mr.inventory.map((seg: any, i: number) => (
+                                  <div key={i} className="bg-[#0b1d3a] rounded-lg px-2.5 py-2">
+                                    <p className="text-[9.5px] text-[#8b96ab]">{ETAPA_INVENTARIO_LABELS[seg.etapa] ?? seg.etapa}</p>
+                                    <p className="text-[11px] font-bold text-[#f4f0e6]">{seg.unidades} unid.</p>
+                                    {seg.precioM2 && <p className="text-[9px] text-[#5f6a80]">${seg.precioM2.median.toLocaleString('es-MX')}/m² mediana</p>}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {mr.appreciation?.length > 0 && (
+                            <div className="mt-2 pt-2 border-t border-[#2a3f5c]">
+                              <p className="text-[9px] font-bold text-[#5f6a80] uppercase tracking-wide mb-1.5">Plusvalía real (histórico)</p>
+                              <div className="flex flex-wrap gap-1.5">
+                                {mr.appreciation.map((v: any, i: number) => (
+                                  <span key={i} className="text-[10px] bg-[#0b1d3a] rounded-full px-2.5 py-1" title={v.motivo ?? undefined}>
+                                    <span className="text-[#5f6a80]">{VENTANA_PLUSVALIA_LABELS[v.ventana] ?? v.ventana}</span>{' '}
+                                    <span className={`font-bold ${v.tasaAnualizada != null ? 'text-[#f4f0e6]' : 'text-[#5f6a80]'}`}>
+                                      {v.tasaAnualizada != null ? `${v.tasaAnualizada.toFixed(1)}%` : 'sin datos'}
+                                    </span>
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {mr.comparables?.length > 0 && (
+                            <div className="mt-2 pt-2 border-t border-[#2a3f5c]">
+                              <VerDetalle label={`Ver comparables con score (${mr.comparables.length})`}>
+                                <div className="flex flex-col gap-1">
+                                  {mr.comparables.slice(0, 8).map((cs: any, i: number) => (
+                                    <div key={i} className="flex items-center justify-between bg-[#0b1d3a] rounded-lg px-2.5 py-1.5">
+                                      <div className="min-w-0">
+                                        <p className="text-[10.5px] font-semibold text-[#f4f0e6] truncate">{cs.comparable?.nombre}</p>
+                                        <p className="text-[9px] text-[#5f6a80]">{TIPO_COMPARABLE_LABELS[cs.tipo] ?? cs.tipo} · {cs.score?.dimensionesDisponibles ?? 0}/8 dimensiones</p>
+                                      </div>
+                                      <span className="text-[10.5px] font-bold text-[#c9a227] shrink-0 ml-2">{cs.score?.finalScore != null ? `${Math.round(cs.score.finalScore)}` : '—'}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </VerDetalle>
+                            </div>
+                          )}
+
+                          {mr.evidence?.length > 0 && (
+                            <div className="mt-2 pt-2 border-t border-[#2a3f5c]">
+                              <VerDetalle label={`Ver evidencia de las cifras (${mr.evidence.length})`}>
+                                <div className="flex flex-col gap-1">
+                                  {mr.evidence.map((ev: any, i: number) => (
+                                    <p key={i} className="text-[10px] text-[#8b96ab]">
+                                      <span className="text-[#f4f0e6] font-semibold">{ev.metric}</span> = {ev.value} — {ev.method} (n={ev.sampleSize}{ev.confidence ? `, ${ev.confidence}` : ''})
+                                    </p>
+                                  ))}
+                                </div>
+                              </VerDetalle>
                             </div>
                           )}
                         </div>
