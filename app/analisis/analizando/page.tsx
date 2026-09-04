@@ -16,6 +16,7 @@ import { Fraunces, IBM_Plex_Mono } from 'next/font/google'
 import CockpitQuadrant, { QuadrantPlaceholder, type CockpitEstado } from './CockpitQuadrant'
 import CockpitMastermindFab from './CockpitMastermindFab'
 import MastermindOverlay from './MastermindOverlay'
+import { validarPoligono, type Lado, type Cuadrante } from '@/lib/terreno/geometryEngine'
 
 const fraunces = Fraunces({ subsets: ['latin'], weight: ['500', '600'], style: ['normal', 'italic'], variable: '--font-fraunces' })
 const plexMono = IBM_Plex_Mono({ subsets: ['latin'], weight: ['400', '500'], variable: '--font-plex-mono' })
@@ -1576,6 +1577,25 @@ function PipelineContent() {
   // directamente durante el render y no puede usar hooks (reglas de hooks de React).
   const [mostrarArquitecturaManual, setMostrarArquitecturaManual] = useState(false)
 
+  // Cuadro de construcción (rumbo + distancia por lado) + Geometry Engine — MVP portado de
+  // PREFORMA (ver app/preforma/page.tsx: form.lados/ladoDraft/poligono). Motor puro, sin red
+  // (lib/terreno/geometryEngine.ts) — no depende de San Pedro ni de ningún GeoServer, funciona
+  // en cualquier predio. Vive fuera del pipe porque no es un agente async, es cálculo local.
+  const [lados, setLados] = useState<Lado[]>([])
+  const [ladoDraft, setLadoDraft] = useState<{ cuadrante: Cuadrante; grados: string; distancia: string }>({ cuadrante: 'NE', grados: '', distancia: '' })
+  function agregarLado() {
+    const grados = Number(ladoDraft.grados)
+    const distancia = Number(ladoDraft.distancia)
+    if (!ladoDraft.grados || !ladoDraft.distancia || isNaN(grados) || isNaN(distancia) || distancia <= 0) return
+    setLados(ls => [...ls, { rumbo: { cuadrante: ladoDraft.cuadrante, grados }, distancia }])
+    setLadoDraft({ cuadrante: 'NE', grados: '', distancia: '' })
+  }
+  function quitarLado(i: number) {
+    setLados(ls => ls.filter((_, idx) => idx !== i))
+  }
+  const poligono = lados.length >= 3 ? validarPoligono(lados) : null
+  const superficieCapturada = Number(formData?.superficie) || null
+
   // React Strict Mode (dev) invoca los efectos de montaje DOS veces — sin este guard, la
   // primera invocación restauraba el snapshot y lo borraba de localStorage, y la segunda ya no
   // lo encontraba (removeItem ya corrió) y caía al arranque normal, disparando Terreno/Legal/
@@ -1712,6 +1732,16 @@ function PipelineContent() {
       })
       const json = await res.json()
       setPipe(p => ({ ...p, parcela: { status: 'done', data: json } }))
+
+      // Auto-cuenta predial: verificado en vivo (2026-09-03) que el clave_lote del GeoServer
+      // municipal es aceptado tal cual como expediente catastral por egobierno.nl.gob.mx —
+      // así que en San Pedro no hace falta pedirle al usuario su cuenta predial para poder
+      // correr el Agente de Catastro (valorSuelo → comparación de 3 valores). Si el usuario
+      // ya escribió una a mano, se respeta esa (bootstrapRef ya la corrió por su cuenta).
+      const claveLote = json?.seleccionado?.predio?.claveLote
+      if (json?.status === 'AUTO_RESOLVED' && claveLote && !fd.cuentaPredial?.trim()) {
+        runCatastro({ ...fd, cuentaPredial: claveLote })
+      }
     } catch {
       setPipe(p => ({ ...p, parcela: { status: 'error', data: null } }))
     }
@@ -2383,6 +2413,124 @@ function PipelineContent() {
                 </div>
               )}
 
+              {/* Cuadro de construcción + Geometry Engine. Si el predio ya se resolvió contra el
+                  catastro real (pipe.parcela, GeoServer SPGG), el anillo geométrico QUE YA
+                  TENEMOS es el levantamiento real — no tiene sentido pedirle al usuario que lo
+                  vuelva a teclear lado por lado, eso era necesario solo cuando no hay expediente
+                  real contra qué verificar. Fuera de San Pedro (o sin match), cae a captura manual. */}
+              {(() => {
+                const predioReal = pipe.parcela.data?.status === 'AUTO_RESOLVED' ? pipe.parcela.data.seleccionado?.predio : null
+                if (predioReal && predioReal.areaM2 != null && predioReal.perimetroM != null) {
+                  const difiere = superficieCapturada != null && Math.abs(predioReal.areaM2 - superficieCapturada) > superficieCapturada * 0.02
+                  return (
+                    <div className="bg-[#132a4d] rounded-2xl border border-[#2a3f5c] shadow-sm p-5">
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-[11px] font-bold text-[#5f6a80] uppercase tracking-widest">Cuadro de construcción</p>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#14301f] text-[#1D9E75]">Del expediente catastral</span>
+                      </div>
+                      <p className="text-[10.5px] text-[#5f6a80] mb-3">
+                        Obtenido directo del levantamiento real (GeoServer SPGG) — no requiere captura manual.
+                      </p>
+                      <div className="flex flex-col gap-1">
+                        <p className="text-[11px] text-[#8b96ab]">Área real <span className="text-[#f4f0e6] font-semibold">{predioReal.areaM2.toFixed(1)} m²</span></p>
+                        <p className="text-[11px] text-[#8b96ab]">Perímetro real <span className="text-[#f4f0e6] font-semibold">{predioReal.perimetroM.toFixed(1)} m</span></p>
+                        {difiere && (
+                          <p className="text-[10.5px] text-[#F87171] mt-1">
+                            Difiere {Math.abs(predioReal.areaM2 - (superficieCapturada as number)).toFixed(1)} m² de la superficie declarada ({superficieCapturada} m²).
+                          </p>
+                        )}
+                      </div>
+                      {predioReal.ladosM && predioReal.ladosM.length > 0 && (
+                        <div className="mt-3 pt-3 border-t border-[#2a3f5c]">
+                          <p className="text-[9px] text-[#5f6a80] font-semibold uppercase tracking-wide mb-1.5">
+                            Dimensiones por lado ({predioReal.ladosM.length})
+                          </p>
+                          <div className="flex flex-col gap-0.5">
+                            {predioReal.ladosM.map((m: number, i: number) => (
+                              <p key={i} className="text-[10.5px] text-[#8b96ab] font-mono">
+                                Lado {i + 1}: <span className="text-[#f4f0e6]">{m.toFixed(2)} m</span>
+                              </p>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )
+                }
+                return (
+                  <div className="bg-[#132a4d] rounded-2xl border border-[#2a3f5c] shadow-sm p-5">
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-[11px] font-bold text-[#5f6a80] uppercase tracking-widest">Cuadro de construcción</p>
+                      {poligono && (
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                          poligono.cierre.cerrado ? 'bg-[#14301f] text-[#1D9E75]' : 'bg-[#2a3f5c] text-[#8b96ab]'
+                        }`}>
+                          {poligono.cierre.cerrado ? 'Cierra' : `Sin cerrar · ${poligono.cierre.errorCierreM.toFixed(2)} m`}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[10.5px] text-[#5f6a80] mb-3">
+                      Sin expediente catastral verificado para este predio — captura el levantamiento manualmente.
+                    </p>
+
+                    {lados.length > 0 && (
+                      <div className="flex flex-col gap-1 mb-2">
+                        {lados.map((l, i) => (
+                          <div key={i} className="flex items-center justify-between">
+                            <span className="text-[10.5px] text-[#8b96ab] font-mono">
+                              {i + 1}. {l.rumbo.cuadrante} {l.rumbo.grados}° · {l.distancia} m
+                            </span>
+                            <button onClick={() => quitarLado(i)} className="text-[9.5px] text-[#5f6a80] hover:text-[#F87171] cursor-pointer">Quitar</button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    <div className="flex items-center gap-1.5 mb-3">
+                      <select
+                        value={ladoDraft.cuadrante}
+                        onChange={e => setLadoDraft(d => ({ ...d, cuadrante: e.target.value as Cuadrante }))}
+                        className="bg-[#0b1d3a] border border-[#2a3f5c] rounded-lg px-2 py-1.5 text-[10.5px] text-[#f4f0e6]"
+                      >
+                        {(['NE', 'NO', 'SE', 'SO'] as const).map(c => <option key={c} value={c}>{c}</option>)}
+                      </select>
+                      <input
+                        type="number" min={0} max={90} placeholder="grados" value={ladoDraft.grados}
+                        onChange={e => setLadoDraft(d => ({ ...d, grados: e.target.value }))}
+                        className="w-16 bg-[#0b1d3a] border border-[#2a3f5c] rounded-lg px-2 py-1.5 text-[10.5px] text-[#f4f0e6]"
+                      />
+                      <input
+                        type="number" min={0} placeholder="metros" value={ladoDraft.distancia}
+                        onChange={e => setLadoDraft(d => ({ ...d, distancia: e.target.value }))}
+                        className="w-18 bg-[#0b1d3a] border border-[#2a3f5c] rounded-lg px-2 py-1.5 text-[10.5px] text-[#f4f0e6]"
+                      />
+                      <button
+                        onClick={agregarLado}
+                        className="text-[10.5px] font-semibold text-[#c9a227] bg-[#c9a227]/10 border border-[#c9a227]/35 rounded-lg px-2.5 py-1.5 hover:bg-[#c9a227]/15 transition-colors cursor-pointer"
+                      >
+                        + Lado
+                      </button>
+                    </div>
+
+                    {poligono ? (
+                      <div className="flex flex-col gap-1">
+                        <p className="text-[11px] text-[#8b96ab]">Área calculada <span className="text-[#f4f0e6] font-semibold">{poligono.areaM2.toFixed(1)} m²</span></p>
+                        <p className="text-[11px] text-[#8b96ab]">Perímetro <span className="text-[#f4f0e6] font-semibold">{poligono.perimetroM.toFixed(1)} m</span></p>
+                        {superficieCapturada != null && Math.abs(poligono.areaM2 - superficieCapturada) > superficieCapturada * 0.02 && (
+                          <p className="text-[10.5px] text-[#F87171] mt-1">
+                            Difiere {Math.abs(poligono.areaM2 - superficieCapturada).toFixed(1)} m² de la superficie declarada ({superficieCapturada} m²).
+                          </p>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-[10.5px] text-[#5f6a80]">
+                        Agrega al menos 3 lados (rumbo + distancia del cuadro de construcción) para calcular área y perímetro reales — motor propio, sin red.
+                      </p>
+                    )}
+                  </div>
+                )
+              })()}
+
               {pipe.terreno.status === 'running' && (
                 <RunningCard label="Agente Terreno analizando…" hint="Clasificando banda, aplicando factores de ajuste sobre referencias reales" color={AGENTE_COLOR.terreno} />
               )}
@@ -2742,11 +2890,70 @@ function PipelineContent() {
                                     <line x1="8" y1="6.5" x2="8" y2="9.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
                                     <circle cx="8" cy="11.5" r=".75" fill="currentColor"/>
                                   </svg>
-                                  <p className="text-[10px] text-[#FBBF24]">
-                                    Portal IRCNL no disponible — valor catastral no consultado. El análisis continúa sin este dato.
-                                  </p>
+                                  <div className="flex-1 flex items-center justify-between gap-3">
+                                    <p className="text-[10px] text-[#FBBF24]">
+                                      Portal IRCNL no disponible — valor catastral no consultado. El análisis continúa sin este dato.
+                                    </p>
+                                    <button
+                                      onClick={() => runCatastro({ ...formData, cuentaPredial: c.expediente })}
+                                      className="text-[10px] font-semibold text-[#FBBF24] border border-[#F0D070]/50 px-2.5 py-1 rounded-lg hover:bg-[#FBBF24]/10 transition-colors cursor-pointer shrink-0"
+                                    >
+                                      Re-intentar
+                                    </button>
+                                  </div>
                                 </div>
                               )}
+
+                              {/* Comparación de 3 valores del terreno: catastral (oficial, suelo)
+                                  vs. declarado por el dueño (precioSolicitado) vs. calculado por
+                                  el Agente Terreno (t.costoTerreno) — misma base (total, no /m²)
+                                  para que el % sea comparable directo. Solo con valorSuelo, no
+                                  valorCatastral total (ese mezcla suelo+construcción). */}
+                              {c.valorSuelo != null && (() => {
+                                const valorCatastralSuelo = c.valorSuelo
+                                const valorDueno = Number(formData?.precioSolicitado) || null
+                                const valorAgente = t.costoTerreno ?? null
+                                const pct = (v: number) => (((v - valorCatastralSuelo) / valorCatastralSuelo) * 100)
+                                return (
+                                  <div className="mt-2">
+                                    <p className="text-[9px] text-[#5f6a80] font-semibold uppercase tracking-wide mb-1.5">
+                                      Comparación de valores del terreno
+                                    </p>
+                                    <div className="flex gap-3">
+                                      <div className="flex-1 bg-[#132a4d] rounded-xl px-3 py-2.5">
+                                        <p className="text-[9px] text-[#5f6a80] font-semibold uppercase tracking-wide">Catastral (suelo)</p>
+                                        <p className="text-[12px] font-bold text-[#ddc06a] mt-0.5">${valorCatastralSuelo.toLocaleString('es-MX')}</p>
+                                      </div>
+                                      <div className="flex-1 bg-[#132a4d] rounded-xl px-3 py-2.5">
+                                        <p className="text-[9px] text-[#5f6a80] font-semibold uppercase tracking-wide">Declarado por el dueño</p>
+                                        {valorDueno != null ? (
+                                          <>
+                                            <p className="text-[12px] font-bold text-[#f4f0e6] mt-0.5">${valorDueno.toLocaleString('es-MX')}</p>
+                                            <p className={`text-[9px] mt-0.5 font-semibold ${pct(valorDueno) >= 0 ? 'text-[#0F6E56]' : 'text-[#F87171]'}`}>
+                                              {pct(valorDueno) >= 0 ? '+' : ''}{pct(valorDueno).toFixed(0)}% vs. catastral
+                                            </p>
+                                          </>
+                                        ) : (
+                                          <p className="text-[11px] text-[#5f6a80] mt-0.5">No declarado</p>
+                                        )}
+                                      </div>
+                                      <div className="flex-1 bg-[#132a4d] rounded-xl px-3 py-2.5">
+                                        <p className="text-[9px] text-[#5f6a80] font-semibold uppercase tracking-wide">Calculado por el agente</p>
+                                        {valorAgente != null ? (
+                                          <>
+                                            <p className="text-[12px] font-bold text-[#f4f0e6] mt-0.5">${valorAgente.toLocaleString('es-MX')}</p>
+                                            <p className={`text-[9px] mt-0.5 font-semibold ${pct(valorAgente) >= 0 ? 'text-[#0F6E56]' : 'text-[#F87171]'}`}>
+                                              {pct(valorAgente) >= 0 ? '+' : ''}{pct(valorAgente).toFixed(0)}% vs. catastral
+                                            </p>
+                                          </>
+                                        ) : (
+                                          <p className="text-[11px] text-[#5f6a80] mt-0.5">—</p>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+                                )
+                              })()}
                             </div>
                           )
                         })()}

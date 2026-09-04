@@ -106,3 +106,31 @@ export function areaM2DesdeAnillo(anillo: [number, number][], latRef: number): n
   }
   return Math.abs(suma) / 2
 }
+
+function distanciaM(a: [number, number], b: [number, number], latRef: number): number {
+  const metrosPorGradoLng = METROS_POR_GRADO_LAT * Math.cos((latRef * Math.PI) / 180)
+  return Math.hypot((b[0] - a[0]) * metrosPorGradoLng, (b[1] - a[1]) * METROS_POR_GRADO_LAT)
+}
+
+// Longitud de cada lado del anillo, en metros y en el mismo orden en que el GeoServer entrega
+// los vértices — el desglose "lado por lado" (equivalente al "cuadro de construcción" que antes
+// solo existía si el usuario lo tecleaba a mano). Si el anillo viene explícitamente cerrado
+// (primer punto repetido al final, convención GeoJSON), se descarta ese vértice duplicado para
+// no mostrar un "lado" fantasma de ~0 m.
+export function longitudesLadosMDesdeAnillo(anillo: [number, number][], latRef: number): number[] | null {
+  if (anillo.length < 3) return null
+  const cerrado = distanciaM(anillo[0], anillo[anillo.length - 1], latRef) < 0.01 // < 1 cm ⇒ mismo punto
+  const puntos = cerrado ? anillo.slice(0, -1) : anillo
+  if (puntos.length < 3) return null
+  return puntos.map((p, i) => distanciaM(p, puntos[(i + 1) % puntos.length], latRef))
+}
+
+// Perímetro en m del anillo exterior — misma proyección local que areaM2DesdeAnillo (necesaria
+// para que las unidades de ambos ejes sean consistentes entre sí antes de medir distancias).
+// Reemplaza al "cuadro de construcción" tecleado a mano cuando el predio ya viene resuelto
+// contra el catastro real: el anillo del GeoServer ES el levantamiento, no hace falta que el
+// usuario lo vuelva a capturar lado por lado.
+export function perimetroMDesdeAnillo(anillo: [number, number][], latRef: number): number | null {
+  const lados = longitudesLadosMDesdeAnillo(anillo, latRef)
+  return lados ? lados.reduce((a, b) => a + b, 0) : null
+}
