@@ -3527,6 +3527,48 @@ function PipelineContent() {
                             </div>
                           )}
 
+                          {mr.plusvaliaPremiumEstimada && (
+                            <div className="mt-2 pt-2 border-t border-[#2a3f5c]">
+                              <div className="flex items-center justify-between mb-1">
+                                <p className="text-[9px] font-bold text-[#5f6a80] uppercase tracking-wide">Plusvalía premium (estimación heurística)</p>
+                                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-[#2e2510] text-[#FBBF24]">No es dato real</span>
+                              </div>
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="text-[13px] font-bold text-[#f4f0e6]">{mr.plusvaliaPremiumEstimada.tasaAnualizadaEstimada.toFixed(1)}%/año</span>
+                                <span className="text-[9px] text-[#5f6a80]">rango {mr.plusvaliaPremiumEstimada.rangoMin.toFixed(1)}% a {mr.plusvaliaPremiumEstimada.rangoMax.toFixed(1)}%</span>
+                              </div>
+                              <p className="text-[9.5px] text-[#5f6a80] leading-snug">
+                                Calculado a partir de la plusvalía real de <span className="text-[#8b96ab] font-semibold">{mr.plusvaliaPremiumEstimada.coloniaReferencia}</span> ({mr.plusvaliaPremiumEstimada.tasaAnualizadaReferencia.toFixed(1)}%/año, n={mr.plusvaliaPremiumEstimada.muestraReferencia}) × beta {mr.plusvaliaPremiumEstimada.betaUsado.toFixed(2)} — modelo calibrado con el índice Case-Shiller por tramos de EE.UU. (proxy, no existe uno mexicano segmentado por banda).
+                              </p>
+                            </div>
+                          )}
+
+                          {mr.absorcionSNIIV && (
+                            <div className="mt-2 pt-2 border-t border-[#2a3f5c]">
+                              <div className="flex items-center justify-between mb-1">
+                                <p className="text-[9px] font-bold text-[#5f6a80] uppercase tracking-wide">Absorción real (SNIIV/SEDATU)</p>
+                                {mr.absorcionSNIIV.disponible && (
+                                  <span className="text-[9px] text-[#5f6a80]">{mr.absorcionSNIIV.municipio} · {mr.absorcionSNIIV.anio}</span>
+                                )}
+                              </div>
+                              {mr.absorcionSNIIV.disponible ? (
+                                <div className="flex gap-1.5">
+                                  <span className="text-[10px] bg-[#0b1d3a] rounded-full px-2.5 py-1">
+                                    <span className="text-[#5f6a80]">Días de venta</span> <span className="font-bold text-[#f4f0e6]">{mr.absorcionSNIIV.diasVenta}</span>
+                                  </span>
+                                  <span className="text-[10px] bg-[#0b1d3a] rounded-full px-2.5 py-1">
+                                    <span className="text-[#5f6a80]">Ciclo total</span> <span className="font-bold text-[#f4f0e6]">{mr.absorcionSNIIV.diasTotal} d</span>
+                                  </span>
+                                  <span className="text-[10px] bg-[#0b1d3a] rounded-full px-2.5 py-1">
+                                    <span className="text-[#5f6a80]">n</span> <span className="font-bold text-[#f4f0e6]">{mr.absorcionSNIIV.numeroVivienda}</span>
+                                  </span>
+                                </div>
+                              ) : (
+                                <p className="text-[9.5px] text-[#5f6a80] leading-snug">{mr.absorcionSNIIV.motivo}</p>
+                              )}
+                            </div>
+                          )}
+
                           {mr.comparables?.length > 0 && (
                             <div className="mt-2 pt-2 border-t border-[#2a3f5c]">
                               <VerDetalle label={`Ver comparables con score (${mr.comparables.length})`}>

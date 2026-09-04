@@ -15,6 +15,8 @@
 // futuras (§131 Fase 8-16) — hoy siempre valen null, nunca se inventan.
 
 import type { ComparableVenta } from '@/lib/mercado/validarComparableVenta'
+import type { ResultadoAbsorcionSNIIV } from './sniivAbsorcion'
+import type { EstimacionPlusvaliaPremium } from './betaTramoEngine'
 
 // ── Comparable Engine (Fase 3) ───────────────────────────────────────────────
 
@@ -334,12 +336,22 @@ export interface MarketMaster {
   productFit: ProductFitScore | null
   opportunityScore: MarketOpportunityScore | null
 
-  // Motores todavía sin construir (Fases 11-14 del documento: Demand/Absorption/Pipeline/Rent/
-  // Yield) — se declaran para no romper el contrato cuando se implementen, pero HOY siempre son
-  // null. No poblar con texto libre del LLM.
+  // Motores todavía sin construir (Fases 11-14 del documento: Demand/Pipeline/Rent/Yield
+  // completos, con modelado propio) — se declaran para no romper el contrato cuando se
+  // implementen, pero HOY siempre son null. No poblar con texto libre del LLM.
   pipeline: null
   demand: null
+  // Absorción real (no el Absorption Engine completo del spec) — lib/market/sniivAbsorcion.ts,
+  // "Días de inventario" de SNIIV/SEDATU. Señal real pero de cobertura acotada (solo vivienda
+  // con financiamiento formal, solo Nuevo León hoy) — ver limitación documentada en ese archivo.
+  // null si el caller no mandó ciudad/estado; disponible=false (no null) si el municipio no
+  // tiene cobertura en esta fuente — nunca se confunde "no se preguntó" con "no hay dato".
   absorption: null
+  absorcionSNIIV: ResultadoAbsorcionSNIIV | null
+  // Estimación heurística de plusvalía premium (lib/market/betaTramoEngine.ts) — solo se llena
+  // cuando la colonia del predio no tiene plusvalía real propia; SIEMPRE es estimación, nunca
+  // dato real, la UI debe etiquetarlo como tal explícitamente.
+  plusvaliaPremiumEstimada: EstimacionPlusvaliaPremium | null
 
   // Promedio simple de finalScore entre los comparables DIRECT (null si no hay ninguno) — única
   // señal de confianza real disponible en esta fase, no un Data Quality Score completo (§56).

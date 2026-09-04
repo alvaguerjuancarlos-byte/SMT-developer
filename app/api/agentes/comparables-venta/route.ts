@@ -130,7 +130,7 @@ Reglas:
     if (comparables.length > 0) {
       try {
         const sourceId = await registrarFuente('serper', 'web_search')
-        await guardarComparablesSnapshot(comparables, { proyectoId: proyectoId ?? null, sourceId })
+        await guardarComparablesSnapshot(comparables, { proyectoId: proyectoId ?? null, sourceId, ciudad: ciudad ?? null })
       } catch (persistError) {
         console.error('Comparables venta — error al guardar snapshot:', persistError)
       }

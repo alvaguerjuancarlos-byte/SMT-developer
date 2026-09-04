@@ -30,7 +30,7 @@ export async function registrarFuente(
 // no sobrescribir el histórico). Llamar una vez por cada corrida real de comparables-venta.
 export async function guardarComparablesSnapshot(
   comparables: ComparableVenta[],
-  opciones: { proyectoId?: string | null; sourceId?: string | null } = {},
+  opciones: { proyectoId?: string | null; sourceId?: string | null; ciudad?: string | null } = {},
 ): Promise<void> {
   if (comparables.length === 0) return
 
@@ -40,6 +40,7 @@ export async function guardarComparablesSnapshot(
     nombre: c.nombre,
     direccion: c.direccion,
     colonia: c.colonia ?? null,
+    ciudad: opciones.ciudad ?? null,
     precio_m2: c.precioM2,
     precio_total: c.precioTotal,
     superficie_m2: c.superficieM2,
@@ -89,4 +90,48 @@ export async function obtenerSnapshotsHistoricos(
 
   if (error) throw new Error(`obtenerSnapshotsHistoricos: ${error.message}`)
   return data as ComparableSnapshotRow[]
+}
+
+// Punto de entrada para lib/market/betaTramoEngine.ts — encuentra, dentro de una ciudad, la
+// colonia con más historial reciente y precio/m² mediano más bajo (proxy de "banda económica/
+// media") para usarla como referencia real cuando la colonia del predio (típicamente premium,
+// con poco o ningún historial propio) no tiene suficiente dato directo. Requiere la columna
+// `ciudad` (migración 20260904000000_snapshots_agrega_ciudad.sql) — snapshots guardados antes de
+// esa migración tienen ciudad NULL y no participan en esta búsqueda.
+export interface ColoniaConHistorial {
+  colonia: string
+  n: number
+  precioM2Mediano: number
+}
+
+export async function obtenerColoniasConHistorial(
+  ciudad: string,
+  desde: string,
+  hasta: string,
+): Promise<ColoniaConHistorial[]> {
+  const { data, error } = await supabaseAdmin
+    .from('market_comparable_snapshots')
+    .select('colonia, precio_m2')
+    .eq('ciudad', ciudad)
+    .gte('observed_at', desde)
+    .lte('observed_at', hasta)
+    .not('colonia', 'is', null)
+    .not('precio_m2', 'is', null)
+
+  if (error) throw new Error(`obtenerColoniasConHistorial: ${error.message}`)
+
+  const porColonia = new Map<string, number[]>()
+  for (const row of data as { colonia: string; precio_m2: number }[]) {
+    if (!porColonia.has(row.colonia)) porColonia.set(row.colonia, [])
+    porColonia.get(row.colonia)!.push(row.precio_m2)
+  }
+
+  return [...porColonia.entries()]
+    .map(([colonia, precios]) => {
+      const ordenados = [...precios].sort((a, b) => a - b)
+      const mid = Math.floor(ordenados.length / 2)
+      const precioM2Mediano = ordenados.length % 2 === 0 ? (ordenados[mid - 1] + ordenados[mid]) / 2 : ordenados[mid]
+      return { colonia, n: precios.length, precioM2Mediano }
+    })
+    .sort((a, b) => a.precioM2Mediano - b.precioM2Mediano)
 }

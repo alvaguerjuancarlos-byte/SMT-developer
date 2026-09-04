@@ -23,7 +23,9 @@ import { calcularAppreciationEngine } from '@/lib/market/appreciationEngine'
 import { calcularProductFit } from '@/lib/market/productFitEngine'
 import { calcularOpportunityScore } from '@/lib/market/opportunityEngine'
 import { evidenciaDePrecio, evidenciaDePlusvalia } from '@/lib/market/evidenceEngine'
-import { obtenerSnapshotsHistoricos } from '@/lib/market/persistencia'
+import { obtenerSnapshotsHistoricos, obtenerColoniasConHistorial } from '@/lib/market/persistencia'
+import { resolverAbsorcionSNIIV } from '@/lib/market/sniivAbsorcion'
+import { estimarPlusvaliaTramoAlto } from '@/lib/market/betaTramoEngine'
 
 interface BodyProductFit {
   unidadesObjetivo: number
@@ -83,6 +85,56 @@ export async function POST(req: NextRequest) {
     }
   } else {
     warnings.push('Sin colonia — no se calculó plusvalía (Appreciation Engine necesita segmentar por zona).')
+  }
+
+  // Estimación heurística de plusvalía premium (banda 3-4) — lib/market/betaTramoEngine.ts,
+  // beta calibrado con datos reales de FRED (Case-Shiller tiered index). Solo se intenta cuando
+  // la colonia del predio NO tiene plusvalía real propia (ventana "anual" salió null — típico en
+  // zonas premium con poco historial acumulado, ver appreciationEngine.ts) y hay ciudad para
+  // buscar una colonia de referencia real. Nunca reemplaza una plusvalía real ya calculada.
+  let plusvaliaPremiumEstimada: MarketMaster['plusvaliaPremiumEstimada'] = null
+  const anualPropia = appreciation?.find((a) => a.ventana === 'anual') ?? null
+  if (anualPropia?.tasaAnualizada == null && sitio.ciudad) {
+    try {
+      const hasta = new Date().toISOString().slice(0, 10)
+      const desde = new Date(Date.now() - DIEZ_ANIOS_MS).toISOString().slice(0, 10)
+      const colonias = await obtenerColoniasConHistorial(sitio.ciudad, desde, hasta)
+      // Más barata primero (obtenerColoniasConHistorial ya ordena así) = mejor proxy de banda
+      // económica/media; se salta la colonia del propio predio si por algún motivo aparece ahí.
+      const referencia = colonias.find((c) => c.colonia !== sitio.colonia && c.n >= 3)
+      if (referencia) {
+        const historicoRef = await obtenerSnapshotsHistoricos(referencia.colonia, desde, hasta)
+        const observacionesRef = historicoRef
+          .filter((h): h is typeof h & { precio_m2: number } => h.precio_m2 != null)
+          .map((h) => ({ precioM2: h.precio_m2, observadoEn: h.observed_at }))
+        const anualRef = calcularAppreciationEngine(observacionesRef).find((a) => a.ventana === 'anual')
+        if (anualRef?.tasaAnualizada != null) {
+          plusvaliaPremiumEstimada = estimarPlusvaliaTramoAlto(anualRef.tasaAnualizada, referencia.colonia, referencia.n)
+        } else {
+          warnings.push(`Colonia de referencia (${referencia.colonia}) tampoco tiene suficiente historial propio — no se pudo estimar plusvalía premium.`)
+        }
+      } else {
+        warnings.push(`Sin colonia de referencia con historial suficiente en ${sitio.ciudad} para estimar plusvalía premium (heurístico banda alta).`)
+      }
+    } catch (e) {
+      const mensaje = e instanceof Error ? e.message : String(e)
+      warnings.push(`No se pudo calcular la estimación heurística de plusvalía premium: ${mensaje}`)
+    }
+  }
+
+  // Absorción real — SNIIV/SEDATU ("Días de inventario"). Cobertura acotada (solo vivienda con
+  // financiamiento formal, solo Nuevo León hoy) — resolverAbsorcionSNIIV() nunca fabrica un
+  // número, declara disponible=false con motivo explícito cuando el municipio no está cubierto
+  // (ver lib/market/sniivAbsorcion.ts).
+  let absorcionSNIIV: MarketMaster['absorcionSNIIV'] = null
+  if (body.ciudad && body.estado) {
+    try {
+      absorcionSNIIV = await resolverAbsorcionSNIIV(body.ciudad, body.estado)
+      if (!absorcionSNIIV.disponible) warnings.push(`Absorción real (SNIIV): ${absorcionSNIIV.motivo}`)
+    } catch (e) {
+      const mensaje = e instanceof Error ? e.message : String(e)
+      warnings.push(`No se pudo consultar SNIIV para absorción: ${mensaje}`)
+    }
   }
 
   // Product Fit — solo con un envolvente normativo real (COS/CUS/niveles ya resueltos por otro
@@ -145,6 +197,8 @@ export async function POST(req: NextRequest) {
     pipeline: null,
     demand: null,
     absorption: null,
+    absorcionSNIIV,
+    plusvaliaPremiumEstimada,
     dataConfidence,
     evidence,
     // Vacío a propósito: los comparables ya llegan extraídos por comparables-venta/route.ts
