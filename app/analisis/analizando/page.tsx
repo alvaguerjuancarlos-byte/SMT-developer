@@ -42,7 +42,7 @@ interface ConstruccionResult {
   superficieVendible?: number
   bitacoraConstruccion: any
 }
-interface LegalResult { fichaLegal: any; fuentes?: any }
+interface LegalResult { fichaLegal: any; fuentes?: any; fuentesConsultadas?: { url: string; titulo: string }[] }
 interface MercadoResult { mercado: any; fuentes?: any }
 interface FinancieroResult {
   recomendacion: any; financiero: any; estructuraCapital: any
@@ -117,6 +117,25 @@ const fmt = (n: number) =>
   n >= 1_000_000
     ? `$${(n / 1_000_000).toFixed(1)} M`
     : `$${n.toLocaleString('es-MX')}`
+
+// Extrae el primer número de un texto ya formateado por el agente (ej. "45%", "12 niveles") —
+// mismo patrón que parsearNumero() en app/preforma/page.tsx, para poder comparar Permitido vs.
+// Proyecto en la tabla de envolvente normativa.
+function parsearNumeroTexto(texto: string | number | undefined | null): number | null {
+  if (texto == null) return null
+  const m = String(texto).match(/-?\d+(\.\d+)?/)
+  return m ? Number(m[0]) : null
+}
+
+type EstadoEnvolvente = 'cumple' | 'limite' | 'excede' | 'sin-dato'
+// Mismo criterio que estatusComparacion() en app/preforma/page.tsx: COS/CUS/Altura son un techo,
+// no un mínimo — "al límite" da 5% de margen antes de marcar "excede".
+function estatusEnvolvente(permitido: number | null, proyecto: number | null): EstadoEnvolvente {
+  if (permitido == null || proyecto == null) return 'sin-dato'
+  if (proyecto <= permitido) return 'cumple'
+  if (proyecto <= permitido * 1.05) return 'limite'
+  return 'excede'
+}
 
 function Spinner({ color = '#c9a227', size = 18 }: { color?: string; size?: number }) {
   return (
@@ -2988,10 +3007,27 @@ function PipelineContent() {
                 )}
                 {pipe.legal.status === 'done' && pipe.legal.data && (() => {
                   const fl = pipe.legal.data.fichaLegal
+                  const fuentesReales: { url: string; titulo: string }[] = pipe.legal.data?.fuentesConsultadas ?? []
+                  const fuentesLegal: { nombre: string; tipo: string }[] = pipe.legal.data?.fuentes?.legal ?? []
+
+                  // "Proyecto" viene del Agente Arquitectura (mismo campo que usa Preforma: ver
+                  // app/preforma/page.tsx tab "normativa") — puede no existir todavía si
+                  // Arquitectura no ha terminado; las filas caen a "—" hasta que llegue.
+                  const ba = arquitecturaActual?.bitacoraArquitectura
+                  const filasEnvolvente = [
+                    { param: 'COS', permitidoTexto: fl?.cos, proyectoTexto: ba?.cosEstimado, permitido: fl?.cosNum ?? parsearNumeroTexto(fl?.cos), proyecto: parsearNumeroTexto(ba?.cosEstimado) },
+                    { param: 'CUS', permitidoTexto: fl?.cus, proyectoTexto: ba?.cusEstimado, permitido: fl?.cusNum ?? parsearNumeroTexto(fl?.cus), proyecto: parsearNumeroTexto(ba?.cusEstimado) },
+                    { param: 'Altura', permitidoTexto: fl?.altura, proyectoTexto: ba?.tipologiaPropuesta?.niveles != null ? `${ba.tipologiaPropuesta.niveles} niveles` : null,
+                      permitido: fl?.nivelesMax ?? parsearNumeroTexto(fl?.altura), proyecto: ba?.tipologiaPropuesta?.niveles ?? null },
+                  ]
+
                   return (
                     <DoneCard>
                       <div className="px-4 py-3 border-b border-[#2a3f5c] flex items-center gap-2">
                         <CheckIcon />
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${fl?.grounded ? 'bg-[#14301f] text-[#1D9E75]' : 'bg-[#2a3f5c] text-[#8b96ab]'}`}>
+                          {fl?.grounded ? 'Con fuente real' : 'Sin verificar'}
+                        </span>
                         <button onClick={runLegal} className="ml-auto text-[10px] text-[#5f6a80] hover:text-[#c9a227] cursor-pointer">Re-correr</button>
                       </div>
                       <div className="px-4 py-3 space-y-2.5">
@@ -3009,16 +3045,100 @@ function PipelineContent() {
                             'bg-[#2e1414] text-[#F87171]'
                           }`}>{fl?.nivelRiesgo || '—'}</span>
                         </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-[11px] text-[#8b96ab]">COS / CUS</span>
-                          <span className="text-[11px] font-semibold text-[#f4f0e6]">{fl?.cos} / {fl?.cus}</span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-[11px] text-[#8b96ab]">Alertas</span>
-                          <span className="text-[11px] font-semibold text-[#f4f0e6]">{fl?.alertasLegales?.length || 0} alerta(s)</span>
-                        </div>
                       </div>
-                      <p className="px-4 pb-3 text-[10px] text-[#5f6a80] leading-snug">
+
+                      {/* Envolvente normativa: Permitido vs. Proyecto, con semáforo */}
+                      <div className="border-t border-[#2a3f5c] px-4 py-3">
+                        <p className="text-[10px] font-bold text-[#5f6a80] uppercase tracking-widest mb-2">Envolvente normativa</p>
+                        <div className="flex flex-col gap-2">
+                          {filasEnvolvente.map(f => {
+                            const estado = estatusEnvolvente(f.permitido, f.proyecto)
+                            const maxVal = Math.max(f.permitido ?? 0, f.proyecto ?? 0) || 1
+                            const colorProyecto =
+                              estado === 'cumple' ? '#1D9E75' : estado === 'limite' ? '#FBBF24' : estado === 'excede' ? '#F87171' : '#5f6a80'
+                            return (
+                              <div key={f.param}>
+                                <div className="flex items-center justify-between text-[10.5px] mb-1">
+                                  <span className="text-[#8b96ab] font-semibold">{f.param}</span>
+                                  <span className="text-[#8b96ab]">
+                                    {f.proyectoTexto != null ? `Proyecto ${f.proyectoTexto} / Permitido ${f.permitidoTexto ?? '—'}` : `Permitido ${f.permitidoTexto ?? '—'}`}
+                                    <span className={`ml-2 font-bold ${
+                                      estado === 'cumple' ? 'text-[#1D9E75]' : estado === 'limite' ? 'text-[#FBBF24]' : estado === 'excede' ? 'text-[#F87171]' : 'text-[#5f6a80]'
+                                    }`}>
+                                      {estado === 'cumple' ? 'Cumple' : estado === 'limite' ? 'Al límite' : estado === 'excede' ? 'Excede' : '—'}
+                                    </span>
+                                  </span>
+                                </div>
+                                <div className="relative rounded-sm overflow-hidden h-1.5 bg-white/10">
+                                  {f.permitido != null && (
+                                    <div className="absolute left-0 top-0 h-full bg-[#5f6a80]" style={{ width: `${(f.permitido / maxVal) * 100}%` }} />
+                                  )}
+                                  {f.proyecto != null && (
+                                    <div className="absolute left-0 top-0 h-full opacity-90" style={{ width: `${(f.proyecto / maxVal) * 100}%`, backgroundColor: colorProyecto }} />
+                                  )}
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                        <p className={`text-[10px] mt-2 ${fl?.densidadVerificada ? 'text-[#1D9E75]' : 'text-[#5f6a80]'}`}>
+                          {fl?.densidadVerificada
+                            ? '✓ Unidades máximas recalculadas con lib/normativa/calculos.ts, no solo la aritmética del modelo.'
+                            : 'Unidades máximas sin verificar de forma independiente.'}
+                        </p>
+                      </div>
+
+                      {fl?.restriccion && (
+                        <div className="border-t border-[#2a3f5c] px-4 py-3">
+                          <p className="text-[10px] font-bold text-[#5f6a80] uppercase tracking-widest mb-1">Restricción principal</p>
+                          <p className="text-[11px] text-[#8b96ab] leading-snug">{fl.restriccion}</p>
+                        </div>
+                      )}
+
+                      {fl?.alertasLegales?.length > 0 && (
+                        <div className="border-t border-[#2a3f5c] px-4 py-3">
+                          <p className="text-[10px] font-bold text-[#5f6a80] uppercase tracking-widest mb-2">Alertas legales ({fl.alertasLegales.length})</p>
+                          <div className="flex flex-col gap-1.5">
+                            {fl.alertasLegales.map((a: any, i: number) => (
+                              <div key={i} className={`rounded-lg px-3 py-2 border ${
+                                a.status === 'red' ? 'bg-[#2e1414] border-[#5c2a2a]' : a.status === 'amber' ? 'bg-[#2e2510] border-[#5c4a1a]' : 'bg-[#14301f] border-[#2f6b4f]'
+                              }`}>
+                                <p className="text-[11px] font-semibold text-[#f4f0e6]">{a.tipo}</p>
+                                <p className="text-[10.5px] text-[#8b96ab] mt-0.5">{a.impacto || a.descripcion}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {(fuentesReales.length > 0 || fuentesLegal.length > 0) && (
+                        <div className="border-t border-[#2a3f5c] px-4 py-3">
+                          <p className="text-[10px] font-bold text-[#5f6a80] uppercase tracking-widest mb-2">Fuentes</p>
+                          {!fl?.grounded && (
+                            <p className="text-[10px] text-[#5f6a80] mb-1.5 leading-snug">
+                              Sin búsqueda real confirmada para este municipio/colonia — lo de abajo es lo que el modelo reporta, no fuentes verificadas.
+                            </p>
+                          )}
+                          {fuentesReales.length > 0 && (
+                            <div className="flex flex-col gap-1 mb-1.5">
+                              {fuentesReales.map((f, i) => (
+                                <a key={i} href={f.url} target="_blank" rel="noreferrer" className="text-[10px] text-[#c9a227] hover:underline truncate">
+                                  {f.titulo || f.url}
+                                </a>
+                              ))}
+                            </div>
+                          )}
+                          {fuentesLegal.length > 0 && (
+                            <div className="flex flex-col gap-0.5">
+                              {fuentesLegal.map((f, i) => (
+                                <p key={i} className="text-[10px] text-[#8b96ab]">{f.nombre} <span className="text-[#5f6a80]">· {f.tipo}</span></p>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      <p className="px-4 pb-3 pt-3 text-[10px] text-[#5f6a80] leading-snug border-t border-[#2a3f5c]">
                         Estos valores de COS/CUS alimentan los guardarraíles del paso de Construcción.
                       </p>
                     </DoneCard>
