@@ -41,6 +41,7 @@ interface ConstruccionResult {
   superficieConstruida: number
   superficieVendible?: number
   bitacoraConstruccion: any
+  verificacionParametrica?: any
 }
 interface LegalResult { fichaLegal: any; fuentes?: any; fuentesConsultadas?: { url: string; titulo: string }[] }
 interface MercadoResult { mercado: any; fuentes?: any }
@@ -3797,6 +3798,64 @@ function PipelineContent() {
                           </VerDetalle>
                         </div>
                       )}
+
+                      {/* Verificación paramétrica — motor determinístico (lib/construccion/
+                          costoParametricoEngine.ts), cruza la aritmética del LLM contra tablas
+                          fijas y sanity checks, no reemplaza sus decisiones de banda/zonas. */}
+                      {c.verificacionParametrica && (() => {
+                        const vp = c.verificacionParametrica
+                        const todosPasan = vp.sanityChecks?.every((s: any) => s.ok) ?? true
+                        return (
+                          <div className="px-5 pb-4">
+                            <div className="bg-[#132a4d] rounded-2xl border border-[#2a3f5c] p-4">
+                              <div className="flex items-center justify-between mb-3">
+                                <p className="text-[10px] font-bold text-[#5f6a80] uppercase tracking-widest">Verificación paramétrica (motor determinístico)</p>
+                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                                  vp.confianza?.clasificacion === 'Alta' || vp.confianza?.clasificacion === 'Buena' ? 'bg-[#14301f] text-[#1D9E75]' :
+                                  vp.confianza?.clasificacion === 'Media' ? 'bg-[#2e2510] text-[#FBBF24]' : 'bg-[#2e1414] text-[#F87171]'
+                                }`}>
+                                  Confianza {vp.confianza?.score}/100 · {vp.confianza?.clasificacion}
+                                </span>
+                              </div>
+
+                              <div className="grid grid-cols-3 gap-2 mb-3">
+                                <div className="bg-[#0b1d3a] rounded-lg px-3 py-2 text-center">
+                                  <p className="text-[9px] text-[#5f6a80] uppercase tracking-wide font-semibold">Low</p>
+                                  <p className="text-[13px] font-bold text-[#f4f0e6] mt-0.5">${vp.rango?.low?.toLocaleString('es-MX')}</p>
+                                </div>
+                                <div className="bg-[#0b1d3a] rounded-lg px-3 py-2 text-center border border-[#c9a227]/40">
+                                  <p className="text-[9px] text-[#ddc06a] uppercase tracking-wide font-semibold">Base</p>
+                                  <p className="text-[13px] font-bold text-[#ddc06a] mt-0.5">${vp.rango?.base?.toLocaleString('es-MX')}</p>
+                                </div>
+                                <div className="bg-[#0b1d3a] rounded-lg px-3 py-2 text-center">
+                                  <p className="text-[9px] text-[#5f6a80] uppercase tracking-wide font-semibold">High</p>
+                                  <p className="text-[13px] font-bold text-[#f4f0e6] mt-0.5">${vp.rango?.high?.toLocaleString('es-MX')}</p>
+                                </div>
+                              </div>
+
+                              <div className="flex items-center gap-3 mb-2 text-[10.5px]">
+                                <span className="text-[#8b96ab]">F_ALTURA verificado <span className="text-[#f4f0e6] font-semibold">×{vp.factorAlturaVerificado?.toFixed(2) ?? '—'}</span></span>
+                                <span className="text-[#8b96ab]">F_TOPO verificado <span className="text-[#f4f0e6] font-semibold">×{vp.factorTopografiaVerificado?.toFixed(2) ?? '—'}</span></span>
+                              </div>
+
+                              <div className="flex items-center gap-2 mb-2">
+                                <span className={`w-1.5 h-1.5 rounded-full ${todosPasan ? 'bg-[#1D9E75]' : 'bg-[#F87171]'}`} />
+                                <span className="text-[10.5px] text-[#8b96ab]">
+                                  {vp.sanityChecks?.filter((s: any) => s.ok).length ?? 0}/{vp.sanityChecks?.length ?? 0} sanity checks pasan
+                                </span>
+                              </div>
+
+                              {vp.alertas?.length > 0 && (
+                                <div className="mt-2 flex flex-col gap-1">
+                                  {vp.alertas.map((a: string, i: number) => (
+                                    <p key={i} className="text-[10px] text-[#FBBF24] leading-snug">⚠ {a}</p>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )
+                      })()}
 
                       {/* Costo ponderado + total */}
                       <div className="px-5 pb-4 grid grid-cols-2 gap-3">

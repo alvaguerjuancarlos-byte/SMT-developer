@@ -2,6 +2,11 @@ import Anthropic from '@anthropic-ai/sdk'
 import { NextRequest, NextResponse } from 'next/server'
 import { requireUser, unauthorized } from '@/lib/api-auth'
 import { callClaudeJson } from '@/lib/llmJson'
+import {
+  factorAltura, factorTopografia, type PendienteLabel,
+  calcularPartidas, calcularCostosPorM2, calcularRango,
+  calcularConfidenceScore, generarAlertas, ejecutarSanityChecks,
+} from '@/lib/construccion/costoParametricoEngine'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -374,6 +379,97 @@ REGLAS:
           parsed.construccionM2 = Math.round(totalRecalculado / superficieConstruida)
           parsed.bitacoraConstruccion.costoPorM2Final = parsed.construccionM2
         }
+      }
+    }
+
+    // ── Motor paramétrico determinístico (lib/construccion/costoParametricoEngine.ts) ──────────
+    // Verificación, no reemplazo: el LLM sigue decidiendo banda/zonas/factores — esto solo cruza
+    // esas decisiones contra tablas fijas y aritmética exacta, mismo patrón defensivo que ya se
+    // aplica arriba (recalcular en vez de confiar). Portado de "PREFORMA — Motor Paramétrico de
+    // Costos de Construcción v1.0" (53 secciones) — alcance acotado a lo que le toca a este
+    // agente: factores de altura/topografía (tabla fija, sin juicio del LLM), partidas (suma
+    // exacta), costo por m², sanity checks, confianza, rango y alertas. Indirectos/honorarios/
+    // imprevistos/costo de desarrollo quedan fuera — eso lo calcula el Agente Financiero.
+    if (parsed.bitacoraConstruccion) {
+      const bc = parsed.bitacoraConstruccion
+      const pendienteLabel = (data.pendiente || null) as PendienteLabel | null
+
+      // F_ALTURA/F_TOPO son tabla fija sobre hechos ya conocidos (niveles del proyecto, pendiente
+      // capturada en el form) — no hay nada que el LLM deba "juzgar" aquí, así que se sobrescribe
+      // el factor declarado con el valor correcto de tabla en vez de confiar en que lo copió bien.
+      const nivelesProyecto = Number(tip.niveles) || 0
+      const factorAlturaReal = nivelesProyecto > 0 ? factorAltura(nivelesProyecto) : null
+      const factorTopoReal = factorTopografia(pendienteLabel)
+      if (Array.isArray(bc.ajustes)) {
+        for (const ajuste of bc.ajustes) {
+          if (ajuste.concepto === 'F_ALTURA' && factorAlturaReal != null) {
+            ajuste.factorAjuste = `×${factorAlturaReal.toFixed(2)}`
+          }
+          if (ajuste.concepto === 'F_TOPO') {
+            ajuste.factorAjuste = `×${factorTopoReal.toFixed(2)}`
+          }
+        }
+      }
+
+      // Partidas verificadas — mismos % que propuso el LLM, pero derivadas de
+      // costoPorM2VendibleFinal con suma EXACTA garantizada (§21/22), reemplaza el
+      // round(base × %) suelto que no garantizaba cierre exacto.
+      const costoM2VendibleBase = Number(bc.costoPorM2VendibleFinal) || 0
+      const partidasLLM = Array.isArray(bc.desglosePorPartidas)
+        ? bc.desglosePorPartidas.map((p: { partida: string; porcentaje: number }) => ({ concepto: p.partida, porcentaje: Number(p.porcentaje) || 0 }))
+        : []
+      const partidasVerificadas = partidasLLM.length > 0 && costoM2VendibleBase > 0
+        ? calcularPartidas(costoM2VendibleBase, 1, partidasLLM).map(p => ({ partida: p.concepto, porcentaje: Math.round(p.porcentaje * 10) / 10, costoPorM2: p.costoTotal }))
+        : []
+
+      const costosPorM2 = calcularCostosPorM2(Number(parsed.costoTotalConstruccion) || 0, superficieConstruida, superficieVendible || null)
+      const zonaEstacionamiento = zonasFijas.find(z => (z.zona || '').toLowerCase().includes('estacionamiento'))
+
+      const confianza = calcularConfidenceScore({
+        ubicacionConocida: !!data.ciudad,
+        superficieConocida: superficieConstruida > 0,
+        programaDefinido: !!(tip.habitacional || tip.comercial),
+        nivelesDefinidos: nivelesProyecto > 0,
+        topografiaConocida: !!pendienteLabel,
+        mecanicaSuelosDisponible: false, // este dato nunca se captura hoy en ningún flujo — honesto en 0
+        acabadosDefinidos: !!data.bandaConstruccion,
+        estacionamientoDefinido: !!zonaEstacionamiento,
+        costosLocalesRecientes: Array.isArray(bc.fuentesConstruccion) && bc.fuentesConstruccion.some((f: { disponible?: boolean }) => f.disponible),
+        benchmarkComparable: !!bc.rangoReferencia,
+      })
+
+      const incertidumbrePct = confianza.score >= 85 ? 10 : confianza.score >= 70 ? 15 : confianza.score >= 50 ? 20 : 25
+      const rango = calcularRango(Number(parsed.construccionM2) || 0, incertidumbrePct, incertidumbrePct)
+
+      const alertas = generarAlertas({
+        costoM2: Number(parsed.construccionM2) || 0,
+        benchmarkLow: Number(bc.rangoReferencia?.minimo) || 0,
+        benchmarkHigh: Number(bc.rangoReferencia?.maximo) || 0,
+        eficienciaPct: costosPorM2.eficienciaPct,
+        areaSotanosM2: Number(zonaEstacionamiento?.m2) || 0,
+        areaConstruidaM2: superficieConstruida,
+        pendienteLabel,
+        confidenceScore: confianza.score,
+      })
+
+      const sanityChecks = partidasVerificadas.length > 0
+        ? ejecutarSanityChecks({
+            partidas: partidasVerificadas.map(p => ({ concepto: p.partida, porcentaje: p.porcentaje, costoPorM2: p.costoPorM2, costoTotal: p.costoPorM2 })),
+            costoDirectoTotal: costoM2VendibleBase,
+            areaConstruidaM2: superficieConstruida,
+            areaVendibleM2: superficieVendible || null,
+          })
+        : []
+
+      parsed.verificacionParametrica = {
+        factorAlturaVerificado: factorAlturaReal,
+        factorTopografiaVerificado: factorTopoReal,
+        partidasVerificadas,
+        costosPorM2: costosPorM2,
+        confianza,
+        rango,
+        alertas,
+        sanityChecks,
       }
     }
 
