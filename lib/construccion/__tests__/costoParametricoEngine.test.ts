@@ -3,7 +3,7 @@ import {
   factorAltura, factorTopografia, factorComplejidad, factorSotano,
   normalizarPartidas, calcularPartidas, calcularCostoTotalDesdeZonas,
   calcularCostosPorM2, compararConBenchmark, calcularRango,
-  calcularConfidenceScore, generarAlertas, ejecutarSanityChecks,
+  calcularConfidenceScore, generarAlertas, ejecutarSanityChecks, incertidumbreDesdeConfianza,
 } from '../costoParametricoEngine'
 
 describe('factorAltura (§10)', () => {
@@ -196,5 +196,14 @@ describe('ejecutarSanityChecks (§32, subset)', () => {
     const checks = ejecutarSanityChecks({ partidas, costoDirectoTotal: 1_000_000, areaConstruidaM2: 100, areaVendibleM2: 150 })
     const check04 = checks.find(c => c.check.startsWith('CHECK04'))
     expect(check04?.ok).toBe(false)
+  })
+})
+
+describe('incertidumbreDesdeConfianza (§52)', () => {
+  it('mayor confianza -> menor incertidumbre (rango más angosto)', () => {
+    expect(incertidumbreDesdeConfianza(95)).toBe(10)
+    expect(incertidumbreDesdeConfianza(75)).toBe(15)
+    expect(incertidumbreDesdeConfianza(55)).toBe(20)
+    expect(incertidumbreDesdeConfianza(30)).toBe(25)
   })
 })

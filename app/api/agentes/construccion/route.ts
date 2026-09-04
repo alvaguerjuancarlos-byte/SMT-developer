@@ -5,7 +5,8 @@ import { callClaudeJson } from '@/lib/llmJson'
 import {
   factorAltura, factorTopografia, type PendienteLabel,
   calcularPartidas, calcularCostosPorM2, calcularRango,
-  calcularConfidenceScore, generarAlertas, ejecutarSanityChecks,
+  calcularConfidenceScore, generarAlertas, ejecutarSanityChecks, incertidumbreDesdeConfianza,
+  type FactoresConfianza,
 } from '@/lib/construccion/costoParametricoEngine'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
@@ -425,20 +426,24 @@ REGLAS:
       const costosPorM2 = calcularCostosPorM2(Number(parsed.costoTotalConstruccion) || 0, superficieConstruida, superficieVendible || null)
       const zonaEstacionamiento = zonasFijas.find(z => (z.zona || '').toLowerCase().includes('estacionamiento'))
 
-      const confianza = calcularConfidenceScore({
+      // mecanicaSuelosDisponible: antes siempre false porque este dato nunca se capturaba en
+      // ningún flujo. Ahora el cliente puede mandarlo (checkbox en la tarjeta de verificación
+      // paramétrica) -- sigue siendo honesto: si no lo manda, sigue en false, nunca se asume.
+      const factoresConfianza: FactoresConfianza = {
         ubicacionConocida: !!data.ciudad,
         superficieConocida: superficieConstruida > 0,
         programaDefinido: !!(tip.habitacional || tip.comercial),
         nivelesDefinidos: nivelesProyecto > 0,
         topografiaConocida: !!pendienteLabel,
-        mecanicaSuelosDisponible: false, // este dato nunca se captura hoy en ningún flujo — honesto en 0
+        mecanicaSuelosDisponible: !!data.mecanicaSuelosDisponible,
         acabadosDefinidos: !!data.bandaConstruccion,
         estacionamientoDefinido: !!zonaEstacionamiento,
         costosLocalesRecientes: Array.isArray(bc.fuentesConstruccion) && bc.fuentesConstruccion.some((f: { disponible?: boolean }) => f.disponible),
         benchmarkComparable: !!bc.rangoReferencia,
-      })
+      }
+      const confianza = calcularConfidenceScore(factoresConfianza)
 
-      const incertidumbrePct = confianza.score >= 85 ? 10 : confianza.score >= 70 ? 15 : confianza.score >= 50 ? 20 : 25
+      const incertidumbrePct = incertidumbreDesdeConfianza(confianza.score)
       const rango = calcularRango(Number(parsed.construccionM2) || 0, incertidumbrePct, incertidumbrePct)
 
       const alertas = generarAlertas({
@@ -467,6 +472,7 @@ REGLAS:
         partidasVerificadas,
         costosPorM2: costosPorM2,
         confianza,
+        factoresConfianza,
         rango,
         alertas,
         sanityChecks,

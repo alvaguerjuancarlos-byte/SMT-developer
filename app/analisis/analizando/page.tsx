@@ -6,6 +6,7 @@ import { saveProyecto } from '@/lib/saveProyecto'
 import { authedFetch } from '@/lib/apiClient'
 import { calcular } from '@/lib/estimador/motor'
 import { construirInputsNormativos, programaAUsos, type ProgramaUnidades } from '@/lib/construccion/programaAdapter'
+import { calcularConfidenceScore, calcularRango, incertidumbreDesdeConfianza } from '@/lib/construccion/costoParametricoEngine'
 import { calcularArquitecturaEnVivo, type EntradaArquitecturaEnVivo } from '@/lib/analisis/envolventeYAreas'
 import { BocetoVolumetria, VistaAereaTerreno } from '@/app/components/BocetoVolumetria'
 import { PlanoTerreno } from '@/app/components/PlanoTerreno'
@@ -1703,6 +1704,13 @@ function PipelineContent() {
   // usar hooks.
   const [mesSeleccionadoFinanciero, setMesSeleccionadoFinanciero] = useState<number | null>(null)
 
+  // Confianza del motor paramétrico de Construcción (lib/construccion/costoParametricoEngine.ts)
+  // asumía siempre "sin mecánica de suelos" porque ese dato nunca se captura en ningún flujo —
+  // este toggle deja que el usuario lo declare cuando sí lo tiene. Se manda al servidor en la
+  // siguiente corrida (para que quede persistido en la bitácora) y mientras tanto se recalcula
+  // confianza/rango al instante en el cliente con las mismas funciones puras, sin re-llamar al LLM.
+  const [mecanicaSuelosDisponible, setMecanicaSuelosDisponible] = useState(false)
+
   // Cuadro de construcción (rumbo + distancia por lado) + Geometry Engine — MVP portado de
   // PREFORMA (ver app/preforma/page.tsx: form.lados/ladoDraft/poligono). Motor puro, sin red
   // (lib/terreno/geometryEngine.ts) — no depende de San Pedro ni de ningún GeoServer, funciona
@@ -2030,6 +2038,7 @@ function PipelineContent() {
       : (pipe.terreno.overrideM2 !== '' ? Number(pipe.terreno.overrideM2) : t.costoTerrenoM2)
     const payload = {
       ...formData, ...overrides, costoTerrenoM2: m2, costoTerreno: m2 * Number(formData.superficie),
+      mecanicaSuelosDisponible,
       mercado: mercadoActual?.mercado,
       arquitectura: {
         tipologiaPropuesta: ba?.tipologiaPropuesta,
@@ -3994,31 +4003,56 @@ function PipelineContent() {
                       {c.verificacionParametrica && (() => {
                         const vp = c.verificacionParametrica
                         const todosPasan = vp.sanityChecks?.every((s: any) => s.ok) ?? true
+
+                        // Confianza/rango se recalculan al instante en el cliente si el toggle de
+                        // mecánica de suelos difiere de lo que se mandó en la última corrida —
+                        // mismas funciones puras que el servidor, sin volver a llamar al LLM. Al
+                        // volver a correr Construcción, el toggle ya viaja en el payload y el
+                        // servidor recalcula igual (ver runConstruccion).
+                        const factoresBase = vp.factoresConfianza
+                        const confianzaMostrada = factoresBase
+                          ? calcularConfidenceScore({ ...factoresBase, mecanicaSuelosDisponible })
+                          : vp.confianza
+                        const incertidumbreMostrada = incertidumbreDesdeConfianza(confianzaMostrada?.score ?? 0)
+                        const rangoMostrado = calcularRango(Number(c.construccionM2) || 0, incertidumbreMostrada, incertidumbreMostrada)
+                        const recalculado = factoresBase != null && factoresBase.mecanicaSuelosDisponible !== mecanicaSuelosDisponible
+
                         return (
                           <div className="px-5 pb-4">
                             <div className="bg-[#132a4d] rounded-2xl border border-[#2a3f5c] p-4">
                               <div className="flex items-center justify-between mb-3">
                                 <p className="text-[10px] font-bold text-[#5f6a80] uppercase tracking-widest">Verificación paramétrica (motor determinístico)</p>
                                 <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                                  vp.confianza?.clasificacion === 'Alta' || vp.confianza?.clasificacion === 'Buena' ? 'bg-[#14301f] text-[#1D9E75]' :
-                                  vp.confianza?.clasificacion === 'Media' ? 'bg-[#2e2510] text-[#FBBF24]' : 'bg-[#2e1414] text-[#F87171]'
+                                  confianzaMostrada?.clasificacion === 'Alta' || confianzaMostrada?.clasificacion === 'Buena' ? 'bg-[#14301f] text-[#1D9E75]' :
+                                  confianzaMostrada?.clasificacion === 'Media' ? 'bg-[#2e2510] text-[#FBBF24]' : 'bg-[#2e1414] text-[#F87171]'
                                 }`}>
-                                  Confianza {vp.confianza?.score}/100 · {vp.confianza?.clasificacion}
+                                  Confianza {confianzaMostrada?.score}/100 · {confianzaMostrada?.clasificacion}
                                 </span>
                               </div>
+
+                              <label className="flex items-center gap-2 mb-3 cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={mecanicaSuelosDisponible}
+                                  onChange={e => setMecanicaSuelosDisponible(e.target.checked)}
+                                  className="accent-[#c9a227]"
+                                />
+                                <span className="text-[10.5px] text-[#8b96ab]">¿Tienes estudio de mecánica de suelos para este predio?</span>
+                                {recalculado && <span className="text-[9px] text-[#c9a227]">recalculado</span>}
+                              </label>
 
                               <div className="grid grid-cols-3 gap-2 mb-3">
                                 <div className="bg-[#0b1d3a] rounded-lg px-3 py-2 text-center">
                                   <p className="text-[9px] text-[#5f6a80] uppercase tracking-wide font-semibold">Low</p>
-                                  <p className="text-[13px] font-bold text-[#f4f0e6] mt-0.5">${vp.rango?.low?.toLocaleString('es-MX')}</p>
+                                  <p className="text-[13px] font-bold text-[#f4f0e6] mt-0.5">${rangoMostrado.low.toLocaleString('es-MX')}</p>
                                 </div>
                                 <div className="bg-[#0b1d3a] rounded-lg px-3 py-2 text-center border border-[#c9a227]/40">
                                   <p className="text-[9px] text-[#ddc06a] uppercase tracking-wide font-semibold">Base</p>
-                                  <p className="text-[13px] font-bold text-[#ddc06a] mt-0.5">${vp.rango?.base?.toLocaleString('es-MX')}</p>
+                                  <p className="text-[13px] font-bold text-[#ddc06a] mt-0.5">${rangoMostrado.base.toLocaleString('es-MX')}</p>
                                 </div>
                                 <div className="bg-[#0b1d3a] rounded-lg px-3 py-2 text-center">
                                   <p className="text-[9px] text-[#5f6a80] uppercase tracking-wide font-semibold">High</p>
-                                  <p className="text-[13px] font-bold text-[#f4f0e6] mt-0.5">${vp.rango?.high?.toLocaleString('es-MX')}</p>
+                                  <p className="text-[13px] font-bold text-[#f4f0e6] mt-0.5">${rangoMostrado.high.toLocaleString('es-MX')}</p>
                                 </div>
                               </div>
 

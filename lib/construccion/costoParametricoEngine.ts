@@ -172,6 +172,14 @@ export function calcularConfidenceScore(factores: FactoresConfianza): { score: n
   return { score, clasificacion }
 }
 
+// §52 — objetivo de precisión: ±10-15% con información suficiente, ±15-25% si limitada. Misma
+// función usada en el servidor (app/api/agentes/construccion/route.ts) y reutilizable en el
+// cliente para recalcular el rango sin volver a llamar al LLM (ej. al marcar "sí tengo mecánica
+// de suelos" y recomponer confianza/rango al instante).
+export function incertidumbreDesdeConfianza(score: number): number {
+  return score >= 85 ? 10 : score >= 70 ? 15 : score >= 50 ? 20 : 25
+}
+
 // ─── §49 — Alertas inteligentes ──────────────────────────────────────────────────
 export function generarAlertas(input: {
   costoM2: number
