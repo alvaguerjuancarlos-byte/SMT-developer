@@ -7,6 +7,7 @@ import { authedFetch } from '@/lib/apiClient'
 import { calcular } from '@/lib/estimador/motor'
 import { construirInputsNormativos, programaAUsos, type ProgramaUnidades } from '@/lib/construccion/programaAdapter'
 import { BocetoVolumetria, VistaAereaTerreno } from '@/app/components/BocetoVolumetria'
+import { PlanoTerreno } from '@/app/components/PlanoTerreno'
 import type { AnalisisData } from '@/lib/analisis/tipos'
 import { extractMercadoContext, extractProyectoContext, extractTerrenoContext } from '@/lib/mastermind/contexto'
 import { calcularMastermindCore, calcularIngresos } from '@/lib/mastermind/motor'
@@ -2559,6 +2560,18 @@ function PipelineContent() {
                           </div>
                         </div>
                       )}
+                      {predioReal.verticesM && predioReal.verticesM.length >= 3 && (
+                        <div className="mt-3 pt-3 border-t border-[#2a3f5c]">
+                          <p className="text-[9px] text-[#5f6a80] font-semibold uppercase tracking-wide mb-1.5">Croquis (escala real)</p>
+                          <PlanoTerreno
+                            vertices={predioReal.verticesM}
+                            ladoLabels={predioReal.ladosM?.map((m: number) => `${m.toFixed(1)} m`)}
+                            areaM2={predioReal.areaM2}
+                            perimetroM={predioReal.perimetroM}
+                            folioCatastral={pipe.parcela.data?.seleccionado?.predio?.claveLote}
+                          />
+                        </div>
+                      )}
                     </div>
                   )
                 }
@@ -2626,6 +2639,14 @@ function PipelineContent() {
                             Difiere {Math.abs(poligono.areaM2 - superficieCapturada).toFixed(1)} m² de la superficie declarada ({superficieCapturada} m²).
                           </p>
                         )}
+                        <div className="mt-2 pt-2 border-t border-[#2a3f5c]">
+                          <PlanoTerreno
+                            vertices={poligono.vertices}
+                            ladoLabels={lados.map(l => `${l.rumbo.cuadrante} ${l.rumbo.grados}°·${l.distancia}m`)}
+                            areaM2={poligono.areaM2}
+                            perimetroM={poligono.perimetroM}
+                          />
+                        </div>
                       </div>
                     ) : (
                       <p className="text-[10.5px] text-[#5f6a80]">

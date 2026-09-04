@@ -9,7 +9,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { requireUser, unauthorized } from '@/lib/api-auth'
-import { buscarPrediosCercanos, areaM2DesdeAnillo, perimetroMDesdeAnillo, longitudesLadosMDesdeAnillo } from '@/lib/terreno/parcelResolver'
+import { buscarPrediosCercanos, areaM2DesdeAnillo, perimetroMDesdeAnillo, longitudesLadosMDesdeAnillo, verticesLocalesDesdeAnillo, type VerticeLocal } from '@/lib/terreno/parcelResolver'
 import { construirComponentesMatch, resolverSeleccionParcela, type CandidatoParcela } from '@/lib/terreno/parcelMatchScore'
 
 interface CandidatoConPredio extends CandidatoParcela {
@@ -23,6 +23,7 @@ interface CandidatoConPredio extends CandidatoParcela {
     areaM2: number | null
     perimetroM: number | null
     ladosM: number[] | null
+    verticesM: VerticeLocal[] | null
   }
 }
 
@@ -42,6 +43,7 @@ export async function POST(req: NextRequest) {
       const areaM2 = areaM2DesdeAnillo(p.anillo, lat)
       const perimetroM = perimetroMDesdeAnillo(p.anillo, lat)
       const ladosM = longitudesLadosMDesdeAnillo(p.anillo, lat)
+      const verticesM = verticesLocalesDesdeAnillo(p.anillo, lat)
       const componentes = construirComponentesMatch(
         { claveLote: p.claveLote, ubicacion: p.ubicacion, colonia: p.colonia, areaM2, anillo: p.anillo },
         { lat, lng, direccion, colonia, superficieDeclaradaM2 },
@@ -49,7 +51,7 @@ export async function POST(req: NextRequest) {
       return {
         id: p.claveLote ?? `predio-${i}`,
         componentes,
-        predio: { claveLote: p.claveLote, region: p.region, manzana: p.manzana, lote: p.lote, ubicacion: p.ubicacion, colonia: p.colonia, areaM2, perimetroM, ladosM },
+        predio: { claveLote: p.claveLote, region: p.region, manzana: p.manzana, lote: p.lote, ubicacion: p.ubicacion, colonia: p.colonia, areaM2, perimetroM, ladosM, verticesM },
       }
     })
 

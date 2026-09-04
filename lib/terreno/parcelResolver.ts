@@ -134,3 +134,22 @@ export function perimetroMDesdeAnillo(anillo: [number, number][], latRef: number
   const lados = longitudesLadosMDesdeAnillo(anillo, latRef)
   return lados ? lados.reduce((a, b) => a + b, 0) : null
 }
+
+// Vértices en metros locales (x = este, y = norte; mismo signo que lat/lng crecientes, así que
+// "arriba" en el plano ES norte sin tener que invertir nada) — misma proyección equirectangular
+// que el resto del archivo, origen en el primer vértice del anillo. Para dibujar el croquis del
+// predio (PlanoTerreno) a partir de coordenadas reales, sin volver a pedirle al usuario que
+// capture rumbo+distancia cuando el predio ya viene resuelto contra el catastro.
+export interface VerticeLocal { x: number; y: number }
+export function verticesLocalesDesdeAnillo(anillo: [number, number][], latRef: number): VerticeLocal[] | null {
+  if (anillo.length < 3) return null
+  const cerrado = distanciaM(anillo[0], anillo[anillo.length - 1], latRef) < 0.01
+  const puntos = cerrado ? anillo.slice(0, -1) : anillo
+  if (puntos.length < 3) return null
+  const metrosPorGradoLng = METROS_POR_GRADO_LAT * Math.cos((latRef * Math.PI) / 180)
+  const [lng0, lat0] = puntos[0]
+  return puntos.map(([lng, lat]) => ({
+    x: (lng - lng0) * metrosPorGradoLng,
+    y: (lat - lat0) * METROS_POR_GRADO_LAT,
+  }))
+}
