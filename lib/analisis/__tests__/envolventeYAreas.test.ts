@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { calcularEnvolvente, plazoVentaMeses, validarMix, validarSuperficieConstruida } from '../envolventeYAreas'
-import type { EntradaEnvolvente } from '../envolventeYAreas'
+import { calcularEnvolvente, plazoVentaMeses, validarMix, validarSuperficieConstruida, calcularArquitecturaEnVivo, FACTOR_APROVECHAMIENTO, FACTOR_EFICIENCIA_VENDIBLE } from '../envolventeYAreas'
+import type { EntradaEnvolvente, EntradaArquitecturaEnVivo } from '../envolventeYAreas'
 
 // Torre Las Huertas 3 — mismo fixture que scripts/verificar-envolvente.ts
 const ENTRADA: EntradaEnvolvente = {
@@ -153,5 +153,66 @@ describe('plazoVentaMeses', () => {
 
   it('con absorción 0, retorna Infinity (nunca se vende)', () => {
     expect(plazoVentaMeses(72, 0)).toBe(Infinity)
+  })
+})
+
+describe('calcularArquitecturaEnVivo', () => {
+  const base: EntradaArquitecturaEnVivo = {
+    cosPermitidoPct: 60, cusPermitido: 3.0, superficieTerreno: 1000, niveles: 4,
+    tipologia: 'vertical', unidadesBase: 40, areaVendibleBase: 1500,
+  }
+
+  it('dentro del CUS permitido: no excede, calcula área construida/vendible con las mismas constantes que calcularEnvolvente', () => {
+    const r = calcularArquitecturaEnVivo(base)!
+    expect(r.cosFraccion).toBeCloseTo(0.6, 6)
+    expect(r.areaConstruidaPropuesta).toBeCloseTo(1000 * 0.6 * 4 * FACTOR_APROVECHAMIENTO.base, 6)
+    expect(r.areaVendiblePropuesta).toBeCloseTo(r.areaConstruidaPropuesta * FACTOR_EFICIENCIA_VENDIBLE.vertical.base, 6)
+    expect(r.cusImplicito).toBeCloseTo(2.4, 6)
+    expect(r.excede).toBe(false)
+    expect(r.excedenteM2).toBe(0)
+  })
+
+  it('nunca topa al máximo legal (a diferencia de calcularEnvolvente) — detecta excedente cuando el usuario sube niveles', () => {
+    const r = calcularArquitecturaEnVivo({ ...base, niveles: 6 })!
+    expect(r.cusImplicito).toBeCloseTo(3.6, 6) // > cusPermitido (3.0)
+    expect(r.excede).toBe(true)
+    expect(r.excedenteM2).toBeCloseTo(600, 1) // (3.6-3.0) × 1000
+    // el área SÍ crece más allá del techo legal — no se capa
+    expect(r.areaConstruidaPropuesta).toBeGreaterThan(1000 * 3.0) // > areaMaxConstruible legal
+  })
+
+  it('nivelesSugerido es el máximo entero de niveles que cabe en el CUS permitido', () => {
+    const r = calcularArquitecturaEnVivo(base)!
+    expect(r.nivelesSugerido).toBe(5) // 3.0 / 0.6 = 5 exacto
+  })
+
+  it('unidadesEfectivas escala proporcional al cambio de área vendible respecto al diseño base', () => {
+    const r4 = calcularArquitecturaEnVivo(base)! // areaVendiblePropuesta a 4 niveles
+    const r6 = calcularArquitecturaEnVivo({ ...base, niveles: 6 })!
+    expect(r4.unidadesEfectivas).toBe(Math.round(40 * (r4.areaVendiblePropuesta / 1500)))
+    expect(r6.unidadesEfectivas!).toBeGreaterThan(r4.unidadesEfectivas!) // más niveles -> más área -> más unidades
+  })
+
+  it('sin unidadesBase/areaVendibleBase, no inventa unidades', () => {
+    const r = calcularArquitecturaEnVivo({ ...base, unidadesBase: null, areaVendibleBase: null })!
+    expect(r.unidadesEfectivas).toBeNull()
+  })
+
+  it('sótanos: cajones estimados a partir del footprint (COS × terreno), sin costo asociado', () => {
+    const r = calcularArquitecturaEnVivo({ ...base, sotanos: 1 })!
+    // footprint = 0.6 × 1000 = 600; 600/28 ≈ 21.4 -> floor 21
+    expect(r.cajonesSotano).toBe(21)
+  })
+
+  it('sin sótanos, cajonesSotano es null (no cero fabricado)', () => {
+    const r = calcularArquitecturaEnVivo(base)!
+    expect(r.sotanos).toBe(0)
+    expect(r.cajonesSotano).toBeNull()
+  })
+
+  it('sin datos suficientes (COS/superficie/niveles), retorna null en vez de un cálculo inventado', () => {
+    expect(calcularArquitecturaEnVivo({ ...base, cosPermitidoPct: null as any })).toBeNull()
+    expect(calcularArquitecturaEnVivo({ ...base, niveles: 0 })).toBeNull()
+    expect(calcularArquitecturaEnVivo({ ...base, superficieTerreno: null as any })).toBeNull()
   })
 })

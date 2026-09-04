@@ -6,6 +6,7 @@ import { saveProyecto } from '@/lib/saveProyecto'
 import { authedFetch } from '@/lib/apiClient'
 import { calcular } from '@/lib/estimador/motor'
 import { construirInputsNormativos, programaAUsos, type ProgramaUnidades } from '@/lib/construccion/programaAdapter'
+import { calcularArquitecturaEnVivo, type EntradaArquitecturaEnVivo } from '@/lib/analisis/envolventeYAreas'
 import { BocetoVolumetria, VistaAereaTerreno } from '@/app/components/BocetoVolumetria'
 import { PlanoTerreno } from '@/app/components/PlanoTerreno'
 import type { AnalisisData } from '@/lib/analisis/tipos'
@@ -132,6 +133,16 @@ function parsearNumeroTexto(texto: string | number | undefined | null): number |
   if (texto == null) return null
   const m = String(texto).match(/-?\d+(\.\d+)?/)
   return m ? Number(m[0]) : null
+}
+
+// Mismo mapeo que tipologiaEnvolvente() en app/preforma/page.tsx — pragmático, tiposDesarrollo a
+// la tipología que espera calcularArquitecturaEnVivo/calcularEnvolvente (lib/analisis/
+// envolventeYAreas.ts). Duplicado a propósito (5 líneas) en vez de importarlo de preforma/page.tsx.
+function tipologiaEnvolventeCaminoA(tipos: string[] | undefined): 'vertical' | 'horizontal' | 'mixto' {
+  const t = tipos || []
+  if (t.includes('unifamiliar') || t.includes('residencial-horizontal')) return 'horizontal'
+  if (t.includes('mixto') || (t.includes('comercial') && t.some(x => x.startsWith('residencial')))) return 'mixto'
+  return 'vertical'
 }
 
 type EstadoEnvolvente = 'cumple' | 'limite' | 'excede' | 'sin-dato'
@@ -604,11 +615,16 @@ const AMENIDADES_NIVEL_LABELS: Record<string, string> = {
 // acabados es un parámetro de COSTEO y se ajusta aparte en Construcción (ver AjustarBandaConstruccion).
 function AjustarSupuestosArquitectura({
   nivelesActual, totalDeptosActual, totalLocalesActual, amenidadesNivelActual, mostrarLocales, onAplicar,
+  vivoInput,
 }: {
   nivelesActual: number | undefined
   totalDeptosActual: number | undefined; totalLocalesActual: number | undefined
   amenidadesNivelActual: number | undefined; mostrarLocales: boolean
   onAplicar: (niveles: string, totalDeptos: string, totalLocales: string, amenidadesNivel: string) => void
+  // Datos para el recálculo en vivo (§ calcularArquitecturaEnVivo) — opcional: si no llega
+  // (falta COS/CUS verificado o superficie), el panel simplemente no muestra la previsualización,
+  // pero sigue funcionando igual que antes (edición → "Generar nueva opción" → re-corre el LLM).
+  vivoInput?: Omit<EntradaArquitecturaEnVivo, 'niveles'>
 }) {
   const [abierto, setAbierto] = useState(false)
   const [nivelesEdit, setNivelesEdit] = useState('')
@@ -617,6 +633,13 @@ function AjustarSupuestosArquitectura({
   const [amenidadesEdit, setAmenidadesEdit] = useState('')
 
   const amenidadesEfectiva = amenidadesEdit || String(amenidadesNivelActual ?? '')
+
+  // Recálculo en vivo (sin llamar al LLM) — mismo motor puro que ya usa PREFORMA
+  // (lib/analisis/envolventeYAreas.ts::calcularArquitecturaEnVivo), portado aquí para que mover
+  // "Niveles" dé retroalimentación instantánea antes de gastar una corrida completa del agente.
+  const nivelesParaVivo = nivelesEdit !== '' ? Number(nivelesEdit) : (nivelesActual ?? 0)
+  const vivo = vivoInput && nivelesParaVivo > 0 ? calcularArquitecturaEnVivo({ ...vivoInput, niveles: nivelesParaVivo }) : null
+  const mostrarVivo = vivo != null && nivelesEdit !== '' && Number(nivelesEdit) !== nivelesActual
 
   if (!abierto) {
     return (
@@ -656,6 +679,46 @@ function AjustarSupuestosArquitectura({
             className="w-full border border-[#2a3f5c] rounded-xl px-3 py-2 text-[13px] text-[#f4f0e6] bg-[#132a4d] focus:outline-none focus:border-[#c9a227]" />
         </div>
       </div>
+
+      {mostrarVivo && vivo && (
+        <div className="bg-[#0b1d3a] rounded-xl px-3 py-2.5 border border-[#2a3f5c]">
+          <p className="text-[9px] font-bold text-[#5f6a80] uppercase tracking-wide mb-1.5">Previsualización en vivo — {vivo.niveles} niveles</p>
+          <div className="grid grid-cols-3 gap-2 mb-1.5">
+            <div>
+              <p className="text-[9px] text-[#5f6a80]">Construida</p>
+              <p className="text-[12px] font-bold text-[#f4f0e6]">{Math.round(vivo.areaConstruidaPropuesta).toLocaleString('es-MX')} m²</p>
+            </div>
+            <div>
+              <p className="text-[9px] text-[#5f6a80]">Vendible</p>
+              <p className="text-[12px] font-bold text-[#f4f0e6]">{Math.round(vivo.areaVendiblePropuesta).toLocaleString('es-MX')} m²</p>
+            </div>
+            <div>
+              <p className="text-[9px] text-[#5f6a80]">Unidades</p>
+              <p className="text-[12px] font-bold text-[#f4f0e6]">{vivo.unidadesEfectivas ?? '—'}</p>
+            </div>
+          </div>
+          <p className="text-[10px] text-[#8b96ab]">
+            CUS implícito <span className={`font-bold ${vivo.excede ? 'text-[#F87171]' : 'text-[#1D9E75]'}`}>{vivo.cusImplicito.toFixed(2)}</span>
+            {vivo.cusPermitido != null && <> / permitido {vivo.cusPermitido.toFixed(2)}</>}
+          </p>
+          {vivo.excede && (
+            <div className="flex items-center justify-between gap-2 mt-1.5 bg-[#2e1414] border border-[#5c2a2a] rounded-lg px-2.5 py-1.5">
+              <p className="text-[10px] text-[#F87171]">
+                Te pasas {Math.round(vivo.excedenteM2).toLocaleString('es-MX')} m² del CUS permitido.
+              </p>
+              {vivo.nivelesSugerido != null && (
+                <button
+                  onClick={() => setNivelesEdit(String(vivo.nivelesSugerido))}
+                  className="shrink-0 text-[9px] font-semibold text-[#070f22] bg-[#F87171] rounded-full px-2.5 py-1 hover:bg-[#fca5a5] cursor-pointer whitespace-nowrap"
+                >
+                  Usar {vivo.nivelesSugerido} niveles
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
       {mostrarLocales && (
         <div>
           <p className="text-[10px] font-bold text-[#5f6a80] uppercase tracking-wide mb-1.5">Total locales comerciales</p>
@@ -3674,6 +3737,19 @@ function PipelineContent() {
                               totalLocalesOverride: totalLocales || undefined,
                               amenidadesNivelOverride: amenidadesNivel !== String(tip.tamanoAmenidades ?? '') ? amenidadesNivel : undefined,
                             })}
+                            vivoInput={(() => {
+                              const fl = pipe.legal.data?.fichaLegal
+                              if (fl?.cosNum == null) return undefined
+                              return {
+                                cosPermitidoPct: fl.cosNum * 100,
+                                cusPermitido: fl.cusNum ?? null,
+                                superficieTerreno: Number(formData?.superficie) || 0,
+                                tipologia: tipologiaEnvolventeCaminoA(formData?.tiposDesarrollo),
+                                unidadesBase: tip.habitacional?.totalDepartamentos
+                                  ?? (tip.habitacional?.mix ?? []).reduce((s: number, r: any) => s + (r.unidades || 0), 0) ?? null,
+                                areaVendibleBase: arq.superficieVendible ?? null,
+                              }
+                            })()}
                           />
                         </div>
                       )}

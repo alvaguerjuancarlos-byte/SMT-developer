@@ -140,3 +140,72 @@ export function validarSuperficieConstruida(
 export function plazoVentaMeses(nUnidades: number, absorcionUdsMes: number): number {
   return absorcionUdsMes > 0 ? nUnidades / absorcionUdsMes : Infinity
 }
+
+// ─── Recálculo en vivo de niveles (sin volver a llamar al LLM) ─────────────────────────────────
+// Portado de app/preforma/page.tsx::arquitecturaViva — mismas constantes (FACTOR_APROVECHAMIENTO/
+// FACTOR_EFICIENCIA_VENDIBLE) que calcularEnvolvente(), pero deliberadamente SIN pasar por esa
+// función: calcularEnvolvente topa el resultado al máximo legal (min(cus×terreno,
+// cos×terreno×niveles)), así que si se usara aquí la propuesta del usuario saldría siempre
+// capada al límite y nunca podría detectarse ni mostrarse un excedente. El CUS permitido solo
+// se usa para comparar contra el implícito de la propuesta, no para recortarla.
+export interface EntradaArquitecturaEnVivo {
+  cosPermitidoPct: number
+  cusPermitido: number | null
+  superficieTerreno: number
+  niveles: number
+  tipologia: EntradaEnvolvente['tipologia']
+  // Unidades y área vendible del diseño YA fijado por el Agente de Arquitectura — sirven de
+  // referencia para escalar unidadesEfectivas proporcionalmente al cambio de área vendible
+  // (nunca se inventa un mix nuevo, solo se escala el que ya existe).
+  unidadesBase: number | null
+  areaVendibleBase: number | null
+  sotanos?: number
+}
+
+export interface SalidaArquitecturaEnVivo {
+  niveles: number
+  cosPermitidoPct: number
+  cusPermitido: number | null
+  cosFraccion: number
+  tipologia: EntradaEnvolvente['tipologia']
+  areaConstruidaPropuesta: number
+  areaVendiblePropuesta: number
+  cusImplicito: number
+  excede: boolean
+  excedenteM2: number
+  nivelesSugerido: number | null
+  unidadesEfectivas: number | null
+  sotanos: number
+  cajonesSotano: number | null
+}
+
+const M2_POR_CAJON_SOTANO = 28
+
+export function calcularArquitecturaEnVivo(e: EntradaArquitecturaEnVivo): SalidaArquitecturaEnVivo | null {
+  if (e.cosPermitidoPct == null || e.superficieTerreno == null || e.niveles == null || e.niveles <= 0) return null
+
+  const cosFraccion = e.cosPermitidoPct / 100
+  const areaConstruidaPropuesta = cosFraccion * e.superficieTerreno * e.niveles * FACTOR_APROVECHAMIENTO.base
+  const areaVendiblePropuesta = areaConstruidaPropuesta * FACTOR_EFICIENCIA_VENDIBLE[e.tipologia].base
+  const cusImplicito = cosFraccion * e.niveles
+  const excede = e.cusPermitido != null && cusImplicito > e.cusPermitido
+  const excedenteM2 = excede ? (cusImplicito - e.cusPermitido!) * e.superficieTerreno : 0
+  // +1e-9: cusPermitido/cosFraccion es una división de floats (ej. 3.0/0.6) que puede caer justo
+  // debajo del entero exacto por error de redondeo binario — sin el epsilon, Math.floor podría
+  // sugerir un nivel de menos del que en realidad sí cabe.
+  const nivelesSugerido = e.cusPermitido != null && cosFraccion > 0 ? Math.max(1, Math.floor(e.cusPermitido / cosFraccion + 1e-9)) : null
+
+  const unidadesEfectivas = e.areaVendibleBase && e.unidadesBase
+    ? Math.max(0, Math.round(e.unidadesBase * (areaVendiblePropuesta / e.areaVendibleBase)))
+    : (e.unidadesBase ?? null)
+
+  const sotanos = e.sotanos ?? 0
+  const footprint = cosFraccion * e.superficieTerreno
+  const cajonesSotano = sotanos > 0 ? Math.floor((footprint * sotanos) / M2_POR_CAJON_SOTANO) : null
+
+  return {
+    niveles: e.niveles, cosPermitidoPct: e.cosPermitidoPct, cusPermitido: e.cusPermitido, cosFraccion, tipologia: e.tipologia,
+    areaConstruidaPropuesta, areaVendiblePropuesta, cusImplicito, excede, excedenteM2, nivelesSugerido,
+    unidadesEfectivas, sotanos, cajonesSotano,
+  }
+}
