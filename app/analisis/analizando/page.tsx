@@ -1438,7 +1438,7 @@ function AgentesQA({
 // (Step 7) para no obligar a salir de esta pantalla a ver el flujo de caja proyectado.
 interface FlujoMesPipeline { mes: number; fase: string; egresos: number; ingresos: number; acumulado: number; nota: string }
 
-function CashFlowChart({ data }: { data: FlujoMesPipeline[] }) {
+function CashFlowChart({ data, onSeleccionar, seleccionado }: { data: FlujoMesPipeline[]; onSeleccionar?: (mes: FlujoMesPipeline, i: number) => void; seleccionado?: number | null }) {
   const W = 680, H = 220
   const pad = { top: 24, right: 16, bottom: 36, left: 72 }
   const iW = W - pad.left - pad.right
@@ -1482,10 +1482,16 @@ function CashFlowChart({ data }: { data: FlujoMesPipeline[] }) {
         const hE   = (d.egresos  / maxBar) * (iH * 0.45)
         const hI   = (d.ingresos / maxBar) * (iH * 0.45)
         const midY = pad.top + iH * 0.5
+        const clickable = (iW / data.length)
         return (
-          <g key={i}>
+          <g key={i} onClick={() => onSeleccionar?.(d, i)} style={{ cursor: onSeleccionar ? 'pointer' : undefined }}>
+            {seleccionado === i && (
+              <rect x={cx - clickable / 2} y={pad.top} width={clickable} height={iH} fill="#c9a227" opacity="0.08" />
+            )}
             {d.egresos  > 0 && <rect x={cx - half} y={midY}          width={barW} height={hE} rx="2" fill="#FCA5A5" />}
             {d.ingresos > 0 && <rect x={cx - half} y={midY - hI}     width={barW} height={hI} rx="2" fill="#6EE7B7" />}
+            {/* Hit area invisible más ancha que la barra, para que el click no dependa de acertarle a la barra flaca */}
+            <rect x={cx - clickable / 2} y={pad.top} width={clickable} height={iH} fill="transparent" />
           </g>
         )
       })}
@@ -1625,6 +1631,13 @@ function PipelineContent() {
   // fuera del IIFE que renderiza la tarjeta "done" (más abajo) porque ese bloque se invoca
   // directamente durante el render y no puede usar hooks (reglas de hooks de React).
   const [mostrarArquitecturaManual, setMostrarArquitecturaManual] = useState(false)
+
+  // Mes seleccionado en el flujo de caja del cuadrante Financiero — mismo patrón de Preforma
+  // (click en una barra muestra ingresos/egresos/acumulado/nota de ese mes). Vive aquí, no dentro
+  // del IIFE que renderiza la tarjeta "done" de Financiero, por la misma razón que
+  // mostrarArquitecturaManual: ese bloque se invoca directamente durante el render y no puede
+  // usar hooks.
+  const [mesSeleccionadoFinanciero, setMesSeleccionadoFinanciero] = useState<number | null>(null)
 
   // Cuadro de construcción (rumbo + distancia por lado) + Geometry Engine — MVP portado de
   // PREFORMA (ver app/preforma/page.tsx: form.lados/ladoDraft/poligono). Motor puro, sin red
@@ -4219,12 +4232,93 @@ function PipelineContent() {
                         </div>
                       )}
 
+                      {/* Desglose de inversión — mismos campos que ya regresa el backend
+                          (financiero.costoTerreno/.../inversionTotal) y que Preforma sí muestra;
+                          Camino A solo mostraba el total sin abrir. */}
+                      {f && (f.costoTerreno != null || f.inversionTotal != null) && (
+                        <div className="px-5 pb-4">
+                          <p className="text-[10px] font-bold text-[#5f6a80] uppercase tracking-wide mb-1.5">Desglose de inversión</p>
+                          <div className="bg-[#132a4d] rounded-xl border border-[#2a3f5c] overflow-hidden">
+                            {([
+                              { label: 'Costo de terreno', val: f.costoTerreno },
+                              { label: 'Costo de construcción', val: f.costoTotalConstruccion },
+                              { label: 'Indirectos', val: f.indirectos },
+                              { label: 'Honorarios', val: f.honorarios },
+                              { label: 'Imprevistos', val: f.imprevistos },
+                            ] as { label: string; val: number | null | undefined }[]).map((item, i) => (
+                              item.val != null && (
+                                <div key={item.label} className={`flex items-center justify-between px-3 py-2 ${i > 0 ? 'border-t border-[#2a3f5c]' : ''}`}>
+                                  <span className="text-[11px] text-[#8b96ab]">{item.label}</span>
+                                  <span className="text-[11px] font-semibold text-[#f4f0e6]">{fmt(item.val)}</span>
+                                </div>
+                              )
+                            ))}
+                            {f.inversionTotal != null && (
+                              <div className="flex items-center justify-between px-3 py-2 bg-[#c9a227]/8 border-t border-[#2a3f5c]">
+                                <span className="text-[10px] font-bold text-[#8b96ab]">Inversión total</span>
+                                <span className="text-[12px] font-black text-[#ddc06a]">{fmt(f.inversionTotal)}</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Preventa mínima — estructuraCapital.preventa ya llega del backend
+                          (mismo prompt compartido con Preforma) y no se mostraba en Camino A. */}
+                      {ec?.preventa && (
+                        <div className="px-5 pb-4">
+                          <p className="text-[10px] font-bold text-[#5f6a80] uppercase tracking-wide mb-1.5">Preventa mínima</p>
+                          <div className="grid grid-cols-2 gap-2">
+                            <div className="bg-[#132a4d] rounded-xl px-3 py-2.5">
+                              <p className="text-[9px] text-[#5f6a80] uppercase tracking-wide font-semibold">Unidades mínimas</p>
+                              <p className="text-[13px] font-bold text-[#f4f0e6] mt-0.5">{ec.preventa.unidadesMinimas ?? '—'}</p>
+                            </div>
+                            <div className="bg-[#132a4d] rounded-xl px-3 py-2.5">
+                              <p className="text-[9px] text-[#5f6a80] uppercase tracking-wide font-semibold">% mínimo</p>
+                              <p className="text-[13px] font-bold text-[#f4f0e6] mt-0.5">{ec.preventa.porcentajeMinimo ?? '—'}</p>
+                            </div>
+                            <div className="bg-[#132a4d] rounded-xl px-3 py-2.5">
+                              <p className="text-[9px] text-[#5f6a80] uppercase tracking-wide font-semibold">Monto mínimo</p>
+                              <p className="text-[13px] font-bold text-[#f4f0e6] mt-0.5">{ec.preventa.montoMinimo ? fmt(ec.preventa.montoMinimo) : '—'}</p>
+                            </div>
+                            <div className="bg-[#132a4d] rounded-xl px-3 py-2.5">
+                              <p className="text-[9px] text-[#5f6a80] uppercase tracking-wide font-semibold">Plazo obra / venta</p>
+                              <p className="text-[13px] font-bold text-[#f4f0e6] mt-0.5">
+                                {f?.plazoObraMeses ?? '—'}m / {f?.plazoVentaMeses ?? '—'}m
+                              </p>
+                            </div>
+                          </div>
+                          {ec.preventa.condicion && (
+                            <p className="text-[10px] text-[#5f6a80] mt-1.5 leading-snug">{ec.preventa.condicion}</p>
+                          )}
+                        </div>
+                      )}
+
                       <div className="px-5 pb-4 flex flex-col gap-3">
-                        {pipe.financiero.data.flujoMensual?.length > 0 && (
-                          <VerDetalle label="Ver flujo de caja proyectado">
-                            <CashFlowChart data={pipe.financiero.data.flujoMensual} />
-                          </VerDetalle>
-                        )}
+                        {pipe.financiero.data.flujoMensual?.length > 0 && (() => {
+                          const flujo = pipe.financiero.data.flujoMensual
+                          const mesData = mesSeleccionadoFinanciero != null ? flujo[mesSeleccionadoFinanciero] ?? null : null
+                          return (
+                            <VerDetalle label="Ver flujo de caja proyectado">
+                              <CashFlowChart
+                                data={flujo}
+                                seleccionado={mesSeleccionadoFinanciero}
+                                onSeleccionar={(_, i) => setMesSeleccionadoFinanciero(i)}
+                              />
+                              {mesData ? (
+                                <div className="flex items-center justify-between gap-3 mt-2 text-[10.5px]">
+                                  <span className="text-[#8b96ab]">
+                                    Mes {mesData.mes} · {mesData.fase} — <span className="text-[#6EE7B7] font-semibold">{fmt(mesData.ingresos)}</span> ingresos ·{' '}
+                                    <span className="text-[#FCA5A5] font-semibold">{fmt(mesData.egresos)}</span> egresos · acumulado {fmt(mesData.acumulado)}
+                                  </span>
+                                  {mesData.nota && <span className="text-[#5f6a80] text-right shrink-0">{mesData.nota}</span>}
+                                </div>
+                              ) : (
+                                <p className="text-[10px] text-[#5f6a80] mt-2">Haz clic en un periodo del flujo para ver su detalle.</p>
+                              )}
+                            </VerDetalle>
+                          )
+                        })()}
                         {(score || pipe.financiero.data.stressTest?.length > 0) && (
                           <VerDetalle label="Ver indicadores de resiliencia">
                             <ResilienciaResumen
