@@ -153,3 +153,45 @@ export function verticesLocalesDesdeAnillo(anillo: [number, number][], latRef: n
     y: (lat - lat0) * METROS_POR_GRADO_LAT,
   }))
 }
+
+// Elimina vértices casi-colineales (ángulo interno a menos de toleranciaGrados de 180°) --
+// artefactos reales de la digitalización del catastro, no esquinas del predio. Verificado contra
+// predios reales de San Pedro (2026-09-07): un predio normal de 4 esquinas trae un 7° vértice a
+// 179.8° (una línea recta partida en dos, no una 5ª esquina); otro predio con frente a calle
+// curva trae 244 vértices, la mayoría a ~179° con lados de 0.20 m (la curva digitalizada como
+// micro-segmentos, no 244 esquinas reales). Las esquinas reales en esos mismos predios están muy
+// lejos de 180° (81°-95°), así que una tolerancia chica separa limpio "esquina real" de "ruido de
+// digitalización" sin arriesgar borrar una esquina legítima (ej. un jog/notch real del lindero,
+// que SÍ tiene un ángulo marcado, se conserva). Se aplica SOLO al croquis/lista de lados
+// (PlanoTerreno) -- areaM2DesdeAnillo/perimetroMDesdeAnillo siguen usando el anillo completo sin
+// tocar, son la medida real declarada, no un dibujo.
+export function simplificarVerticesColineales(vertices: VerticeLocal[], toleranciaGrados = 3): VerticeLocal[] {
+  if (vertices.length <= 3) return vertices
+  const n = vertices.length
+  const anguloInternoGrados = (i: number): number => {
+    const prev = vertices[(i - 1 + n) % n]
+    const cur = vertices[i]
+    const next = vertices[(i + 1) % n]
+    const v1 = { x: prev.x - cur.x, y: prev.y - cur.y }
+    const v2 = { x: next.x - cur.x, y: next.y - cur.y }
+    const mag = Math.hypot(v1.x, v1.y) * Math.hypot(v2.x, v2.y)
+    if (mag === 0) return 180 // vértice duplicado exacto (longitud cero) -- también se descarta
+    const cos = Math.max(-1, Math.min(1, (v1.x * v2.x + v1.y * v2.y) / mag))
+    return (Math.acos(cos) * 180) / Math.PI
+  }
+  const simplificados = vertices.filter((_, i) => Math.abs(anguloInternoGrados(i) - 180) > toleranciaGrados)
+  // Salvaguarda: si por algún motivo el filtro dejara menos de 3 vértices (no debería, un
+  // polígono real siempre tiene al menos 3 esquinas con ángulo lejano a 180°), regresar el
+  // original sin tocar en vez de un polígono degenerado.
+  return simplificados.length >= 3 ? simplificados : vertices
+}
+
+// Longitud de cada lado a partir de vértices YA en metros locales (x=este, y=norte) -- para usar
+// después de simplificarVerticesColineales, donde ya no tiene sentido volver a las coordenadas
+// lat/lng originales (los vértices colineales ya no existen en este arreglo).
+export function longitudesLadosDesdeVertices(vertices: VerticeLocal[]): number[] {
+  return vertices.map((v, i) => {
+    const siguiente = vertices[(i + 1) % vertices.length]
+    return Math.hypot(siguiente.x - v.x, siguiente.y - v.y)
+  })
+}

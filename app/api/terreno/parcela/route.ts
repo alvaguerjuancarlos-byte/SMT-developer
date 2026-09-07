@@ -9,7 +9,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { requireUser, unauthorized } from '@/lib/api-auth'
-import { buscarPrediosCercanos, areaM2DesdeAnillo, perimetroMDesdeAnillo, longitudesLadosMDesdeAnillo, verticesLocalesDesdeAnillo, type VerticeLocal } from '@/lib/terreno/parcelResolver'
+import { buscarPrediosCercanos, areaM2DesdeAnillo, perimetroMDesdeAnillo, verticesLocalesDesdeAnillo, simplificarVerticesColineales, longitudesLadosDesdeVertices, type VerticeLocal } from '@/lib/terreno/parcelResolver'
 import { construirComponentesMatch, resolverSeleccionParcela, type CandidatoParcela } from '@/lib/terreno/parcelMatchScore'
 
 interface CandidatoConPredio extends CandidatoParcela {
@@ -42,8 +42,19 @@ export async function POST(req: NextRequest) {
     const candidatos: CandidatoConPredio[] = predios.map((p, i) => {
       const areaM2 = areaM2DesdeAnillo(p.anillo, lat)
       const perimetroM = perimetroMDesdeAnillo(p.anillo, lat)
-      const ladosM = longitudesLadosMDesdeAnillo(p.anillo, lat)
-      const verticesM = verticesLocalesDesdeAnillo(p.anillo, lat)
+      // Vértices para el croquis (PlanoTerreno) y la lista de lados, simplificados -- los
+      // casi-colineales son ruido de digitalización del catastro, no esquinas reales (ver
+      // comentario en simplificarVerticesColineales). areaM2/perimetroM arriba SIGUEN calculados
+      // sobre el anillo completo sin simplificar -- son la medida real, no un dibujo.
+      // Ojo: si un lado es en realidad una curva real (frente a calle curva digitalizada como
+      // decenas de micro-segmentos), esto la reduce a su cuerda recta -- correcto para un croquis
+      // semitécnico, pero la suma de ladosM puede quedar unos metros por debajo de perimetroM en
+      // ese caso (verificado con un predio real: 109.2 m de lados vs 117.4 m de perímetro real,
+      // ~7%, un solo frente curvo). No es un error de cálculo -- perimetroM sigue siendo la
+      // medida real y se muestra aparte, nunca se oculta la diferencia.
+      const verticesCrudos = verticesLocalesDesdeAnillo(p.anillo, lat)
+      const verticesM = verticesCrudos ? simplificarVerticesColineales(verticesCrudos) : null
+      const ladosM = verticesM ? longitudesLadosDesdeVertices(verticesM) : null
       const componentes = construirComponentesMatch(
         { claveLote: p.claveLote, ubicacion: p.ubicacion, colonia: p.colonia, areaM2, anillo: p.anillo },
         { lat, lng, direccion, colonia, superficieDeclaradaM2 },

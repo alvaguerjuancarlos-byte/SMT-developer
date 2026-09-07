@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { areaM2DesdeAnillo, perimetroMDesdeAnillo, longitudesLadosMDesdeAnillo, verticesLocalesDesdeAnillo } from '../parcelResolver'
+import { areaM2DesdeAnillo, perimetroMDesdeAnillo, longitudesLadosMDesdeAnillo, verticesLocalesDesdeAnillo, simplificarVerticesColineales, longitudesLadosDesdeVertices, type VerticeLocal } from '../parcelResolver'
 
 // latRef=0 (ecuador) hace metrosPorGradoLng === metrosPorGradoLat === 111_320, así que un
 // cuadrado de 0.001° por lado da un cuadrado real de 111.32 m por lado — números exactos y
@@ -79,5 +79,60 @@ describe('verticesLocalesDesdeAnillo', () => {
 
   it('anillo con menos de 3 puntos -> null', () => {
     expect(verticesLocalesDesdeAnillo([[0, 0], [1, 1]], 0)).toBeNull()
+  })
+})
+
+describe('simplificarVerticesColineales', () => {
+  const CUADRADO_LOCAL: VerticeLocal[] = [
+    { x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 10 }, { x: 0, y: 10 },
+  ]
+
+  it('elimina un vértice exactamente colineal en medio de un lado (ángulo 180°)', () => {
+    // (5,0) cae justo a la mitad del lado (0,0)-(10,0) -- no es una 5ª esquina, es el mismo lado
+    // partido en dos, igual que el vértice a 179.8° encontrado en un predio real de San Pedro.
+    const conColineal: VerticeLocal[] = [{ x: 0, y: 0 }, { x: 5, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 10 }, { x: 0, y: 10 }]
+    const simplificado = simplificarVerticesColineales(conColineal)
+    expect(simplificado).toEqual(CUADRADO_LOCAL)
+  })
+
+  it('conserva una esquina real aunque el lado sea corto (ángulo lejos de 180°)', () => {
+    // Notch real: una 5ª esquina genuina con ángulo marcado (~90°), como el jog real encontrado
+    // en un predio de San Pedro (ángulos 81°/82° en lados de 1.7-2.6 m) -- no debe confundirse
+    // con ruido de digitalización solo por tener un lado corto.
+    const conNotchReal: VerticeLocal[] = [
+      { x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 5 }, { x: 8, y: 5 }, { x: 8, y: 10 }, { x: 0, y: 10 },
+    ]
+    const simplificado = simplificarVerticesColineales(conNotchReal)
+    expect(simplificado).toHaveLength(6) // ninguna esquina real se pierde
+  })
+
+  it('reduce una curva digitalizada como muchos micro-segmentos casi rectos a sus esquinas reales', () => {
+    // Imita el caso real de 244 vértices (frente a calle curva, ~179° y lados de 0.20 m): una
+    // "curva" de 5 puntos casi colineales entre dos esquinas reales de 90°.
+    const curvaDigitalizada: VerticeLocal[] = [
+      { x: 0, y: 0 },
+      { x: 10, y: 0 },
+      { x: 10.2, y: 0.05 }, { x: 10.4, y: 0.1 }, { x: 10.6, y: 0.15 }, { x: 10.8, y: 0.2 }, // "curva" ~recta
+      { x: 11, y: 0.25 },
+      { x: 11, y: 10 },
+      { x: 0, y: 10 },
+    ]
+    const simplificado = simplificarVerticesColineales(curvaDigitalizada)
+    expect(simplificado.length).toBeLessThan(curvaDigitalizada.length)
+    expect(simplificado.length).toBeGreaterThanOrEqual(3)
+  })
+
+  it('polígono de 3 vértices se regresa sin tocar (no hay colinealidad posible en un triángulo real)', () => {
+    const triangulo: VerticeLocal[] = [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 5, y: 10 }]
+    expect(simplificarVerticesColineales(triangulo)).toEqual(triangulo)
+  })
+})
+
+describe('longitudesLadosDesdeVertices', () => {
+  it('cuadrado conocido en metros locales: 4 lados iguales', () => {
+    const cuadrado: VerticeLocal[] = [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 10 }, { x: 0, y: 10 }]
+    const lados = longitudesLadosDesdeVertices(cuadrado)
+    expect(lados).toHaveLength(4)
+    for (const l of lados) expect(l).toBeCloseTo(10, 6)
   })
 })
