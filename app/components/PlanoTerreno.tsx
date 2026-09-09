@@ -18,17 +18,19 @@ export function PlanoTerreno({
   // cuando no hay expediente catastral). Ninguna de las dos fuentes distingue hoy entre varias
   // calles de un lote esquina, así que esto muestra la única vialidad que el dato real trae, no
   // una "elegida entre varias" -- ver comentario en analizando/page.tsx donde se pasa este prop.
+  // Se muestra como leyenda de texto normal (fuera del SVG) en vez de una etiqueta dentro del
+  // dibujo: el polígono se centra dentro de su recuadro según su propia forma, así que un texto
+  // en coordenadas fijas del SVG (ej. esquina superior) queda flotando sin relación visual con
+  // el predio -- se ve "desalineado" del terreno aunque el dato en sí sea correcto.
   calleFrente?: string | null
 }) {
   if (vertices.length < 3) return null
 
   const PAD = 42
-  const topExtra = calleFrente ? 16 : 0 // espacio para la etiqueta de la calle, arriba del norte/polígono
-  const padTop = PAD + topExtra
   const W = 320
-  const H = 260 + topExtra
+  const H = 260
   const plotW = W - PAD * 2
-  const plotH = H - PAD * 2 - 28 - topExtra // deja espacio abajo para área/perímetro y arriba para la calle
+  const plotH = H - PAD * 2 - 28 // deja espacio abajo para área/perímetro
 
   const minX = Math.min(...vertices.map(v => v.x))
   const maxX = Math.max(...vertices.map(v => v.x))
@@ -41,7 +43,7 @@ export function PlanoTerreno({
   // svgY crece hacia abajo; nuestro y crece hacia el norte — se invierte para que "arriba" sea norte.
   const toSvg = (v: VerticePlano) => ({
     x: PAD + (v.x - minX) * scale + (plotW - spanX * scale) / 2,
-    y: padTop + (maxY - v.y) * scale + (plotH - spanY * scale) / 2,
+    y: PAD + (maxY - v.y) * scale + (plotH - spanY * scale) / 2,
   })
   const pts = vertices.map(toSvg)
   const pathD = pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ') + ' Z'
@@ -49,52 +51,52 @@ export function PlanoTerreno({
   const centroid = { x: pts.reduce((s, p) => s + p.x, 0) / pts.length, y: pts.reduce((s, p) => s + p.y, 0) / pts.length }
 
   return (
-    <svg width="100%" viewBox={`0 0 ${W} ${H}`} className="overflow-visible">
-      {/* Vialidad de frente — dato real (catastro o formulario), no una etiqueta genérica */}
+    <div className="flex flex-col gap-1">
       {calleFrente && (
-        <text x={PAD} y={14} fontSize="9" fontWeight="600" fill="#c9a227">
-          {calleFrente}
-        </text>
+        <p className="text-[9px] text-[#8b96ab]">
+          Vialidad de frente: <span className="text-[#ddc06a] font-semibold">{calleFrente}</span>
+        </p>
       )}
+      <svg width="100%" viewBox={`0 0 ${W} ${H}`} className="overflow-visible">
+        {/* Norte */}
+        <g transform={`translate(${W - 24}, 20)`}>
+          <line x1="0" y1="10" x2="0" y2="-10" stroke="#8b96ab" strokeWidth="1.2" />
+          <path d="M -4 -4 L 0 -12 L 4 -4 Z" fill="#8b96ab" />
+          <text x="0" y="22" textAnchor="middle" fontSize="8" fill="#5f6a80">N</text>
+        </g>
 
-      {/* Norte */}
-      <g transform={`translate(${W - 24}, ${20 + topExtra})`}>
-        <line x1="0" y1="10" x2="0" y2="-10" stroke="#8b96ab" strokeWidth="1.2" />
-        <path d="M -4 -4 L 0 -12 L 4 -4 Z" fill="#8b96ab" />
-        <text x="0" y="22" textAnchor="middle" fontSize="8" fill="#5f6a80">N</text>
-      </g>
+        {/* Polígono */}
+        <path d={pathD} fill="#c9a227" fillOpacity="0.08" stroke="#c9a227" strokeWidth="1.5" strokeLinejoin="round" />
 
-      {/* Polígono */}
-      <path d={pathD} fill="#c9a227" fillOpacity="0.08" stroke="#c9a227" strokeWidth="1.5" strokeLinejoin="round" />
+        {/* Vértices */}
+        {pts.map((p, i) => (
+          <circle key={i} cx={p.x} cy={p.y} r="2.5" fill="#132a4d" stroke="#c9a227" strokeWidth="1" />
+        ))}
 
-      {/* Vértices */}
-      {pts.map((p, i) => (
-        <circle key={i} cx={p.x} cy={p.y} r="2.5" fill="#132a4d" stroke="#c9a227" strokeWidth="1" />
-      ))}
+        {/* Medidas por lado — texto en el punto medio, desplazado hacia afuera del centroide */}
+        {pts.map((p, i) => {
+          const q = pts[(i + 1) % pts.length]
+          const mid = { x: (p.x + q.x) / 2, y: (p.y + q.y) / 2 }
+          const dir = { x: mid.x - centroid.x, y: mid.y - centroid.y }
+          const len = Math.hypot(dir.x, dir.y) || 1
+          const offset = { x: mid.x + (dir.x / len) * 11, y: mid.y + (dir.y / len) * 11 }
+          const label = ladoLabels?.[i]
+          if (!label) return null
+          return (
+            <text key={i} x={offset.x} y={offset.y} textAnchor="middle" dominantBaseline="middle" fontSize="8" fill="#8b96ab">
+              {label}
+            </text>
+          )
+        })}
 
-      {/* Medidas por lado — texto en el punto medio, desplazado hacia afuera del centroide */}
-      {pts.map((p, i) => {
-        const q = pts[(i + 1) % pts.length]
-        const mid = { x: (p.x + q.x) / 2, y: (p.y + q.y) / 2 }
-        const dir = { x: mid.x - centroid.x, y: mid.y - centroid.y }
-        const len = Math.hypot(dir.x, dir.y) || 1
-        const offset = { x: mid.x + (dir.x / len) * 11, y: mid.y + (dir.y / len) * 11 }
-        const label = ladoLabels?.[i]
-        if (!label) return null
-        return (
-          <text key={i} x={offset.x} y={offset.y} textAnchor="middle" dominantBaseline="middle" fontSize="8" fill="#8b96ab">
-            {label}
-          </text>
-        )
-      })}
-
-      {/* Área / perímetro / folio */}
-      <text x={PAD} y={H - 10} fontSize="9" fill="#5f6a80">
-        {areaM2 != null && `Área ${areaM2.toFixed(1)} m²`}
-        {areaM2 != null && perimetroM != null && '  ·  '}
-        {perimetroM != null && `Perímetro ${perimetroM.toFixed(1)} m`}
-        {folioCatastral && `  ·  Folio ${folioCatastral}`}
-      </text>
-    </svg>
+        {/* Área / perímetro / folio */}
+        <text x={PAD} y={H - 10} fontSize="9" fill="#5f6a80">
+          {areaM2 != null && `Área ${areaM2.toFixed(1)} m²`}
+          {areaM2 != null && perimetroM != null && '  ·  '}
+          {perimetroM != null && `Perímetro ${perimetroM.toFixed(1)} m`}
+          {folioCatastral && `  ·  Folio ${folioCatastral}`}
+        </text>
+      </svg>
+    </div>
   )
 }
