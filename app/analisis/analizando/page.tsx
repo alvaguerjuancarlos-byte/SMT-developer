@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState, useRef, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { saveProyecto } from '@/lib/saveProyecto'
 import { authedFetch } from '@/lib/apiClient'
-import { useApp } from '@/app/providers'
 import { calcular } from '@/lib/estimador/motor'
 import { construirInputsNormativos, programaAUsos, type ProgramaUnidades } from '@/lib/construccion/programaAdapter'
 import { calcularConfidenceScore, calcularRango, incertidumbreDesdeConfianza } from '@/lib/construccion/costoParametricoEngine'
@@ -1738,24 +1737,21 @@ function PipelineContent() {
   // entre ambas invocaciones (mismo fiber), a diferencia de leer/borrar localStorage.
   const bootstrapRef = useRef(false)
 
-  // Botón "Detener análisis" (Topbar, global) -- un solo AbortController compartido por todas
-  // las llamadas del pipeline (cada run* de abajo lo manda como `signal`), así que detener
-  // cancela de un jalón cualquier agente en curso. detenidoRef además bloquea que las cadenas
-  // automáticas (useEffect que disparan la siguiente etapa solas, ej. Legal->Arquitectura) sigan
-  // avanzando después del stop -- los botones manuales ("Reintentar", "Correr Agente Financiero")
-  // siguen disponibles a propósito, son una acción explícita nueva del usuario, no una
-  // continuación automática.
+  // Botón "Detener análisis" (header cockpit de esta misma pantalla, junto a Mastermind) -- un
+  // solo AbortController compartido por todas las llamadas del pipeline (cada run* de abajo lo
+  // manda como `signal`), así que detener cancela de un jalón cualquier agente en curso.
+  // detenidoRef además bloquea que las cadenas automáticas (useEffect que disparan la siguiente
+  // etapa solas, ej. Legal->Arquitectura) sigan avanzando después del stop -- los botones
+  // manuales ("Reintentar", "Correr Agente Financiero") siguen disponibles a propósito, son una
+  // acción explícita nueva del usuario, no una continuación automática.
   const abortRef = useRef(new AbortController())
+  const [detenido, setDetenido] = useState(false)
   const detenidoRef = useRef(false)
-  const { registrarControlAnalisis } = useApp()
-  useEffect(() => {
-    registrarControlAnalisis(true, () => {
-      detenidoRef.current = true
-      abortRef.current.abort()
-    })
-    return () => registrarControlAnalisis(false, null)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  const detenerAnalisis = () => {
+    detenidoRef.current = true
+    setDetenido(true)
+    abortRef.current.abort()
+  }
   useEffect(() => {
     if (bootstrapRef.current) return
     bootstrapRef.current = true
@@ -2512,6 +2508,17 @@ function PipelineContent() {
               <p className="text-[13px] font-bold text-white leading-tight">{proyecto}</p>
             </div>
           )}
+          <button
+            onClick={detenerAnalisis}
+            disabled={detenido}
+            className="text-xs font-semibold rounded-full px-3 py-1.5 transition-colors border whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed"
+            style={{ borderColor: '#F87171', color: '#F87171' }}
+            onMouseEnter={e => { if (!detenido) { e.currentTarget.style.backgroundColor = '#F87171'; e.currentTarget.style.color = '#070f22' } }}
+            onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#F87171' }}
+            title="Cancela cualquier agente en curso y detiene el avance automático del pipeline"
+          >
+            {detenido ? '■ Detenido' : '■ Detener análisis'}
+          </button>
         </div>
       </header>
 

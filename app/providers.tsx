@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react'
+import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
@@ -76,13 +76,6 @@ type AppContextType = {
   setTerrain: (d: TerrainData) => void
   prospectionSaved: boolean
   setProspectionSaved: (v: boolean) => void
-  // Botón global "Detener análisis" (Topbar) -- la página que corre el pipeline (hoy solo
-  // /analisis/analizando) se registra al montar con su propia función de detener, y se
-  // desregistra al desmontar. Desacopla el Topbar (global, siempre montado) de la lógica real
-  // de cancelación (local a la página, que sabe qué AbortController/refs tiene que tocar).
-  analisisActivo: boolean
-  registrarControlAnalisis: (activo: boolean, detener: (() => void) | null) => void
-  detenerAnalisis: () => void
 }
 
 const AppContext = createContext<AppContextType | null>(null)
@@ -94,14 +87,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null | undefined>(undefined) // undefined = todavía no se sabe
   const router = useRouter()
   const pathname = usePathname()
-
-  const [analisisActivo, setAnalisisActivo] = useState(false)
-  const detenerFnRef = useRef<(() => void) | null>(null)
-  const registrarControlAnalisis = (activo: boolean, detener: (() => void) | null) => {
-    setAnalisisActivo(activo)
-    detenerFnRef.current = detener
-  }
-  const detenerAnalisis = () => { detenerFnRef.current?.() }
 
   // Se suscribe UNA sola vez durante toda la vida del provider — separado del
   // efecto de abajo para no re-suscribirse cada vez que cambia la ruta (eso
@@ -126,7 +111,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
   return (
     <AppContext.Provider value={{
       currentStep, setCurrentStep, terrain, setTerrain, prospectionSaved, setProspectionSaved,
-      analisisActivo, registrarControlAnalisis, detenerAnalisis,
     }}>
       {children}
     </AppContext.Provider>

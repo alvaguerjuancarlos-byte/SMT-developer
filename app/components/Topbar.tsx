@@ -16,7 +16,7 @@ function inicialesDe(email: string | undefined) {
 export default function Topbar() {
   const router = useRouter()
   const pathname = usePathname()
-  const { terrain, currentStep, analisisActivo, detenerAnalisis } = useApp()
+  const { terrain, currentStep } = useApp()
   const [email, setEmail] = useState<string | undefined>(undefined)
 
   useEffect(() => {
@@ -49,11 +49,16 @@ export default function Topbar() {
   // Análisis/Propuesta deshabilitados, justo los pasos que servirían para volver.
   if (pathname === '/mastermind' || pathname === '/mastermind-core') return null
 
+  // El pipeline en vivo trae su propio header "cockpit" (logo, barra de Mastermind, botón
+  // Detener análisis) — traer también la Topbar global aquí duplicaba la barra (JC, feedback
+  // directo: "dos top bars"). Fuera de esta pantalla, /analisis y /propuesta sí usan esta Topbar.
+  if (pathname === '/analisis/analizando') return null
+
   // Look & feel navy/oro — acotado a Flujo A por ahora (mismo alcance que
   // app/prospeccion/flujo-a/page.tsx). Match exacto, no startsWith: /analisis/flujo-b y
   // /propuesta/flujo-b NO deben verse afectados, solo comparten prefijo de ruta.
   const esFlujoA = pathname === '/prospeccion/flujo-a' || pathname === '/analisis'
-    || pathname === '/analisis/analizando' || pathname === '/propuesta'
+    || pathname === '/propuesta'
 
   // Mismo criterio para Camino B (navy/azul) — match exacto de las 4 pantallas propias.
   const esFlujoB = pathname === '/prospeccion/flujo-b' || pathname === '/prospeccion/flujo-b/buscando'
@@ -132,17 +137,6 @@ export default function Topbar() {
                 </svg>
                 <span className="text-[#f4f0e6] font-medium text-sm truncate max-w-[160px]">{terrain.nombre}</span>
               </div>
-            )}
-            {analisisActivo && (
-              <button
-                onClick={detenerAnalisis}
-                className="text-xs font-semibold rounded-full px-3 py-1.5 transition-colors border border-[#F87171] text-[#F87171]"
-                onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#F87171'; e.currentTarget.style.color = '#070f22' }}
-                onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#F87171' }}
-                title="Cancela cualquier agente en curso y detiene el avance automático del pipeline"
-              >
-                ■ Detener análisis
-              </button>
             )}
             <Link
               href="/preforma"
