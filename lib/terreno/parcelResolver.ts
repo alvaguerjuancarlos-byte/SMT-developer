@@ -9,6 +9,8 @@
 // EPSG:4326 "estricto") — así es como este GeoServer en particular lo espera, confirmado
 // probando ambos órdenes contra un punto conocido.
 
+import { wgs84AUtmZona14N, utmZona14NAWgs84 } from './utmZona14N'
+
 const GEOSERVER_BASE = 'https://geoserver.sanpedro.gob.mx/ows'
 
 export interface PredioWFS {
@@ -87,6 +89,52 @@ function deduplicarPorClaveLote(predios: PredioWFS[]): PredioWFS[] {
   return [...porClave.values(), ...sinClave]
 }
 
+// vu:banqueta (líneas de guarnición/banqueta) -- a diferencia de vu:predio, esta capa viene en
+// EPSG:6369 (UTM zona 14N, ver utmZona14N.ts), no en lng/lat, y el GeoServer NO la reproyecta al
+// pedir srsName=EPSG:4326 (verificado 2026-09-09: devuelve 0 features con un bbox en grados,
+// aunque sí hay banquetas reales ahí -- la capa simplemente ignora el srsName pedido). Por eso el
+// bbox de esta consulta va en metros UTM, no en grados.
+//
+// Se eligió banqueta sobre vu:vialidadexistente/vu:redosm (las otras capas de líneas con
+// geometría real) porque son mucho más dispersas: vu:vialidadexistente no tuvo NINGÚN segmento a
+// menos de 300-600 m de un predio real de prueba, y vu:redosm (red vial de OSM) solo cubre vías
+// primarias/secundarias con nombre, no calles residenciales -- ninguna de las dos sirve para "la
+// calle frente a ESTE predio". Banqueta, en cambio, tuvo 23 líneas dentro de 60 m del mismo
+// predio de prueba, corriendo justo junto al lindero -- es lo más cercano a "dibujar la calle
+// real" que el catastro de San Pedro expone hoy.
+export async function buscarBanquetasCercanas(
+  lat: number,
+  lng: number,
+  margenMetros = 60,
+): Promise<[number, number][][]> {
+  const { easting, northing } = wgs84AUtmZona14N(lat, lng)
+  const bbox = [easting - margenMetros, northing - margenMetros, easting + margenMetros, northing + margenMetros].join(',')
+  const params = new URLSearchParams({
+    service: 'WFS', version: '2.0.0', request: 'GetFeature', typeNames: 'vu:banqueta',
+    outputFormat: 'application/json', bbox,
+  })
+  const res = await fetch(`${GEOSERVER_BASE}?${params.toString()}`)
+  if (!res.ok) throw new Error(`GeoServer (vu:banqueta): HTTP ${res.status}`)
+
+  const json = await res.json()
+  const features: any[] = json.features ?? []
+
+  return features.map((f) => {
+    const geom = f.geometry
+    // MultiLineString (lo normal en esta capa) o LineString -- ambas a una sola lista de líneas.
+    const lineas: [number, number][][] =
+      geom?.type === 'MultiLineString' ? geom.coordinates ?? []
+      : geom?.type === 'LineString' ? [geom.coordinates ?? []]
+      : []
+    return lineas
+  }).flat().map((linea) =>
+    linea.map(([easting, northing]: [number, number]) => {
+      const { lat, lon } = utmZona14NAWgs84(easting, northing)
+      return [lon, lat] as [number, number]
+    })
+  )
+}
+
 // Área en m² del anillo exterior — aproximación equirectangular (metros/grado escalados por
 // coseno de la latitud), válida para superficies de predio urbano donde la curvatura terrestre
 // es despreciable. latRef: cualquier latitud del propio anillo sirve como referencia local.
@@ -141,17 +189,26 @@ export function perimetroMDesdeAnillo(anillo: [number, number][], latRef: number
 // predio (PlanoTerreno) a partir de coordenadas reales, sin volver a pedirle al usuario que
 // capture rumbo+distancia cuando el predio ya viene resuelto contra el catastro.
 export interface VerticeLocal { x: number; y: number }
+
+// Un solo punto lng/lat a metros locales, dado un origen (lng0,lat0) y una latRef para la
+// corrección de la longitud por coseno de latitud -- misma fórmula que usa
+// verticesLocalesDesdeAnillo abajo, factorizada para reusarse también al proyectar la vialidad
+// (vu:banqueta) al MISMO marco local del predio, para que ambos dibujos alineen en el croquis.
+export function aLocalXY(lng: number, lat: number, lng0: number, lat0: number, latRef: number): VerticeLocal {
+  const metrosPorGradoLng = METROS_POR_GRADO_LAT * Math.cos((latRef * Math.PI) / 180)
+  return {
+    x: (lng - lng0) * metrosPorGradoLng,
+    y: (lat - lat0) * METROS_POR_GRADO_LAT,
+  }
+}
+
 export function verticesLocalesDesdeAnillo(anillo: [number, number][], latRef: number): VerticeLocal[] | null {
   if (anillo.length < 3) return null
   const cerrado = distanciaM(anillo[0], anillo[anillo.length - 1], latRef) < 0.01
   const puntos = cerrado ? anillo.slice(0, -1) : anillo
   if (puntos.length < 3) return null
-  const metrosPorGradoLng = METROS_POR_GRADO_LAT * Math.cos((latRef * Math.PI) / 180)
   const [lng0, lat0] = puntos[0]
-  return puntos.map(([lng, lat]) => ({
-    x: (lng - lng0) * metrosPorGradoLng,
-    y: (lat - lat0) * METROS_POR_GRADO_LAT,
-  }))
+  return puntos.map(([lng, lat]) => aLocalXY(lng, lat, lng0, lat0, latRef))
 }
 
 // Elimina vértices casi-colineales (ángulo interno a menos de toleranciaGrados de 180°) --
@@ -194,4 +251,33 @@ export function longitudesLadosDesdeVertices(vertices: VerticeLocal[]): number[]
     const siguiente = vertices[(i + 1) % vertices.length]
     return Math.hypot(siguiente.x - v.x, siguiente.y - v.y)
   })
+}
+
+// Recorta las líneas de banqueta (ya en el marco local del predio, ver buscarBanquetasCercanas +
+// aLocalXY) a solo los tramos cerca del predio -- el bbox de la consulta trae un margen fijo en
+// metros, pero varias líneas reales de banqueta se extienden mucho más allá de esa vecindad (se
+// vio una de +200 m en pruebas reales). Dibujar la línea COMPLETA distorsionaría la escala del
+// croquis (el predio se vería minúsculo junto a una banqueta que sigue kilómetros de calle). En
+// vez de eso, cada línea se corta en tramos contiguos cuyos puntos caen dentro de radioM del
+// centro del predio -- conserva la forma real de la banqueta cerca del predio sin arrastrar el
+// resto de la calle. Un tramo de un solo punto no es dibujable (no forma una línea), se descarta.
+export function recortarSegmentosCercanos(
+  lineas: VerticeLocal[][],
+  centro: VerticeLocal,
+  radioM: number,
+): VerticeLocal[][] {
+  const resultado: VerticeLocal[][] = []
+  for (const linea of lineas) {
+    let tramo: VerticeLocal[] = []
+    for (const p of linea) {
+      if (Math.hypot(p.x - centro.x, p.y - centro.y) <= radioM) {
+        tramo.push(p)
+      } else {
+        if (tramo.length >= 2) resultado.push(tramo)
+        tramo = []
+      }
+    }
+    if (tramo.length >= 2) resultado.push(tramo)
+  }
+  return resultado
 }

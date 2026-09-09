@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { areaM2DesdeAnillo, perimetroMDesdeAnillo, longitudesLadosMDesdeAnillo, verticesLocalesDesdeAnillo, simplificarVerticesColineales, longitudesLadosDesdeVertices, type VerticeLocal } from '../parcelResolver'
+import { areaM2DesdeAnillo, perimetroMDesdeAnillo, longitudesLadosMDesdeAnillo, verticesLocalesDesdeAnillo, simplificarVerticesColineales, longitudesLadosDesdeVertices, aLocalXY, recortarSegmentosCercanos, type VerticeLocal } from '../parcelResolver'
 
 // latRef=0 (ecuador) hace metrosPorGradoLng === metrosPorGradoLat === 111_320, así que un
 // cuadrado de 0.001° por lado da un cuadrado real de 111.32 m por lado — números exactos y
@@ -134,5 +134,46 @@ describe('longitudesLadosDesdeVertices', () => {
     const lados = longitudesLadosDesdeVertices(cuadrado)
     expect(lados).toHaveLength(4)
     for (const l of lados) expect(l).toBeCloseTo(10, 6)
+  })
+})
+
+describe('aLocalXY', () => {
+  it('el origen mismo da (0,0)', () => {
+    expect(aLocalXY(-100.4, 25.65, -100.4, 25.65, 25.65)).toEqual({ x: 0, y: 0 })
+  })
+
+  it('es consistente con verticesLocalesDesdeAnillo sobre el mismo anillo (mismo origen y latRef)', () => {
+    const anillo: [number, number][] = [[0, 0], [0.001, 0], [0.001, 0.001], [0, 0.001]]
+    const viaAnillo = verticesLocalesDesdeAnillo(anillo, 0)!
+    const viaPunto = anillo.map(([lng, lat]) => aLocalXY(lng, lat, anillo[0][0], anillo[0][1], 0))
+    expect(viaPunto).toEqual(viaAnillo)
+  })
+})
+
+describe('recortarSegmentosCercanos', () => {
+  const centro: VerticeLocal = { x: 0, y: 0 }
+
+  it('conserva completa una línea que ya está toda dentro del radio', () => {
+    const linea: VerticeLocal[] = [{ x: 0, y: 5 }, { x: 5, y: 5 }, { x: 5, y: 0 }]
+    expect(recortarSegmentosCercanos([linea], centro, 20)).toEqual([linea])
+  })
+
+  it('descarta por completo una línea que cae totalmente fuera del radio', () => {
+    const linea: VerticeLocal[] = [{ x: 100, y: 100 }, { x: 110, y: 100 }]
+    expect(recortarSegmentosCercanos([linea], centro, 20)).toEqual([])
+  })
+
+  it('corta una línea larga al tramo contiguo que cae dentro del radio', () => {
+    // Simula el caso real: una banqueta de +200 m donde solo una parte pasa cerca del predio.
+    const linea: VerticeLocal[] = [
+      { x: -200, y: 0 }, { x: -100, y: 0 }, { x: -10, y: 0 }, { x: 0, y: 0 }, { x: 10, y: 0 }, { x: 100, y: 0 },
+    ]
+    const recortado = recortarSegmentosCercanos([linea], centro, 15)
+    expect(recortado).toEqual([[{ x: -10, y: 0 }, { x: 0, y: 0 }, { x: 10, y: 0 }]])
+  })
+
+  it('un solo punto dentro del radio no forma una línea dibujable -- se descarta', () => {
+    const linea: VerticeLocal[] = [{ x: 100, y: 100 }, { x: 5, y: 0 }, { x: 100, y: 100 }]
+    expect(recortarSegmentosCercanos([linea], centro, 15)).toEqual([])
   })
 })

@@ -2676,6 +2676,7 @@ function PipelineContent() {
                             perimetroM={predioReal.perimetroM}
                             folioCatastral={pipe.parcela.data?.seleccionado?.predio?.claveLote}
                             calleFrente={predioReal.ubicacion}
+                            trazosVialidad={pipe.parcela.data?.calleTrazo}
                           />
                         </div>
                       )}

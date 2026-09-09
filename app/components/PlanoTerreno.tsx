@@ -6,7 +6,7 @@
 export interface VerticePlano { x: number; y: number }
 
 export function PlanoTerreno({
-  vertices, ladoLabels, areaM2, perimetroM, folioCatastral, calleFrente,
+  vertices, ladoLabels, areaM2, perimetroM, folioCatastral, calleFrente, trazosVialidad,
 }: {
   vertices: VerticePlano[]
   ladoLabels?: string[]
@@ -23,6 +23,13 @@ export function PlanoTerreno({
   // en coordenadas fijas del SVG (ej. esquina superior) queda flotando sin relación visual con
   // el predio -- se ve "desalineado" del terreno aunque el dato en sí sea correcto.
   calleFrente?: string | null
+  // Trazo real de banquetas (vu:banqueta, GeoServer SPGG) cerca del predio, YA en el mismo marco
+  // local (mismo origen y latRef) que `vertices` -- ver buscarBanquetasCercanas +
+  // recortarSegmentosCercanos en parcelResolver.ts. Al venir en el mismo marco, basta pasarlo por
+  // el mismo toSvg() del polígono para que quede alineado de verdad con el terreno, no solo un
+  // texto suelto. Solo existe cuando el predio se resolvió contra el catastro real (GeoServer) --
+  // la captura manual del cuadro de construcción no trae esta geometría.
+  trazosVialidad?: VerticePlano[][] | null
 }) {
   if (vertices.length < 3) return null
 
@@ -32,10 +39,14 @@ export function PlanoTerreno({
   const plotW = W - PAD * 2
   const plotH = H - PAD * 2 - 28 // deja espacio abajo para área/perímetro
 
-  const minX = Math.min(...vertices.map(v => v.x))
-  const maxX = Math.max(...vertices.map(v => v.x))
-  const minY = Math.min(...vertices.map(v => v.y))
-  const maxY = Math.max(...vertices.map(v => v.y))
+  // El encuadre (bbox/escala) considera también los puntos del trazo de vialidad, no solo el
+  // polígono -- así ambos quedan visibles juntos y a la misma escala, en vez de que la calle se
+  // salga del recuadro o quede recortada.
+  const puntosParaEncuadre = [...vertices, ...(trazosVialidad?.flat() ?? [])]
+  const minX = Math.min(...puntosParaEncuadre.map(v => v.x))
+  const maxX = Math.max(...puntosParaEncuadre.map(v => v.x))
+  const minY = Math.min(...puntosParaEncuadre.map(v => v.y))
+  const maxY = Math.max(...puntosParaEncuadre.map(v => v.y))
   const spanX = Math.max(maxX - minX, 1)
   const spanY = Math.max(maxY - minY, 1)
   const scale = Math.min(plotW / spanX, plotH / spanY)
@@ -47,6 +58,7 @@ export function PlanoTerreno({
   })
   const pts = vertices.map(toSvg)
   const pathD = pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ') + ' Z'
+  const trazosSvg = trazosVialidad?.map(linea => linea.map(toSvg))
 
   const centroid = { x: pts.reduce((s, p) => s + p.x, 0) / pts.length, y: pts.reduce((s, p) => s + p.y, 0) / pts.length }
 
@@ -64,6 +76,19 @@ export function PlanoTerreno({
           <path d="M -4 -4 L 0 -12 L 4 -4 Z" fill="#8b96ab" />
           <text x="0" y="22" textAnchor="middle" fontSize="8" fill="#5f6a80">N</text>
         </g>
+
+        {/* Vialidad (banquetas reales cerca del predio) — dibujada antes del polígono para que
+            quede visualmente detrás, como contexto */}
+        {trazosSvg?.map((linea, i) => (
+          <polyline
+            key={i}
+            points={linea.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ')}
+            fill="none"
+            stroke="#5f6a80"
+            strokeWidth="1.2"
+            strokeDasharray="3 2"
+          />
+        ))}
 
         {/* Polígono */}
         <path d={pathD} fill="#c9a227" fillOpacity="0.08" stroke="#c9a227" strokeWidth="1.5" strokeLinejoin="round" />

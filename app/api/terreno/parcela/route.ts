@@ -9,7 +9,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { requireUser, unauthorized } from '@/lib/api-auth'
-import { buscarPrediosCercanos, areaM2DesdeAnillo, perimetroMDesdeAnillo, verticesLocalesDesdeAnillo, simplificarVerticesColineales, longitudesLadosDesdeVertices, type VerticeLocal } from '@/lib/terreno/parcelResolver'
+import { buscarPrediosCercanos, buscarBanquetasCercanas, areaM2DesdeAnillo, perimetroMDesdeAnillo, verticesLocalesDesdeAnillo, simplificarVerticesColineales, longitudesLadosDesdeVertices, aLocalXY, recortarSegmentosCercanos, type VerticeLocal } from '@/lib/terreno/parcelResolver'
 import { construirComponentesMatch, resolverSeleccionParcela, type CandidatoParcela } from '@/lib/terreno/parcelMatchScore'
 
 interface CandidatoConPredio extends CandidatoParcela {
@@ -67,7 +67,37 @@ export async function POST(req: NextRequest) {
     })
 
     const resultado = resolverSeleccionParcela(candidatos)
-    return NextResponse.json({ ...resultado, totalConsultados: predios.length })
+
+    // Trazo real de la vialidad (banquetas del catastro) junto al predio ganador -- una consulta
+    // extra, solo para el candidato ya resuelto (no uno por cada candidato evaluado). Si el
+    // GeoServer falla aquí, no se cae toda la respuesta -- el croquis simplemente se dibuja sin
+    // el trazo de calle, como pasaba antes de este feature.
+    let calleTrazo: VerticeLocal[][] | null = null
+    if (resultado.status === 'AUTO_RESOLVED' && resultado.seleccionado) {
+      // clasificarCandidatos hace un spread (no conserva el tipo CandidatoConPredio en el
+      // checker), pero sí conserva el campo `predio` en el objeto real -- cast seguro.
+      const seleccionado = resultado.seleccionado as unknown as CandidatoConPredio
+      const idxGanador = candidatos.findIndex(c => c.id === seleccionado.id)
+      const ganador = idxGanador >= 0 ? predios[idxGanador] : null
+      const verticesGanador = seleccionado.predio.verticesM
+      if (ganador && ganador.anillo.length > 0 && verticesGanador && verticesGanador.length > 0) {
+        try {
+          const [lng0, lat0] = ganador.anillo[0]
+          const lineas = await buscarBanquetasCercanas(lat, lng)
+          const lineasLocal = lineas.map(linea => linea.map(([lngV, latV]) => aLocalXY(lngV, latV, lng0, lat0, lat)))
+          const centroide = {
+            x: verticesGanador.reduce((s: number, v) => s + v.x, 0) / verticesGanador.length,
+            y: verticesGanador.reduce((s: number, v) => s + v.y, 0) / verticesGanador.length,
+          }
+          const recortado = recortarSegmentosCercanos(lineasLocal, centroide, 35)
+          if (recortado.length > 0) calleTrazo = recortado
+        } catch (e) {
+          console.error('Vialidad (GeoServer SPGG, vu:banqueta) error (no crítico, se omite el trazo):', e)
+        }
+      }
+    }
+
+    return NextResponse.json({ ...resultado, totalConsultados: predios.length, calleTrazo })
   } catch (e) {
     const mensaje = e instanceof Error ? e.message : String(e)
     console.error('Parcela (GeoServer SPGG) error:', mensaje)
