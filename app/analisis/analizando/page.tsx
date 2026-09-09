@@ -1737,13 +1737,15 @@ function PipelineContent() {
   // entre ambas invocaciones (mismo fiber), a diferencia de leer/borrar localStorage.
   const bootstrapRef = useRef(false)
 
-  // Botón "Detener análisis" (header cockpit de esta misma pantalla, junto a Mastermind) -- un
-  // solo AbortController compartido por todas las llamadas del pipeline (cada run* de abajo lo
-  // manda como `signal`), así que detener cancela de un jalón cualquier agente en curso.
-  // detenidoRef además bloquea que las cadenas automáticas (useEffect que disparan la siguiente
-  // etapa solas, ej. Legal->Arquitectura) sigan avanzando después del stop -- los botones
-  // manuales ("Reintentar", "Correr Agente Financiero") siguen disponibles a propósito, son una
-  // acción explícita nueva del usuario, no una continuación automática.
+  // Botones "Detener análisis" / "Reanudar análisis" (header cockpit de esta misma pantalla,
+  // junto a Mastermind) -- un solo AbortController compartido por todas las llamadas del
+  // pipeline (cada run* de abajo lo manda como `signal`), así que detener cancela de un jalón
+  // cualquier agente en curso. detenidoRef además bloquea que las cadenas automáticas (useEffect
+  // que disparan la siguiente etapa solas, ej. Legal->Arquitectura) sigan avanzando después del
+  // stop -- los botones manuales ("Re-intentar" de cada ErrorCard, "Correr Agente Financiero")
+  // siguen disponibles a propósito, son una acción explícita nueva del usuario, no una
+  // continuación automática. Reanudar (ver reanudarAnalisis abajo) re-arma ambos y relanza la
+  // etapa que quedó cortada, para retomar el pipeline de un jalón.
   const abortRef = useRef(new AbortController())
   const [detenido, setDetenido] = useState(false)
   const detenidoRef = useRef(false)
@@ -1751,6 +1753,25 @@ function PipelineContent() {
     detenidoRef.current = true
     setDetenido(true)
     abortRef.current.abort()
+  }
+  // Reanudar tras un stop manual -- el AbortController viejo queda abortado para siempre (no se
+  // puede "des-abortar"), así que se crea uno nuevo para las llamadas que sigan. La etapa que
+  // estaba corriendo justo cuando se detuvo el análisis queda en 'error' (el abort la manda al
+  // catch de su run*, igual que un fallo real de red) -- se relanza automáticamente aquí, mismo
+  // run* que usa el botón "Re-intentar" de su ErrorCard, para retomar el pipeline de un jalón en
+  // vez de pedirle al usuario un segundo click. Cualquier otra etapa que ya estuviera en error
+  // antes del stop (una falla real, no ligada al abort) se relanza igual -- de otro modo seguiría
+  // bloqueando el resto de la cadena automática incluso después de "reanudar".
+  const reanudarAnalisis = () => {
+    abortRef.current = new AbortController()
+    detenidoRef.current = false
+    setDetenido(false)
+    if (pipe.terreno.status === 'error') runTerreno()
+    if (pipe.legal.status === 'error') runLegal()
+    if (pipe.mercado.status === 'error') runMercado()
+    if (pipe.arquitectura.status === 'error') runArquitectura()
+    if (pipe.construccion.status === 'error') runConstruccion()
+    if (pipe.financiero.status === 'error') runFinanciero()
   }
   useEffect(() => {
     if (bootstrapRef.current) return
@@ -2508,17 +2529,29 @@ function PipelineContent() {
               <p className="text-[13px] font-bold text-white leading-tight">{proyecto}</p>
             </div>
           )}
-          <button
-            onClick={detenerAnalisis}
-            disabled={detenido}
-            className="text-xs font-semibold rounded-full px-3 py-1.5 transition-colors border whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed"
-            style={{ borderColor: '#F87171', color: '#F87171' }}
-            onMouseEnter={e => { if (!detenido) { e.currentTarget.style.backgroundColor = '#F87171'; e.currentTarget.style.color = '#070f22' } }}
-            onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#F87171' }}
-            title="Cancela cualquier agente en curso y detiene el avance automático del pipeline"
-          >
-            {detenido ? '■ Detenido' : '■ Detener análisis'}
-          </button>
+          {detenido ? (
+            <button
+              onClick={reanudarAnalisis}
+              className="text-xs font-semibold rounded-full px-3 py-1.5 transition-colors border whitespace-nowrap"
+              style={{ borderColor: '#c9a227', color: '#ddc06a' }}
+              onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#c9a227'; e.currentTarget.style.color = '#070f22' }}
+              onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#ddc06a' }}
+              title="Retoma el análisis desde donde se detuvo"
+            >
+              ▶ Reanudar análisis
+            </button>
+          ) : (
+            <button
+              onClick={detenerAnalisis}
+              className="text-xs font-semibold rounded-full px-3 py-1.5 transition-colors border whitespace-nowrap"
+              style={{ borderColor: '#F87171', color: '#F87171' }}
+              onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#F87171'; e.currentTarget.style.color = '#070f22' }}
+              onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#F87171' }}
+              title="Cancela cualquier agente en curso y detiene el avance automático del pipeline"
+            >
+              ■ Detener análisis
+            </button>
+          )}
         </div>
       </header>
 
