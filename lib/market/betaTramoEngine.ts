@@ -1,39 +1,35 @@
 // Motor heurístico que relaciona la plusvalía real de zonas económicas/medias (banda 1-2) con
-// la plusvalía esperada de zonas premium (banda 3-4) — inspirado en el Case-Shiller Tiered Price
-// Index (S&P/Cotality), que desde los años 80 separa cada metro de EE.UU. en tramos Low/Medium/
-// High precisamente porque no se mueven igual: el tramo bajo es sistemáticamente más volátil,
-// amplifica tanto subidas como caídas.
+// la plusvalía esperada de zonas premium (banda 3-4).
 //
-// No existe un índice mexicano segmentado por tramo de precio — este es el mejor proxy
-// disponible hoy. El beta se calibró con datos REALES (no un número inventado ni copiado de un
-// blog): se descargaron las series públicas de FRED (Reserva Federal de St. Louis) de índices
-// Low-Tier y High-Tier con historia completa 1987/1992-2026 para 3 metros de EE.UU. (Los
-// Ángeles, San Francisco, Chicago) y se calculó la regresión empírica mes a mes
-// (Δ%_high = β × Δ%_low) — verificado 2026-09-04, ver detalle de cada metro abajo.
+// Hasta 2026-09-04 este beta se calibraba con un proxy de EE.UU. (FRED, Case-Shiller Tiered
+// Price Index de Los Ángeles/San Francisco/Chicago) porque no se conocía un índice mexicano
+// segmentado por banda de precio. El 2026-09-09 se encontró que el Índice SHF de Precios de la
+// Vivienda (Sociedad Hipotecaria Federal, gob.mx) SÍ segmenta por banda a nivel nacional
+// ("Económica-Social" vs "Media-Residencial", 2005-2026, 86 trimestres) — ver
+// lib/market/shfIndice.data.ts. Se reemplazó el proxy de EE.UU. por la regresión real sobre esas
+// series (lib/market/shfAppreciationEngine.ts::calcularBetaSHF).
+//
+// HALLAZGO IMPORTANTE (verificado, no es ruido — consistente calculado trimestre-a-trimestre,
+// año-a-año, y cada 2 años, con correlación 0.67-0.76): en México la banda alta se APRECIA MÁS
+// que la banda baja (beta ≈1.04, crecimiento acumulado 2005-2026: económica-social +288% vs
+// media-residencial +351%) — lo CONTRARIO de EE.UU., donde el tramo bajo es el más volátil. No
+// se sabe la causa exacta (podría ser una diferencia real del mercado mexicano, o un artefacto
+// de cómo el SHF define sus dos bandas vs. la metodología de ventas repetidas de Case-Shiller) —
+// pero es el dato real disponible, y JC confirmó usarlo tal cual en vez de mantener el proxy.
 //
 // SIEMPRE es una ESTIMACIÓN, nunca un dato real — todo output de este motor debe etiquetarse
 // como tal en la UI (mismo criterio que el resto de la app: nunca mezclar calculado/estimado sin
 // distinguir).
 
-export interface BetaTramoMetroReferencia {
-  metro: string
-  ratioVolatilidad: number // volatilidad mensual del tramo bajo / volatilidad del tramo alto
-  beta: number             // Δ%_high = beta × Δ%_low (regresión OLS sobre 1987/1992-2026)
-}
+import { calcularBetaSHF } from './shfAppreciationEngine'
+import { SHF_NACIONAL_ECONOMICA_SOCIAL, SHF_NACIONAL_MEDIA_RESIDENCIAL } from './shfIndice.data'
 
-// Calculado en vivo el 2026-09-04 desde series FRED reales (LXXRLTSA/LXXRHTSA, SFXRLTSA/
-// SFXRHTSA, CHXRLTSA/CHXRHTSA) — no re-derivar de memoria, si se necesita refrescar, repetir el
-// cálculo contra las series públicas actualizadas.
-export const BETA_POR_METRO_REFERENCIA: BetaTramoMetroReferencia[] = [
-  { metro: 'Los Angeles', ratioVolatilidad: 1.306, beta: 0.601 },
-  { metro: 'San Francisco', ratioVolatilidad: 1.343, beta: 0.516 },
-  { metro: 'Chicago', ratioVolatilidad: 1.774, beta: 0.317 },
-]
+const BETA_SHF = calcularBetaSHF(SHF_NACIONAL_ECONOMICA_SOCIAL, SHF_NACIONAL_MEDIA_RESIDENCIAL)
 
 export const BETA_TRAMO_ALTO_SOBRE_BAJO = {
-  promedio: 0.478,
-  min: 0.317,
-  max: 0.601,
+  promedio: BETA_SHF.beta,
+  min: BETA_SHF.min,
+  max: BETA_SHF.max,
 } as const
 
 export interface EstimacionPlusvaliaPremium {

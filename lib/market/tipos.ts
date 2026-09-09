@@ -353,6 +353,13 @@ export interface MarketMaster {
   // dato real, la UI debe etiquetarlo como tal explícitamente.
   plusvaliaPremiumEstimada: EstimacionPlusvaliaPremium | null
 
+  // Serie real del Índice SHF (lib/market/shfAppreciationEngine.ts) para la zona metropolitana
+  // del sitio — CONTEXTO regional real (todas las bandas de precio mezcladas), nunca la
+  // plusvalía específica de esta colonia ni de esta banda de precio (esas siguen siendo
+  // `appreciation` y `plusvaliaPremiumEstimada` respectivamente). Null si la ciudad no mapea a
+  // una serie SHF conocida (ver SHF_CIUDAD_A_SERIE — hoy solo cubre Nuevo León/ZM Monterrey).
+  apreciacionRegionalSHF: { fuente: string; ventanas: ResultadoPlusvalia[] } | null
+
   // Promedio simple de finalScore entre los comparables DIRECT (null si no hay ninguno) — única
   // señal de confianza real disponible en esta fase, no un Data Quality Score completo (§56).
   dataConfidence: number | null
@@ -361,6 +368,6 @@ export interface MarketMaster {
   sources: MarketSource[]
   warnings: string[]
 
-  version: '0.3.0-fase2-16-acotado'
+  version: '0.4.0-shf'
   generatedAt: string
 }

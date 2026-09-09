@@ -26,6 +26,8 @@ import { evidenciaDePrecio, evidenciaDePlusvalia } from '@/lib/market/evidenceEn
 import { obtenerSnapshotsHistoricos, obtenerColoniasConHistorial } from '@/lib/market/persistencia'
 import { resolverAbsorcionSNIIV } from '@/lib/market/sniivAbsorcion'
 import { estimarPlusvaliaTramoAlto } from '@/lib/market/betaTramoEngine'
+import { calcularApreciacionSHF, serieSHFParaCiudad } from '@/lib/market/shfAppreciationEngine'
+import { SHF_NACIONAL_ECONOMICA_SOCIAL } from '@/lib/market/shfIndice.data'
 
 interface BodyProductFit {
   unidadesObjetivo: number
@@ -87,6 +89,15 @@ export async function POST(req: NextRequest) {
     warnings.push('Sin colonia — no se calculó plusvalía (Appreciation Engine necesita segmentar por zona).')
   }
 
+  // Índice SHF real de la zona metropolitana (todas las bandas mezcladas) — CONTEXTO regional,
+  // nunca sustituye a `appreciation` (que sigue siendo estrictamente la colonia específica).
+  // Null si la ciudad no mapea a una serie SHF conocida (ver shfAppreciationEngine.ts).
+  let apreciacionRegionalSHF: MarketMaster['apreciacionRegionalSHF'] = null
+  const serieSHF = serieSHFParaCiudad(sitio.ciudad)
+  if (serieSHF) {
+    apreciacionRegionalSHF = { fuente: serieSHF.nombre, ventanas: calcularApreciacionSHF(serieSHF.serie) }
+  }
+
   // Estimación heurística de plusvalía premium (banda 3-4) — lib/market/betaTramoEngine.ts,
   // beta calibrado con datos reales de FRED (Case-Shiller tiered index). Solo se intenta cuando
   // la colonia del predio NO tiene plusvalía real propia (ventana "anual" salió null — típico en
@@ -114,7 +125,19 @@ export async function POST(req: NextRequest) {
           warnings.push(`Colonia de referencia (${referencia.colonia}) tampoco tiene suficiente historial propio — no se pudo estimar plusvalía premium.`)
         }
       } else {
-        warnings.push(`Sin colonia de referencia con historial suficiente en ${sitio.ciudad} para estimar plusvalía premium (heurístico banda alta).`)
+        // NUEVO fallback (2026-09-09): sin colonia de referencia interna, usar la serie nacional
+        // real del SHF (banda económica-social, 2005-2026, siempre disponible) en vez de
+        // quedarse solo con el warning — ver lib/market/shfIndice.data.ts.
+        const anualSHF = calcularApreciacionSHF(SHF_NACIONAL_ECONOMICA_SOCIAL).find((a) => a.ventana === 'anual')
+        if (anualSHF?.tasaAnualizada != null) {
+          plusvaliaPremiumEstimada = estimarPlusvaliaTramoAlto(
+            anualSHF.tasaAnualizada,
+            'Promedio nacional (banda económica-social, índice SHF)',
+            SHF_NACIONAL_ECONOMICA_SOCIAL.length,
+          )
+        } else {
+          warnings.push(`Sin colonia de referencia con historial suficiente en ${sitio.ciudad} para estimar plusvalía premium (heurístico banda alta).`)
+        }
       }
     } catch (e) {
       const mensaje = e instanceof Error ? e.message : String(e)
@@ -199,6 +222,7 @@ export async function POST(req: NextRequest) {
     absorption: null,
     absorcionSNIIV,
     plusvaliaPremiumEstimada,
+    apreciacionRegionalSHF,
     dataConfidence,
     evidence,
     // Vacío a propósito: los comparables ya llegan extraídos por comparables-venta/route.ts
@@ -206,7 +230,7 @@ export async function POST(req: NextRequest) {
     // buscar nada, no tiene una fuente propia que declarar.
     sources: [],
     warnings,
-    version: '0.3.0-fase2-16-acotado',
+    version: '0.4.0-shf',
     generatedAt: new Date().toISOString(),
   }
 
