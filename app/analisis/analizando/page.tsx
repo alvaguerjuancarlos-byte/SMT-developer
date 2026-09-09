@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, useRef, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { saveProyecto } from '@/lib/saveProyecto'
 import { authedFetch } from '@/lib/apiClient'
+import { useApp } from '@/app/providers'
 import { calcular } from '@/lib/estimador/motor'
 import { construirInputsNormativos, programaAUsos, type ProgramaUnidades } from '@/lib/construccion/programaAdapter'
 import { calcularConfidenceScore, calcularRango, incertidumbreDesdeConfianza } from '@/lib/construccion/costoParametricoEngine'
@@ -1736,6 +1737,25 @@ function PipelineContent() {
   // Mercado/Arquitectura/Construcción desde cero encima de lo ya restaurado. useRef persiste
   // entre ambas invocaciones (mismo fiber), a diferencia de leer/borrar localStorage.
   const bootstrapRef = useRef(false)
+
+  // Botón "Detener análisis" (Topbar, global) -- un solo AbortController compartido por todas
+  // las llamadas del pipeline (cada run* de abajo lo manda como `signal`), así que detener
+  // cancela de un jalón cualquier agente en curso. detenidoRef además bloquea que las cadenas
+  // automáticas (useEffect que disparan la siguiente etapa solas, ej. Legal->Arquitectura) sigan
+  // avanzando después del stop -- los botones manuales ("Reintentar", "Correr Agente Financiero")
+  // siguen disponibles a propósito, son una acción explícita nueva del usuario, no una
+  // continuación automática.
+  const abortRef = useRef(new AbortController())
+  const detenidoRef = useRef(false)
+  const { registrarControlAnalisis } = useApp()
+  useEffect(() => {
+    registrarControlAnalisis(true, () => {
+      detenidoRef.current = true
+      abortRef.current.abort()
+    })
+    return () => registrarControlAnalisis(false, null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   useEffect(() => {
     if (bootstrapRef.current) return
     bootstrapRef.current = true
@@ -1810,6 +1830,7 @@ function PipelineContent() {
     try {
       const res = await authedFetch('/api/catastro', {
         method: 'POST',
+        signal: abortRef.current.signal,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           cuentaPredial: fd.cuentaPredial,
@@ -1861,7 +1882,7 @@ function PipelineContent() {
     setPipe(p => ({ ...p, parcela: { status: 'running', data: null } }))
     try {
       const res = await authedFetch('/api/terreno/parcela', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: abortRef.current.signal,
         body: JSON.stringify({ lat, lng, direccion: fd.direccion, colonia: fd.colonia, superficieDeclaradaM2: Number(fd.superficie) || undefined }),
       })
       const json = await res.json()
@@ -1896,7 +1917,7 @@ function PipelineContent() {
         if (fd.colonia)   params.set('colonia',   fd.colonia)
         if (fd.ciudad)    params.set('ciudad',    fd.ciudad)
         if (fd.estado)    params.set('estado',    fd.estado)
-        const geoRes = await authedFetch(`/api/geocode?${params}`).then(r => r.json())
+        const geoRes = await authedFetch(`/api/geocode?${params}`, { signal: abortRef.current.signal }).then(r => r.json())
         if (geoRes.found) { lat = geoRes.lat; lng = geoRes.lng }
       } catch { /* continúa sin coords */ }
     }
@@ -1933,7 +1954,7 @@ function PipelineContent() {
     const [comps, isoRes] = await Promise.all([
       getComps(fd),
       authedFetch('/api/geo/isochrone', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: abortRef.current.signal,
         body: JSON.stringify({ lat, lng, perfil: 'driving' }),
       }).then(r => r.json()).catch(() => ({ isocronas: [] })),
     ])
@@ -1948,7 +1969,7 @@ function PipelineContent() {
     setPipe(p => ({ ...p, comparables: { status: 'running', data: [] } }))
     try {
       const res = await authedFetch('/api/agentes/comparables', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: abortRef.current.signal,
         body: JSON.stringify({ colonia: input.colonia, ciudad: input.ciudad, estado: input.estado, codigoPostal: input.codigoPostal }),
       })
       const json = await res.json()
@@ -1970,7 +1991,7 @@ function PipelineContent() {
     setPipe(p => ({ ...p, comparablesVenta: { status: 'running', data: [] } }))
     try {
       const res = await authedFetch('/api/agentes/comparables-venta', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: abortRef.current.signal,
         body: JSON.stringify({
           colonia: input.colonia, ciudad: input.ciudad, estado: input.estado,
           codigoPostal: input.codigoPostal, tiposDesarrollo: input.tiposDesarrollo,
@@ -1997,7 +2018,7 @@ function PipelineContent() {
     setPipe(p => ({ ...p, terreno: { ...p.terreno, status: 'running', overrideM2: '', usarPrecioSolicitado: false } }))
     try {
       const res = await authedFetch('/api/agentes/terreno', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: abortRef.current.signal,
         body: JSON.stringify({ ...input, ubicacion: ub, comparablesPrecargados: comps }),
       })
       const json = await res.json()
@@ -2017,7 +2038,7 @@ function PipelineContent() {
     setPipe(p => ({ ...p, arquitectura: { ...p.arquitectura, status: 'running' } }))
     try {
       const res = await authedFetch('/api/agentes/arquitectura', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: abortRef.current.signal,
         body: JSON.stringify(payload),
       })
       const json = await res.json()
@@ -2051,7 +2072,7 @@ function PipelineContent() {
     setPipe(p => ({ ...p, construccion: { ...p.construccion, status: 'running' } }))
     try {
       const res = await authedFetch('/api/agentes/construccion', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: abortRef.current.signal,
         body: JSON.stringify(payload),
       })
       const json = await res.json()
@@ -2076,7 +2097,7 @@ function PipelineContent() {
     const input = fd || formData
     setPipe(p => ({ ...p, legal: { status: 'running', data: null } }))
     try {
-      const res = await authedFetch('/api/agentes/legal', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) })
+      const res = await authedFetch('/api/agentes/legal', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input), signal: abortRef.current.signal })
       const json = await res.json()
       if (json.error) throw new Error(json.error)
       setPipe(p => ({ ...p, legal: { status: 'done', data: json } }))
@@ -2088,6 +2109,7 @@ function PipelineContent() {
   // Arquitectura necesita fichaLegal (COS/CUS) para diseñar al máximo normativo, así que
   // espera a Legal — corre en paralelo con Mercado, sin depender de él.
   useEffect(() => {
+    if (detenidoRef.current) return
     if (pipe.legal.status === 'done' && pipe.arquitectura.status === 'waiting') {
       runArquitectura()
     }
@@ -2118,6 +2140,7 @@ function PipelineContent() {
           comparables: comparablesVenta, ciudad: formData?.ciudad, colonia: formData?.colonia,
           estado: formData?.estado, lat: formData?.lat, lng: formData?.lng, productFit,
         }),
+        signal: abortRef.current.signal,
       })
       const json = await res.json()
       if (json.error) throw new Error(json.error)
@@ -2130,6 +2153,7 @@ function PipelineContent() {
   // Segunda corrida de /api/market/resumen con productFit, cuando Legal termina -- ver comentario
   // en runMarketResumen sobre por qué la primera (dentro de runMercado) casi nunca lo trae.
   useEffect(() => {
+    if (detenidoRef.current) return
     if (pipe.legal.status === 'done' && pipe.comparablesVenta.status === 'done' && pipe.comparablesVenta.data.length > 0) {
       runMarketResumen(pipe.comparablesVenta.data, pipe.legal.data?.fichaLegal)
     }
@@ -2161,6 +2185,7 @@ function PipelineContent() {
           mixUnidadesResumen: mixUnidadesResumen || undefined,
           comparablesPrecargados: comparablesVenta,
         }),
+        signal: abortRef.current.signal,
       })
       const json = await res.json()
       if (json.error) throw new Error(json.error)
@@ -2274,6 +2299,7 @@ function PipelineContent() {
       const res = await authedFetch('/api/agentes/financiero', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
+        signal: abortRef.current.signal,
       })
       const json = await res.json()
       if (json.error) throw new Error(json.error)
@@ -2342,6 +2368,7 @@ function PipelineContent() {
   // igual en Camino corto que en Flujo A normal.
   const autoConstruccionRef = useRef(false)
   useEffect(() => {
+    if (detenidoRef.current) return
     if (!modoRapido || autoConstruccionRef.current) return
     if (pipe.legal.status === 'done' && pipe.arquitectura.status === 'done'
       && pipe.terreno.seleccionada !== null && pipe.arquitectura.seleccionada !== null

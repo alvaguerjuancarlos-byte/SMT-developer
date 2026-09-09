@@ -16,7 +16,7 @@ function inicialesDe(email: string | undefined) {
 export default function Topbar() {
   const router = useRouter()
   const pathname = usePathname()
-  const { terrain, currentStep } = useApp()
+  const { terrain, currentStep, analisisActivo, detenerAnalisis } = useApp()
   const [email, setEmail] = useState<string | undefined>(undefined)
 
   useEffect(() => {
@@ -132,6 +132,17 @@ export default function Topbar() {
                 </svg>
                 <span className="text-[#f4f0e6] font-medium text-sm truncate max-w-[160px]">{terrain.nombre}</span>
               </div>
+            )}
+            {analisisActivo && (
+              <button
+                onClick={detenerAnalisis}
+                className="text-xs font-semibold rounded-full px-3 py-1.5 transition-colors border border-[#F87171] text-[#F87171]"
+                onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#F87171'; e.currentTarget.style.color = '#070f22' }}
+                onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#F87171' }}
+                title="Cancela cualquier agente en curso y detiene el avance automático del pipeline"
+              >
+                ■ Detener análisis
+              </button>
             )}
             <Link
               href="/preforma"
