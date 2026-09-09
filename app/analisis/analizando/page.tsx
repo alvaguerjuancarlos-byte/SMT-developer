@@ -2668,6 +2668,7 @@ function PipelineContent() {
                             areaM2={predioReal.areaM2}
                             perimetroM={predioReal.perimetroM}
                             folioCatastral={pipe.parcela.data?.seleccionado?.predio?.claveLote}
+                            calleFrente={predioReal.ubicacion}
                           />
                         </div>
                       )}
@@ -2744,6 +2745,7 @@ function PipelineContent() {
                             ladoLabels={lados.map(l => `${l.rumbo.cuadrante} ${l.rumbo.grados}°·${l.distancia}m`)}
                             areaM2={poligono.areaM2}
                             perimetroM={poligono.perimetroM}
+                            calleFrente={formData?.direccion}
                           />
                         </div>
                       </div>

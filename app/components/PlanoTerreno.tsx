@@ -6,21 +6,29 @@
 export interface VerticePlano { x: number; y: number }
 
 export function PlanoTerreno({
-  vertices, ladoLabels, areaM2, perimetroM, folioCatastral,
+  vertices, ladoLabels, areaM2, perimetroM, folioCatastral, calleFrente,
 }: {
   vertices: VerticePlano[]
   ladoLabels?: string[]
   areaM2?: number | null
   perimetroM?: number | null
   folioCatastral?: string | null
+  // Vialidad de frente del predio -- viene tal cual del dato real disponible en cada caso
+  // (predio.ubicacion del catastro de San Pedro, o formData.direccion capturada por el usuario
+  // cuando no hay expediente catastral). Ninguna de las dos fuentes distingue hoy entre varias
+  // calles de un lote esquina, así que esto muestra la única vialidad que el dato real trae, no
+  // una "elegida entre varias" -- ver comentario en analizando/page.tsx donde se pasa este prop.
+  calleFrente?: string | null
 }) {
   if (vertices.length < 3) return null
 
   const PAD = 42
+  const topExtra = calleFrente ? 16 : 0 // espacio para la etiqueta de la calle, arriba del norte/polígono
+  const padTop = PAD + topExtra
   const W = 320
-  const H = 260
+  const H = 260 + topExtra
   const plotW = W - PAD * 2
-  const plotH = H - PAD * 2 - 28 // deja espacio abajo para área/perímetro
+  const plotH = H - PAD * 2 - 28 - topExtra // deja espacio abajo para área/perímetro y arriba para la calle
 
   const minX = Math.min(...vertices.map(v => v.x))
   const maxX = Math.max(...vertices.map(v => v.x))
@@ -33,7 +41,7 @@ export function PlanoTerreno({
   // svgY crece hacia abajo; nuestro y crece hacia el norte — se invierte para que "arriba" sea norte.
   const toSvg = (v: VerticePlano) => ({
     x: PAD + (v.x - minX) * scale + (plotW - spanX * scale) / 2,
-    y: PAD + (maxY - v.y) * scale + (plotH - spanY * scale) / 2,
+    y: padTop + (maxY - v.y) * scale + (plotH - spanY * scale) / 2,
   })
   const pts = vertices.map(toSvg)
   const pathD = pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ') + ' Z'
@@ -42,8 +50,15 @@ export function PlanoTerreno({
 
   return (
     <svg width="100%" viewBox={`0 0 ${W} ${H}`} className="overflow-visible">
+      {/* Vialidad de frente — dato real (catastro o formulario), no una etiqueta genérica */}
+      {calleFrente && (
+        <text x={PAD} y={14} fontSize="9" fontWeight="600" fill="#c9a227">
+          {calleFrente}
+        </text>
+      )}
+
       {/* Norte */}
-      <g transform={`translate(${W - 24}, 20)`}>
+      <g transform={`translate(${W - 24}, ${20 + topExtra})`}>
         <line x1="0" y1="10" x2="0" y2="-10" stroke="#8b96ab" strokeWidth="1.2" />
         <path d="M -4 -4 L 0 -12 L 4 -4 Z" fill="#8b96ab" />
         <text x="0" y="22" textAnchor="middle" fontSize="8" fill="#5f6a80">N</text>
