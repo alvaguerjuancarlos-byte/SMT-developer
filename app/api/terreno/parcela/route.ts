@@ -83,13 +83,27 @@ export async function POST(req: NextRequest) {
       if (ganador && ganador.anillo.length > 0 && verticesGanador && verticesGanador.length > 0) {
         try {
           const [lng0, lat0] = ganador.anillo[0]
-          const lineas = await buscarBanquetasCercanas(lat, lng)
+          // La consulta se centra en el propio predio (lng0,lat0 = su primer vértice real), NO
+          // en (lat,lng) -- el punto que mandó el caller viene de geocodificar la dirección
+          // capturada, que puede quedar bastante lejos del polígono real (error de
+          // geocodificación); centrar la búsqueda ahí podía dejar la banqueta real fuera del
+          // margen de la consulta aunque sí exista justo en el lindero del predio.
+          //
+          // El margen de la consulta escala con el tamaño real del predio -- un margen fijo de
+          // 60 m (razonable para un lote residencial típico) dejó SIN banqueta a un predio
+          // comercial grande sobre avenida (verificado 2026-09-09: la banqueta real estaba a
+          // 47 m del vértice más cercano, fuera de un margen de 60 pero dentro de uno de 120).
+          // +50 sobre la distancia máxima del origen a cualquier vértice garantiza, por
+          // desigualdad del triángulo, capturar cualquier banqueta a menos de 50 m de CUALQUIER
+          // vértice del predio (ver radioM=40 abajo, con margen para el borde).
+          const distanciaMaximaDesdeOrigen = Math.max(...verticesGanador.map(v => Math.hypot(v.x, v.y)))
+          const margenConsulta = Math.max(60, distanciaMaximaDesdeOrigen + 50)
+          const lineas = await buscarBanquetasCercanas(lat0, lng0, margenConsulta)
           const lineasLocal = lineas.map(linea => linea.map(([lngV, latV]) => aLocalXY(lngV, latV, lng0, lat0, lat)))
-          const centroide = {
-            x: verticesGanador.reduce((s: number, v) => s + v.x, 0) / verticesGanador.length,
-            y: verticesGanador.reduce((s: number, v) => s + v.y, 0) / verticesGanador.length,
-          }
-          const recortado = recortarSegmentosCercanos(lineasLocal, centroide, 35)
+          // Recorta contra los vértices reales del predio, no un solo centroide -- en un lote
+          // angosto y profundo el centroide puede quedar lejos de la banqueta del frente aunque
+          // esta sí esté pegada al lindero (ver comentario en recortarSegmentosCercanos).
+          const recortado = recortarSegmentosCercanos(lineasLocal, verticesGanador, 40)
           if (recortado.length > 0) calleTrazo = recortado
         } catch (e) {
           console.error('Vialidad (GeoServer SPGG, vu:banqueta) error (no crítico, se omite el trazo):', e)

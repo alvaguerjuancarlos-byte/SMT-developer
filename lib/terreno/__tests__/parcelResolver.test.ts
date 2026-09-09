@@ -151,16 +151,16 @@ describe('aLocalXY', () => {
 })
 
 describe('recortarSegmentosCercanos', () => {
-  const centro: VerticeLocal = { x: 0, y: 0 }
+  const referencias: VerticeLocal[] = [{ x: 0, y: 0 }]
 
   it('conserva completa una línea que ya está toda dentro del radio', () => {
     const linea: VerticeLocal[] = [{ x: 0, y: 5 }, { x: 5, y: 5 }, { x: 5, y: 0 }]
-    expect(recortarSegmentosCercanos([linea], centro, 20)).toEqual([linea])
+    expect(recortarSegmentosCercanos([linea], referencias, 20)).toEqual([linea])
   })
 
   it('descarta por completo una línea que cae totalmente fuera del radio', () => {
     const linea: VerticeLocal[] = [{ x: 100, y: 100 }, { x: 110, y: 100 }]
-    expect(recortarSegmentosCercanos([linea], centro, 20)).toEqual([])
+    expect(recortarSegmentosCercanos([linea], referencias, 20)).toEqual([])
   })
 
   it('corta una línea larga al tramo contiguo que cae dentro del radio', () => {
@@ -168,12 +168,21 @@ describe('recortarSegmentosCercanos', () => {
     const linea: VerticeLocal[] = [
       { x: -200, y: 0 }, { x: -100, y: 0 }, { x: -10, y: 0 }, { x: 0, y: 0 }, { x: 10, y: 0 }, { x: 100, y: 0 },
     ]
-    const recortado = recortarSegmentosCercanos([linea], centro, 15)
+    const recortado = recortarSegmentosCercanos([linea], referencias, 15)
     expect(recortado).toEqual([[{ x: -10, y: 0 }, { x: 0, y: 0 }, { x: 10, y: 0 }]])
   })
 
   it('un solo punto dentro del radio no forma una línea dibujable -- se descarta', () => {
     const linea: VerticeLocal[] = [{ x: 100, y: 100 }, { x: 5, y: 0 }, { x: 100, y: 100 }]
-    expect(recortarSegmentosCercanos([linea], centro, 15)).toEqual([])
+    expect(recortarSegmentosCercanos([linea], referencias, 15)).toEqual([])
+  })
+
+  it('usa la referencia más cercana entre varias -- un lote con fondo cuyo centroide queda lejos de la banqueta del frente', () => {
+    // Simula un lote angosto y profundo: frente en x=0 (banqueta ahí cerca), fondo en x=-40.
+    // El centroide (x=-20) quedaría a 20 m de la banqueta -- dentro de un radio chico igual,
+    // pero con un radio de 15 (como el resto de estos tests) un solo centroide la perdería.
+    const verticesLote: VerticeLocal[] = [{ x: -2, y: 0 }, { x: 2, y: 0 }, { x: 2, y: -40 }, { x: -2, y: -40 }]
+    const banqueta: VerticeLocal[] = [{ x: -10, y: 3 }, { x: 0, y: 3 }, { x: 10, y: 3 }]
+    expect(recortarSegmentosCercanos([banqueta], verticesLote, 15)).toEqual([banqueta])
   })
 })

@@ -258,19 +258,25 @@ export function longitudesLadosDesdeVertices(vertices: VerticeLocal[]): number[]
 // metros, pero varias líneas reales de banqueta se extienden mucho más allá de esa vecindad (se
 // vio una de +200 m en pruebas reales). Dibujar la línea COMPLETA distorsionaría la escala del
 // croquis (el predio se vería minúsculo junto a una banqueta que sigue kilómetros de calle). En
-// vez de eso, cada línea se corta en tramos contiguos cuyos puntos caen dentro de radioM del
-// centro del predio -- conserva la forma real de la banqueta cerca del predio sin arrastrar el
-// resto de la calle. Un tramo de un solo punto no es dibujable (no forma una línea), se descarta.
+// vez de eso, cada línea se corta en tramos contiguos cuyos puntos caen dentro de radioM de
+// CUALQUIERA de las referencias dadas -- se pasan los vértices del propio predio (no un solo
+// centroide): en un lote con fondo (frente angosto, mucho más profundo que ancho), el centroide
+// puede quedar a más de radioM de la banqueta del frente aunque esta esté justo en el lindero,
+// dejando el recorte vacío por error. Usar los vértices reales evita ese caso. Un tramo de un
+// solo punto no es dibujable (no forma una línea), se descarta.
 export function recortarSegmentosCercanos(
   lineas: VerticeLocal[][],
-  centro: VerticeLocal,
+  referencias: VerticeLocal[],
   radioM: number,
 ): VerticeLocal[][] {
+  const cercaDeAlguna = (p: VerticeLocal) =>
+    referencias.some(r => Math.hypot(p.x - r.x, p.y - r.y) <= radioM)
+
   const resultado: VerticeLocal[][] = []
   for (const linea of lineas) {
     let tramo: VerticeLocal[] = []
     for (const p of linea) {
-      if (Math.hypot(p.x - centro.x, p.y - centro.y) <= radioM) {
+      if (cercaDeAlguna(p)) {
         tramo.push(p)
       } else {
         if (tramo.length >= 2) resultado.push(tramo)
