@@ -105,6 +105,22 @@ export async function POST(req: NextRequest) {
   // buscar una colonia de referencia real. Nunca reemplaza una plusvalía real ya calculada.
   let plusvaliaPremiumEstimada: MarketMaster['plusvaliaPremiumEstimada'] = null
   const anualPropia = appreciation?.find((a) => a.ventana === 'anual') ?? null
+  // Fallback nacional real del SHF (2026-09-09) -- siempre disponible (serie estática, 86
+  // trimestres reales 2005-2026), así que se usa cada vez que el intento de colonia de
+  // referencia INTERNA no produjo una tasa usable, sin importar la razón exacta (no hay ninguna
+  // colonia candidata en la ciudad, o la que se encontró no tiene suficientes meses distintos
+  // todavía) -- antes esto se aplicaba solo al primer caso y dejaba el segundo en un warning sin
+  // estimación, un vacío real detectado en producción.
+  const conFallbackSHF = (): void => {
+    const anualSHF = calcularApreciacionSHF(SHF_NACIONAL_ECONOMICA_SOCIAL).find((a) => a.ventana === 'anual')
+    if (anualSHF?.tasaAnualizada != null) {
+      plusvaliaPremiumEstimada = estimarPlusvaliaTramoAlto(
+        anualSHF.tasaAnualizada,
+        'Promedio nacional (banda económica-social, índice SHF)',
+        SHF_NACIONAL_ECONOMICA_SOCIAL.length,
+      )
+    }
+  }
   if (anualPropia?.tasaAnualizada == null && sitio.ciudad) {
     try {
       const hasta = new Date().toISOString().slice(0, 10)
@@ -122,22 +138,12 @@ export async function POST(req: NextRequest) {
         if (anualRef?.tasaAnualizada != null) {
           plusvaliaPremiumEstimada = estimarPlusvaliaTramoAlto(anualRef.tasaAnualizada, referencia.colonia, referencia.n)
         } else {
-          warnings.push(`Colonia de referencia (${referencia.colonia}) tampoco tiene suficiente historial propio — no se pudo estimar plusvalía premium.`)
+          warnings.push(`Colonia de referencia (${referencia.colonia}) tampoco tiene suficiente historial propio — se usó el promedio nacional del SHF en su lugar.`)
+          conFallbackSHF()
         }
       } else {
-        // NUEVO fallback (2026-09-09): sin colonia de referencia interna, usar la serie nacional
-        // real del SHF (banda económica-social, 2005-2026, siempre disponible) en vez de
-        // quedarse solo con el warning — ver lib/market/shfIndice.data.ts.
-        const anualSHF = calcularApreciacionSHF(SHF_NACIONAL_ECONOMICA_SOCIAL).find((a) => a.ventana === 'anual')
-        if (anualSHF?.tasaAnualizada != null) {
-          plusvaliaPremiumEstimada = estimarPlusvaliaTramoAlto(
-            anualSHF.tasaAnualizada,
-            'Promedio nacional (banda económica-social, índice SHF)',
-            SHF_NACIONAL_ECONOMICA_SOCIAL.length,
-          )
-        } else {
-          warnings.push(`Sin colonia de referencia con historial suficiente en ${sitio.ciudad} para estimar plusvalía premium (heurístico banda alta).`)
-        }
+        warnings.push(`Sin colonia de referencia con historial suficiente en ${sitio.ciudad} — se usó el promedio nacional del SHF en su lugar.`)
+        conFallbackSHF()
       }
     } catch (e) {
       const mensaje = e instanceof Error ? e.message : String(e)
