@@ -10,6 +10,7 @@ import { calcularConfidenceScore, calcularRango, incertidumbreDesdeConfianza } f
 import { calcularArquitecturaEnVivo, type EntradaArquitecturaEnVivo } from '@/lib/analisis/envolventeYAreas'
 import { BocetoVolumetria, VistaAereaTerreno } from '@/app/components/BocetoVolumetria'
 import { PlanoTerreno } from '@/app/components/PlanoTerreno'
+import { PlusvaliaProyeccion } from '@/app/components/PlusvaliaProyeccion'
 import type { AnalisisData } from '@/lib/analisis/tipos'
 import { extractMercadoContext, extractProyectoContext, extractTerrenoContext } from '@/lib/mastermind/contexto'
 import { calcularMastermindCore, calcularIngresos } from '@/lib/mastermind/motor'
@@ -3597,38 +3598,8 @@ function PipelineContent() {
                             </div>
                           )}
 
-                          {mr.apreciacionRegionalSHF && (
-                            <div className="mt-2 pt-2 border-t border-[#2a3f5c]">
-                              <p className="text-[9px] font-bold text-[#5f6a80] uppercase tracking-wide mb-1.5">
-                                Índice SHF · {mr.apreciacionRegionalSHF.fuente} <span className="normal-case font-normal">— referencia regional, no de esta colonia</span>
-                              </p>
-                              <div className="flex flex-wrap gap-1.5">
-                                {mr.apreciacionRegionalSHF.ventanas.map((v: any, i: number) => (
-                                  <span key={i} className="text-[10px] bg-[#0b1d3a] rounded-full px-2.5 py-1" title={v.motivo ?? undefined}>
-                                    <span className="text-[#5f6a80]">{VENTANA_PLUSVALIA_LABELS[v.ventana] ?? v.ventana}</span>{' '}
-                                    <span className={`font-bold ${v.tasaAnualizada != null ? 'text-[#f4f0e6]' : 'text-[#5f6a80]'}`}>
-                                      {v.tasaAnualizada != null ? `${v.tasaAnualizada.toFixed(1)}%` : 'sin datos'}
-                                    </span>
-                                  </span>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-
                           {mr.plusvaliaPremiumEstimada && (
-                            <div className="mt-2 pt-2 border-t border-[#2a3f5c]">
-                              <div className="flex items-center justify-between mb-1">
-                                <p className="text-[9px] font-bold text-[#5f6a80] uppercase tracking-wide">Plusvalía premium (estimación heurística)</p>
-                                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-[#2e2510] text-[#FBBF24]">No es dato real</span>
-                              </div>
-                              <div className="flex items-center gap-2 mb-1">
-                                <span className="text-[13px] font-bold text-[#f4f0e6]">{mr.plusvaliaPremiumEstimada.tasaAnualizadaEstimada.toFixed(1)}%/año</span>
-                                <span className="text-[9px] text-[#5f6a80]">rango {mr.plusvaliaPremiumEstimada.rangoMin.toFixed(1)}% a {mr.plusvaliaPremiumEstimada.rangoMax.toFixed(1)}%</span>
-                              </div>
-                              <p className="text-[9.5px] text-[#5f6a80] leading-snug">
-                                Calculado a partir de la plusvalía real de <span className="text-[#8b96ab] font-semibold">{mr.plusvaliaPremiumEstimada.coloniaReferencia}</span> ({mr.plusvaliaPremiumEstimada.tasaAnualizadaReferencia.toFixed(1)}%/año, n={mr.plusvaliaPremiumEstimada.muestraReferencia}) × beta {mr.plusvaliaPremiumEstimada.betaUsado.toFixed(2)} — modelo calibrado con las series reales del Índice SHF de México (banda económica-social vs. media-residencial, 2005-2026), no un proxy extranjero.
-                              </p>
-                            </div>
+                            <PlusvaliaProyeccion estimacion={mr.plusvaliaPremiumEstimada} ciudad={formData?.ciudad} />
                           )}
 
                           {mr.absorcionSNIIV && (
