@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.96.0",
+    "@smt/shared-realestate": "git+https://github.com/alvaguerjuancarlos-byte/smt-shared-realestate.git",
     "@supabase/supabase-js": "^2.104.1",
     "html-to-image": "^1.11.13",
     "html2canvas": "^1.4.1",

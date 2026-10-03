@@ -2,8 +2,12 @@ import { describe, it, expect } from 'vitest'
 import {
   rumboAAzimut, construirVertices, calcularErrorCierre, cerrarPoligono,
   calcularAreaM2, calcularLongitudesLados, calcularAzimutsLados, validarPoligono,
-  clasificarPendiente, puntoDentroDePoligono, type Lado,
+  clasificarPendiente, type Lado,
 } from '../geometryEngine'
+// puntoDentroDePoligono se extrajo a @smt/shared-realestate (2026-10-03, compartido con
+// smtbroker vía lib/normativa/geoserverSPGG) -- único consumidor real aquí era
+// lib/terreno/parcelMatchScore.ts, ya redirigido.
+import { puntoDentroDePoligono } from '@smt/shared-realestate'
 
 // Rectángulo 40 x 25 m recorrido en sentido horario desde el origen: Este, Sur, Oeste, Norte.
 // Cierra exacto (perímetro cuadrado, sin error de medición).

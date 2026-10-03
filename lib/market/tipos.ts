@@ -15,8 +15,7 @@
 // futuras (§131 Fase 8-16) — hoy siempre valen null, nunca se inventan.
 
 import type { ComparableVenta } from '@/lib/mercado/validarComparableVenta'
-import type { ResultadoAbsorcionSNIIV } from './sniivAbsorcion'
-import type { EstimacionPlusvaliaPremium } from './betaTramoEngine'
+import type { ResultadoAbsorcionSNIIV, EstimacionPlusvaliaPremium } from '@smt/shared-realestate'
 
 // ── Comparable Engine (Fase 3) ───────────────────────────────────────────────
 

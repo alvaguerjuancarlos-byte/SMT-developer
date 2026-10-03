@@ -1,7 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { NextRequest, NextResponse } from 'next/server'
 import { requireUser, unauthorized } from '@/lib/api-auth'
-import { callClaudeJson } from '@/lib/llmJson'
+import { callClaudeJson } from '@smt/shared-realestate'
 import {
   factorAltura, factorTopografia, type PendienteLabel,
   calcularPartidas, calcularCostosPorM2, calcularRango,

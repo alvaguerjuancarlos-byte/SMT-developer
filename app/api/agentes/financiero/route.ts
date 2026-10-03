@@ -5,7 +5,7 @@ import { DESCUENTOS_CANCELACIONES, PORCENTAJE_COMERCIALIZACION, RANGOS_HONORARIO
 import { calcularFlujoFinanciero } from '@/lib/analisis/flujoFinanciero'
 import { validarIndirectos, escalarCostoPorMix } from '@/lib/analisis/validacionFinanciera'
 import { evaluarPlausibilidadBanda } from '@/lib/mercado/validarComparableVenta'
-import { callClaudeJson } from '@/lib/llmJson'
+import { callClaudeJson } from '@smt/shared-realestate'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 

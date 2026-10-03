@@ -13,9 +13,10 @@
 // /api/market/resumen (serieSHFParaCiudad), sin duplicar la lógica ni pedirle a la API que mande
 // las 86 filas de cada serie solo para dibujar un botón que la mayoría de las veces no se abre.
 import { useState, useRef, useEffect } from 'react'
-import type { EstimacionPlusvaliaPremium } from '@/lib/market/betaTramoEngine'
-import { serieSHFParaCiudad } from '@/lib/market/shfAppreciationEngine'
-import { SHF_NACIONAL_ECONOMICA_SOCIAL, SHF_NACIONAL_MEDIA_RESIDENCIAL, type PuntoIndiceSHF } from '@/lib/market/shfIndice.data'
+import {
+  type EstimacionPlusvaliaPremium, serieSHFParaCiudad,
+  SHF_NACIONAL_ECONOMICA_SOCIAL, SHF_NACIONAL_MEDIA_RESIDENCIAL, type PuntoIndiceSHF,
+} from '@smt/shared-realestate'
 
 function crecimientoCompuesto(tasaAnualPct: number, anios: number): number {
   return (Math.pow(1 + tasaAnualPct / 100, anios) - 1) * 100

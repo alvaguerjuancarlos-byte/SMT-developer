@@ -9,7 +9,7 @@
 // mitad PURA de ese resolver: traduce un predio real + los datos que ya capturó el usuario en
 // componentes de coincidencia, sin tocar la red.
 
-import { puntoDentroDePoligono } from './geometryEngine'
+import { puntoDentroDePoligono } from '@smt/shared-realestate'
 
 export interface ComponentesMatch {
   cadastralIdMatch: number | null

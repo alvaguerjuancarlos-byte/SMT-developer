@@ -1,9 +1,8 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { NextRequest, NextResponse } from 'next/server'
 import { requireUser, unauthorized } from '@/lib/api-auth'
-import { callClaudeJson } from '@/lib/llmJson'
-import { calcularDensidad, type UnidadDensidad } from '@/lib/normativa/calculos'
-import { consultarNormativaReal } from '@/lib/normativa/geoserverSPGG'
+import { callClaudeJson } from '@smt/shared-realestate'
+import { calcularDensidad, type UnidadDensidad, consultarNormativaReal } from '@smt/shared-realestate'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 

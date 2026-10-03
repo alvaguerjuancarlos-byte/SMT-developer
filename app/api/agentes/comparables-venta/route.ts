@@ -3,7 +3,7 @@ import { requireUser, unauthorized } from '@/lib/api-auth'
 import Anthropic from '@anthropic-ai/sdk'
 import { validarComparableVenta, evaluarPlausibilidadBanda } from '@/lib/mercado/validarComparableVenta'
 import type { ComparableVenta } from '@/lib/mercado/validarComparableVenta'
-import { callClaudeJson } from '@/lib/llmJson'
+import { callClaudeJson } from '@smt/shared-realestate'
 import { geocodificarTexto, distanciaHaversineKm } from '@/lib/geo/geocodeTexto'
 import { registrarFuente, guardarComparablesSnapshot } from '@/lib/market/persistencia'
 

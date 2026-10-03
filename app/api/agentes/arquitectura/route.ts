@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireUser, unauthorized } from '@/lib/api-auth'
 import { calcularEnvolvente, validarMix, validarSuperficieConstruida } from '@/lib/analisis/envolventeYAreas'
 import type { EntradaEnvolvente, SalidaEnvolvente } from '@/lib/analisis/envolventeYAreas'
-import { callClaudeJson } from '@/lib/llmJson'
+import { callClaudeJson } from '@smt/shared-realestate'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 

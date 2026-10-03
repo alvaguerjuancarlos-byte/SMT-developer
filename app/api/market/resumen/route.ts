@@ -24,10 +24,10 @@ import { calcularProductFit } from '@/lib/market/productFitEngine'
 import { calcularOpportunityScore } from '@/lib/market/opportunityEngine'
 import { evidenciaDePrecio, evidenciaDePlusvalia } from '@/lib/market/evidenceEngine'
 import { obtenerSnapshotsHistoricos, obtenerColoniasConHistorial } from '@/lib/market/persistencia'
-import { resolverAbsorcionSNIIV } from '@/lib/market/sniivAbsorcion'
-import { estimarPlusvaliaTramoAlto } from '@/lib/market/betaTramoEngine'
-import { calcularApreciacionSHF, serieSHFParaCiudad } from '@/lib/market/shfAppreciationEngine'
-import { SHF_NACIONAL_ECONOMICA_SOCIAL } from '@/lib/market/shfIndice.data'
+import {
+  resolverAbsorcionSNIIV, estimarPlusvaliaTramoAlto, calcularApreciacionSHF, serieSHFParaCiudad,
+  SHF_NACIONAL_ECONOMICA_SOCIAL,
+} from '@smt/shared-realestate'
 
 interface BodyProductFit {
   unidadesObjetivo: number

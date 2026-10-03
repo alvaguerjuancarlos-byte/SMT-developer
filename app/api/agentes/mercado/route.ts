@@ -1,7 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { NextRequest, NextResponse } from 'next/server'
 import { requireUser, unauthorized } from '@/lib/api-auth'
-import { callClaudeJson } from '@/lib/llmJson'
+import { callClaudeJson } from '@smt/shared-realestate'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
