@@ -41,8 +41,9 @@ export interface EstructuraCapital {
   // (ver lib/analisis/flujoFinanciero.ts). Opcional por compatibilidad con análisis
   // guardados antes de este campo.
   tasaDeudaAnual?: number
-  preventa: { unidadesMinimas: number; porcentajeMinimo: string; montoMinimo: number; condicion: string }
-  tasaDescuento: string; isrEstimado: number; utilidadNeta: number; descripcion: string
+  // Minibodegas en renta (lib/producto/minibodegasFinanciero.ts) no tiene preventa ni ISR/utilidad neta de venta.
+  preventa?: { unidadesMinimas: number; porcentajeMinimo: string; montoMinimo: number; condicion: string }
+  tasaDescuento: string; isrEstimado?: number; utilidadNeta?: number; descripcion: string
 }
 export interface FlujoMes { mes: number; fase: string; egresos: number; ingresos: number; acumulado: number; nota: string }
 export interface FactorScore { factor: string; contribucion: string }
@@ -188,6 +189,14 @@ export interface BitacoraConstruccion {
   superficieVendible?: number
 }
 
+export interface RentaFinanciero {
+  rentaM2Mes: number; rentasVerificadas: number; areaRentableM2: number
+  ingresoBrutoEstabilizadoAnual: number; opexEstabilizadoAnual: number; noiEstabilizadoAnual: number
+  valorActivo: number; yieldOnCostPct: number; paybackMes: number | null
+  mesApertura: number; mesEstabilizacion: number; mesSalida: number
+  supuestos: { ocupacionApertura: number; ocupacionEstabilizada: number; mesesEstabilizacion: number; opexPctIngreso: number; capRateSalida: number; aniosOperacion: number; equityPct: number; tasaDeudaAnual: number }
+}
+
 export interface AnalisisData {
   proyecto?: string
   bitacoraTerreno?: BitacoraTerreno
@@ -221,6 +230,9 @@ export interface AnalisisData {
     // antes de este campo.
     tirProyecto?: number | null
     tirProyectoConverge?: boolean
+    // Minibodegas para renta: ingresosProyectados = valor del activo estabilizado y
+    // utilidadBruta/margenBruto = creación de valor (ver lib/producto/minibodegasFinanciero.ts).
+    renta?: RentaFinanciero
     // Duraciones calculadas por el Agente Financiero según escala del proyecto y absorción
     // de mercado (no la plantilla fija de flujoMensual) — opcionales porque análisis previos
     // a este campo no lo traen. Ver lib/mastermind/contexto.ts para cómo se usan en Mastermind.

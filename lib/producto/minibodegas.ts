@@ -208,3 +208,77 @@ export function stressTestRenta(e: EntradaModeloRenta) {
     return { titulo, base, resultado: r }
   })
 }
+
+// Una nave de almacenamiento se construye más rápido que un edificio de vivienda.
+export function plazoObraMinibodegas(superficieConstruida: number): number {
+  if (superficieConstruida < 1500) return 8
+  if (superficieConstruida < 4000) return 10
+  if (superficieConstruida < 8000) return 14
+  return 18
+}
+
+// Ajustes que el usuario fija en Mastermind (renta) — viajan en el payload de Financiero
+// como data.supuestosRenta y tienen prioridad sobre Mercado y SUPUESTOS_MINIBODEGAS.
+export interface SupuestosRentaUsuario {
+  rentaM2Mes?: number
+  ocupacionEstabilizadaPct?: number
+  mesesEstabilizacion?: number
+  opexPct?: number
+  capRatePct?: number
+  aniosOperacion?: number
+  equityPct?: number
+  tasaDeudaAnual?: number
+}
+
+export interface BaseEntradaRenta {
+  costoTerreno: number
+  costoTotalConstruccion: number
+  superficieConstruida: number
+  areaRentableM2: number
+  rentaM2Mes: number
+  ocupacionEstabilizadaPct?: number
+  mesesEstabilizacion?: number
+  rangoHonorarios: { min: number; max: number }
+  usuario?: SupuestosRentaUsuario
+}
+
+// Misma entrada para el Agente Financiero y para Mastermind — indirectos 16.5%, honorarios al
+// punto medio del rango de la banda e imprevistos 5% sobre construcción, como en el modelo de venta.
+export function armarEntradaRenta(b: BaseEntradaRenta) {
+  const u = b.usuario || {}
+  const pos = (n: unknown) => (typeof n === 'number' && Number.isFinite(n) && n > 0 ? n : undefined)
+  const indirectos = Math.round(b.costoTotalConstruccion * 0.165)
+  const honorarios = Math.round(b.costoTotalConstruccion * ((b.rangoHonorarios.min + b.rangoHonorarios.max) / 2 / 100))
+  const imprevistos = Math.round(b.costoTotalConstruccion * 0.05)
+  const plazoObraMeses = plazoObraMinibodegas(b.superficieConstruida)
+  const ocupPct = pos(u.ocupacionEstabilizadaPct) ?? pos(b.ocupacionEstabilizadaPct) ?? S.ocupacionEstabilizada * 100
+  const entrada: EntradaModeloRenta = {
+    costoTerreno: b.costoTerreno,
+    costoObraTotal: b.costoTotalConstruccion + indirectos + honorarios + imprevistos,
+    areaRentableM2: b.areaRentableM2,
+    rentaM2Mes: pos(u.rentaM2Mes) ?? b.rentaM2Mes,
+    plazoObraMeses,
+    ocupacionEstabilizada: ocupPct / 100,
+    mesesEstabilizacion: pos(u.mesesEstabilizacion) ?? pos(b.mesesEstabilizacion) ?? S.mesesEstabilizacion,
+    opexPctIngreso: pos(u.opexPct) !== undefined ? u.opexPct! / 100 : undefined,
+    capRateSalida: pos(u.capRatePct) !== undefined ? u.capRatePct! / 100 : undefined,
+    aniosOperacion: pos(u.aniosOperacion),
+    equityPct: pos(u.equityPct),
+    tasaDeudaAnual: pos(u.tasaDeudaAnual),
+  }
+  return { entrada, indirectos, honorarios, imprevistos, plazoObraMeses }
+}
+
+// Renta mínima para alcanzar una TIR de proyecto objetivo (búsqueda binaria; null si ni con la
+// renta máxima plausible se alcanza).
+export function rentaParaTir(entrada: EntradaModeloRenta, tirObjetivo: number): number | null {
+  const tir = (renta: number) => calcularModeloRenta({ ...entrada, rentaM2Mes: renta }).tirProyectoAnual ?? -100
+  let lo: number = S.rentaM2MesMin, hi: number = S.rentaM2MesMax
+  if (tir(hi) < tirObjetivo) return null
+  if (tir(lo) >= tirObjetivo) return lo
+  for (let i = 0; i < 40; i++) {
+    const mid = (lo + hi) / 2
+    if (tir(mid) >= tirObjetivo) hi = mid; else lo = mid
+  }
+  return Math.ceil(hi)
+}

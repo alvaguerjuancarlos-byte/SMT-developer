@@ -11,19 +11,11 @@
 
 import type Anthropic from '@anthropic-ai/sdk'
 import { callClaudeJson } from '@smt/shared-realestate'
-import { calcularModeloRenta, stressTestRenta, SUPUESTOS_MINIBODEGAS, type EntradaModeloRenta } from './minibodegas'
+import { calcularModeloRenta, stressTestRenta, armarEntradaRenta, rentaParaTir, SUPUESTOS_MINIBODEGAS, type EntradaModeloRenta, type SupuestosRentaUsuario } from './minibodegas'
 
 const S = SUPUESTOS_MINIBODEGAS
 const r1 = (n: number | null) => n === null ? null : Math.round(n * 10) / 10
 const mxn = (n: number) => `$${Math.round(n).toLocaleString('es-MX')}`
-
-// Una nave de almacenamiento se construye más rápido que un edificio de vivienda.
-export function plazoObraMinibodegas(superficieConstruida: number): number {
-  if (superficieConstruida < 1500) return 8
-  if (superficieConstruida < 4000) return 10
-  if (superficieConstruida < 8000) return 14
-  return 18
-}
 
 export interface EntradaFinancieroMinibodegas {
   data: any
@@ -39,25 +31,22 @@ export interface EntradaFinancieroMinibodegas {
 export async function financieroMinibodegas(client: Anthropic, e: EntradaFinancieroMinibodegas) {
   const { data, costoTerreno, costoTotalConstruccion, superficieRentable } = e
   const renta = data.mercado?.renta ?? {}
-  const rentaM2Mes = Number(renta.rentaM2MesPromedio) || 0
+  const usuario: SupuestosRentaUsuario = data.supuestosRenta || {}
+  const rentaM2Mes = Number(usuario.rentaM2Mes) || Number(renta.rentaM2MesPromedio) || 0
   if (rentaM2Mes < S.rentaM2MesMin || rentaM2Mes > S.rentaM2MesMax) {
     throw new Error('Mercado no regresó una renta por m² válida para minibodegas')
   }
 
-  const indirectos = Math.round(costoTotalConstruccion * 0.165)
-  const honorarios = Math.round(costoTotalConstruccion * ((e.rangoHonorarios.min + e.rangoHonorarios.max) / 2 / 100))
-  const imprevistos = Math.round(costoTotalConstruccion * 0.05)
-  const plazoObraMeses = plazoObraMinibodegas(Number(data.superficieConstruida) || 0)
-
-  const entrada: EntradaModeloRenta = {
-    costoTerreno,
-    costoObraTotal: costoTotalConstruccion + indirectos + honorarios + imprevistos,
+  const { entrada, indirectos, honorarios, imprevistos, plazoObraMeses } = armarEntradaRenta({
+    costoTerreno, costoTotalConstruccion,
+    superficieConstruida: Number(data.superficieConstruida) || 0,
     areaRentableM2: superficieRentable,
     rentaM2Mes,
-    plazoObraMeses,
-    ocupacionEstabilizada: (Number(renta.ocupacionEstabilizadaPct) || S.ocupacionEstabilizada * 100) / 100,
-    mesesEstabilizacion: Number(renta.mesesEstabilizacion) || S.mesesEstabilizacion,
-  }
+    ocupacionEstabilizadaPct: Number(renta.ocupacionEstabilizadaPct) || undefined,
+    mesesEstabilizacion: Number(renta.mesesEstabilizacion) || undefined,
+    rangoHonorarios: e.rangoHonorarios,
+    usuario,
+  })
   const m = calcularModeloRenta(entrada)
   const stress = stressTestRenta(entrada)
   const totalBodegas = (data.unidadesObjetivo && Number(data.unidadesObjetivo)) || null
@@ -124,6 +113,11 @@ REGLAS: scores enteros 0–100; los desgloses suman aprox. indirectos ${mxn(indi
   const costoMax = buscar(x => tirCon({ costoObraTotal: entrada.costoObraTotal * (1 + x) }), Array.from({ length: 41 }, (_, i) => i * 0.025))
   const rentaMin = buscar(x => tirCon({ rentaM2Mes: rentaM2Mes * (1 - x) }), Array.from({ length: 41 }, (_, i) => i * 0.0125))
   const ocupMin = buscar(x => tirCon({ ocupacionEstabilizada: x }), Array.from({ length: 50 }, (_, i) => m.supuestos.ocupacionEstabilizada - i * 0.01))
+  // Si el caso base ya está abajo del umbral, lo útil es al revés: qué hace falta para llegar.
+  const llega = (f: (x: number) => number, pasos: number[]) => pasos.find(x => f(x) >= umbral) ?? null
+  const bajaCostoNecesaria = llega(x => tirCon({ costoObraTotal: entrada.costoObraTotal * (1 - x) }), Array.from({ length: 31 }, (_, i) => i * 0.02))
+  const ocupNecesaria = llega(x => tirCon({ ocupacionEstabilizada: x }), Array.from({ length: 46 }, (_, i) => 0.5 + i * 0.01))
+  const rentaNecesaria = rentaParaTir(entrada, umbral)
 
   const statusTir = (t: number | null) => t === null ? 'red' : t > 18 ? 'green' : t >= 12 ? 'amber' : 'red'
   const tirBase = r1(m.tirProyectoAnual)
@@ -182,6 +176,7 @@ REGLAS: scores enteros 0–100; los desgloses suman aprox. indirectos ${mxn(indi
         fuenteRenta: renta.fuente || null,
         rentasVerificadas: renta.comparablesVerificados ?? 0,
         rentaAjustada: renta.rentaAjustada ?? null,
+        rentaFijadaPorUsuario: !!usuario.rentaM2Mes,
         areaRentableM2: superficieRentable,
         ingresoBrutoEstabilizadoAnual: Math.round(m.ingresoBrutoEstabilizadoAnual),
         opexEstabilizadoAnual: Math.round(m.opexEstabilizadoAnual),
@@ -217,10 +212,10 @@ REGLAS: scores enteros 0–100; los desgloses suman aprox. indirectos ${mxn(indi
       status: statusTir(r1(s.resultado.tirProyectoAnual)),
     })),
     puntoQuiebre: (m.tirProyectoAnual ?? -100) < umbral ? {
-      desviacionMaxCostos: 'Ya en el caso base',
-      absorcionMinViable: 'Ya en el caso base',
-      precioVentaMinimo: 'Ya en el caso base',
-      resumen: `La TIR de proyecto (${tirBase ?? 'N/D'}%) ya está abajo del costo de la deuda (${umbral}%): con estos supuestos no conviene apalancarse. ${n.puntoQuiebreResumen || ''}`.trim(),
+      desviacionMaxCostos: bajaCostoNecesaria === null ? 'Ni bajando 60%' : `Bajar ${Math.round(bajaCostoNecesaria * 100)}%`,
+      absorcionMinViable: ocupNecesaria === null ? 'Ni con 95%' : `${Math.round(ocupNecesaria * 100)}% necesaria`,
+      precioVentaMinimo: rentaNecesaria === null ? 'Fuera de rango' : `${mxn(rentaNecesaria)}/m²/mes necesaria`,
+      resumen: `La TIR de proyecto (${tirBase ?? 'N/D'}%) ya está abajo del costo de la deuda (${umbral}%). Arriba: lo que haría falta, cada variable por separado, para llegar a ${umbral}%. ${n.puntoQuiebreResumen || ''}`.trim(),
     } : {
       desviacionMaxCostos: pct(costoMax, '+'),
       absorcionMinViable: ocupMin === null ? 'menos de lo probado' : `${Math.round(ocupMin * 100)}% de ocupación`,

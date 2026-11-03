@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { esMinibodegas, calcularModeloRenta, stressTestRenta } from '../minibodegas'
+import { esMinibodegas, calcularModeloRenta, stressTestRenta, armarEntradaRenta, rentaParaTir } from '../minibodegas'
 
 describe('esMinibodegas', () => {
   it('detecta el tipo propio y el texto de "Otra idea"', () => {
@@ -69,5 +69,37 @@ describe('stressTestRenta', () => {
     for (const s of stressTestRenta(BASE)) {
       expect(s.resultado.tirProyectoAnual!).toBeLessThan(s.base.tirProyectoAnual!)
     }
+  })
+})
+
+describe('armarEntradaRenta', () => {
+  const base = { costoTerreno: 5_000_000, costoTotalConstruccion: 20_000_000, superficieConstruida: 2_800, areaRentableM2: 2_000, rentaM2Mes: 250, rangoHonorarios: { min: 7, max: 9 } }
+  it('suma indirectos, honorarios e imprevistos a la obra y fija el plazo por superficie', () => {
+    const r = armarEntradaRenta(base)
+    expect(r.indirectos).toBe(3_300_000)
+    expect(r.honorarios).toBe(1_600_000)
+    expect(r.imprevistos).toBe(1_000_000)
+    expect(r.entrada.costoObraTotal).toBe(25_900_000)
+    expect(r.plazoObraMeses).toBe(10)
+  })
+  it('los ajustes del usuario tienen prioridad sobre Mercado', () => {
+    const r = armarEntradaRenta({ ...base, ocupacionEstabilizadaPct: 80, usuario: { rentaM2Mes: 300, ocupacionEstabilizadaPct: 90, capRatePct: 9, tasaDeudaAnual: 11 } })
+    expect(r.entrada.rentaM2Mes).toBe(300)
+    expect(r.entrada.ocupacionEstabilizada).toBeCloseTo(0.9)
+    expect(r.entrada.capRateSalida).toBeCloseTo(0.09)
+    expect(r.entrada.tasaDeudaAnual).toBe(11)
+    expect(armarEntradaRenta({ ...base, ocupacionEstabilizadaPct: 80 }).entrada.ocupacionEstabilizada).toBeCloseTo(0.8)
+  })
+})
+
+describe('rentaParaTir', () => {
+  it('encuentra la renta mínima que da la TIR objetivo', () => {
+    const renta = rentaParaTir(BASE, 15)!
+    expect(renta).toBeGreaterThan(250)
+    expect(calcularModeloRenta({ ...BASE, rentaM2Mes: renta }).tirProyectoAnual!).toBeGreaterThanOrEqual(15)
+    expect(calcularModeloRenta({ ...BASE, rentaM2Mes: renta - 2 }).tirProyectoAnual!).toBeLessThan(15)
+  })
+  it('null si ni con la renta máxima se alcanza', () => {
+    expect(rentaParaTir({ ...BASE, costoObraTotal: 2_000_000_000 }, 15)).toBeNull()
   })
 })
