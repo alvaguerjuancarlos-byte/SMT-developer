@@ -2,6 +2,8 @@ import Anthropic from '@anthropic-ai/sdk'
 import { NextRequest, NextResponse } from 'next/server'
 import { requireUser, unauthorized } from '@/lib/api-auth'
 import { callClaudeJson } from '@smt/shared-realestate'
+import { esMinibodegas } from '@/lib/producto/minibodegas'
+import { promptMercadoMinibodegas, anclarRentaMercado } from '@/lib/producto/minibodegasMercado'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -20,7 +22,7 @@ export async function POST(req: NextRequest) {
   const desarrolloLabels: Record<string, string> = {
     'residencial-vertical': 'Residencial vertical', 'residencial-horizontal': 'Residencial horizontal',
     unifamiliar: 'Unifamiliar', comercial: 'Comercial', mixto: 'Uso mixto',
-    industrial: 'Industrial / Nave', 'no-definido': 'Sin definir',
+    industrial: 'Industrial / Nave', minibodegas: 'Minibodegas para renta (self storage)', 'no-definido': 'Sin definir',
   }
 
   const tiposLabels = (data.tiposDesarrollo as string[] || [])
@@ -176,12 +178,16 @@ REGLAS:
 - ofertaActiva.proyectosEnPreventa, proyectosEnObra, proyectosEntregados24m: números enteros
 - Retorna ÚNICAMENTE el JSON, sin markdown, sin texto extra`
 
+  // Minibodegas se rentan: otro análisis (rentas, ocupación, competidores) — ver lib/producto.
+  const minibodegas = esMinibodegas(data.tiposDesarrollo, data.tipoOtroTexto)
+
   try {
     const parsed = await callClaudeJson(client, {
       model: 'claude-sonnet-4-6',
       max_tokens: 4000,
-      messages: [{ role: 'user', content: prompt + serperContext }],
+      messages: [{ role: 'user', content: minibodegas ? promptMercadoMinibodegas(data, comparablesPrecargados) : prompt + serperContext }],
     })
+    if (minibodegas && parsed.mercado) parsed.mercado.renta = anclarRentaMercado(parsed.mercado.renta, comparablesPrecargados)
     return NextResponse.json(parsed)
   } catch (error) {
     console.error('Agente Mercado error:', error)

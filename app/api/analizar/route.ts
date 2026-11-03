@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
 
   const desarrolloLabels: Record<string, string> = {
     'residencial-vertical': 'Residencial vertical', 'residencial-horizontal': 'Residencial horizontal',
-    comercial: 'Comercial', mixto: 'Uso mixto', industrial: 'Industrial / Nave', 'no-definido': 'Sin definir',
+    comercial: 'Comercial', mixto: 'Uso mixto', industrial: 'Industrial / Nave', minibodegas: 'Minibodegas para renta (self storage)', 'no-definido': 'Sin definir',
   }
 
   const pendienteLabels: Record<string, string> = {

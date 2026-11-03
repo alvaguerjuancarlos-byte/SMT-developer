@@ -6,6 +6,8 @@ import type { ComparableVenta } from '@/lib/mercado/validarComparableVenta'
 import { callClaudeJson } from '@smt/shared-realestate'
 import { geocodificarTexto, distanciaHaversineKm } from '@/lib/geo/geocodeTexto'
 import { buscarSerper, formatearResultados, numeroDeFuente, verificarCampo, type MotivoDescarte } from '@/lib/mercado/serperComparables'
+import { buscarRentasMinibodegas } from '@/lib/mercado/rentasMinibodegas'
+import { esMinibodegas } from '@/lib/producto/minibodegas'
 import { registrarFuente, guardarComparablesSnapshot } from '@/lib/market/persistencia'
 
 // Bloque 5 — "ningún comparable proviene de más de 5km" (criterio de aceptación del bloque
@@ -29,7 +31,7 @@ export async function POST(req: NextRequest) {
   const user = await requireUser(req)
   if (!user) return unauthorized()
 
-  const { colonia, ciudad, estado, codigoPostal, tiposDesarrollo, bandaConstruccion, lat, lng, proyectoId } = await req.json()
+  const { colonia, ciudad, estado, codigoPostal, tiposDesarrollo, tipoOtroTexto, bandaConstruccion, lat, lng, proyectoId } = await req.json()
 
   const serperKey = process.env.SERPER_API_KEY?.trim()
   if (!serperKey) {
@@ -37,6 +39,12 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    // Minibodegas se rentan: los comparables son rentas de bodegas, no ventas. No se guardan en
+    // el snapshot de mercado (ese histórico es de precios de venta/m²).
+    if (esMinibodegas(tiposDesarrollo, tipoOtroTexto)) {
+      return NextResponse.json(await buscarRentasMinibodegas(client, serperKey, { colonia, ciudad, estado }))
+    }
+
     const lugar = [colonia, ciudad, estado].filter(Boolean).join(' ')
     const palabraClave = palabraClaveVenta(tiposDesarrollo)
     const zona = [colonia, ciudad, codigoPostal].filter(Boolean).join(' ')

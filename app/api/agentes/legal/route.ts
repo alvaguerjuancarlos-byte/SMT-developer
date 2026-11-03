@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
   const desarrolloLabels: Record<string, string> = {
     'residencial-vertical': 'Residencial vertical', 'residencial-horizontal': 'Residencial horizontal',
     unifamiliar: 'Unifamiliar', comercial: 'Comercial', mixto: 'Uso mixto',
-    industrial: 'Industrial / Nave', 'no-definido': 'Sin definir',
+    industrial: 'Industrial / Nave', minibodegas: 'Minibodegas para renta (self storage)', 'no-definido': 'Sin definir',
   }
 
   const tiposLabels = (data.tiposDesarrollo as string[] || [])

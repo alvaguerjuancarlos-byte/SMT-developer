@@ -2,6 +2,8 @@ import Anthropic from '@anthropic-ai/sdk'
 import { NextRequest, NextResponse } from 'next/server'
 import { requireUser, unauthorized } from '@/lib/api-auth'
 import { callClaudeJson } from '@smt/shared-realestate'
+import { esMinibodegas } from '@/lib/producto/minibodegas'
+import { aplicarBloqueConstruccionMinibodegas } from '@/lib/producto/minibodegasConstruccion'
 import {
   factorAltura, factorTopografia, type PendienteLabel,
   calcularPartidas, calcularCostosPorM2, calcularRango,
@@ -34,7 +36,7 @@ export async function POST(req: NextRequest) {
   const desarrolloLabels: Record<string, string> = {
     'residencial-vertical': 'Residencial vertical', 'residencial-horizontal': 'Residencial horizontal',
     unifamiliar: 'Unifamiliar', comercial: 'Comercial', mixto: 'Uso mixto',
-    industrial: 'Industrial / Nave', 'no-definido': 'Sin definir',
+    industrial: 'Industrial / Nave', minibodegas: 'Minibodegas para renta (self storage)', 'no-definido': 'Sin definir',
   }
 
   const tiposLabels = (data.tiposDesarrollo as string[] || [])
@@ -45,9 +47,10 @@ export async function POST(req: NextRequest) {
     ? zonasFijas.map(z => `- ${z.zona} (${z.concepto || ''}): ${z.m2} m² — participación ${z.participacion}${z.cajonesEstimados ? `, ${z.cajonesEstimados} cajones a ~${z.m2PorCajon} m²/cajón` : ''}`).join('\n')
     : '- No llegó desglose de zonas del Agente de Arquitectura — distribuye tú mismo la superficie construida en las 5 zonas estándar (vendible/estacionamiento/circulaciones/áreas comunes/cuartos de servicio) con proporciones típicas.'
 
-  const tipologiaTexto = `${tip.niveles ? `${tip.niveles} niveles` : 'niveles no especificados'}${tip.habitacional ? `, ${tip.habitacional.totalDepartamentos} departamentos` : ''}${tip.comercial ? `, ${tip.comercial.totalLocales} locales comerciales en ${tip.comercial.niveles} niveles` : ''}${tip.tamanoAmenidades ? `, amenidades nivel ${tip.tamanoAmenidades}/3` : ''}`
+  const minibodegas = esMinibodegas(data.tiposDesarrollo, data.tipoOtroTexto)
+  const tipologiaTexto = `${tip.niveles ? `${tip.niveles} niveles` : 'niveles no especificados'}${tip.habitacional ? `, ${tip.habitacional.totalDepartamentos} ${minibodegas ? 'bodegas' : 'departamentos'}` : ''}${tip.comercial ? `, ${tip.comercial.totalLocales} locales comerciales en ${tip.comercial.niveles} niveles` : ''}${tip.tamanoAmenidades ? `, amenidades nivel ${tip.tamanoAmenidades}/3` : ''}`
 
-  const prompt = `Eres el Agente de Costos de Construcción de SMT Developer: un motor PARAMÉTRICO de costos de
+  let prompt = `Eres el Agente de Costos de Construcción de SMT Developer: un motor PARAMÉTRICO de costos de
 prefactibilidad, no una calculadora de precio único por m². No cambias m², niveles, tipología ni número de
 unidades — eso ya lo resolvió el Agente de Arquitectura. Tu trabajo es construir el costo directo mediante:
   COSTO_DIRECTO = Σ (superficie de cada zona × costo base de la zona × factores de ajuste)
@@ -320,6 +323,7 @@ REGLAS:
 - Nunca apliques un factor adicional de acabados/instalaciones sobre el costo base: la banda elegida ya los representa
 - Nunca fuerces costoPorM2Final ni rangoReferencia para que coincidan con el benchmark de la sección de costo base — si difieren, explica la causa en razonamiento
 - Retorna ÚNICAMENTE el JSON, sin markdown, sin texto extra`
+  if (minibodegas) prompt = aplicarBloqueConstruccionMinibodegas(prompt)
 
   try {
     const parsed = await callClaudeJson(client, {

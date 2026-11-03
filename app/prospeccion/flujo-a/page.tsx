@@ -74,6 +74,7 @@ const TIPOS_DESARROLLO = [
   { id: 'comercial',              label: 'Comercial',              sub: 'Local, plaza o strip center' },
   { id: 'mixto',                  label: 'Uso mixto',              sub: 'Comercio + vivienda' },
   { id: 'industrial',             label: 'Industrial / Nave',      sub: 'Bodega, manufactura o logística' },
+  { id: 'minibodegas',            label: 'Minibodegas',            sub: 'Bodegas chicas en renta (self storage)' },
   { id: 'otro',                    label: 'Otra idea…',             sub: 'Descríbela y el análisis la evaluará' },
 ]
 

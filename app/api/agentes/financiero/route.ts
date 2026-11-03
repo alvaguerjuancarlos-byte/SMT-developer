@@ -6,6 +6,8 @@ import { calcularFlujoFinanciero } from '@/lib/analisis/flujoFinanciero'
 import { validarIndirectos, escalarCostoPorMix } from '@/lib/analisis/validacionFinanciera'
 import { evaluarPlausibilidadBanda } from '@/lib/mercado/validarComparableVenta'
 import { callClaudeJson } from '@smt/shared-realestate'
+import { esMinibodegas } from '@/lib/producto/minibodegas'
+import { financieroMinibodegas } from '@/lib/producto/minibodegasFinanciero'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -55,6 +57,20 @@ export async function POST(req: NextRequest) {
   const superficieVendibleConstruccion = Number(data.superficieVendibleConstruccion) || superficieVendible
   const escaladoMix = escalarCostoPorMix(costoTotalConstruccionSinEscalar, superficieVendible, superficieVendibleConstruccion)
   const costoTotalConstruccion = escaladoMix.costoTotalConstruccionEscalado
+
+  // Minibodegas se rentan, no se venden: modelo de renta propio (ver lib/producto/minibodegas.ts).
+  if (esMinibodegas(data.tiposDesarrollo, data.tipoOtroTexto)) {
+    try {
+      return NextResponse.json(await financieroMinibodegas(client, {
+        data, costoTerreno: Number(costoTerreno) || 0, costoTerrenoM2, construccionM2,
+        costoTotalConstruccion: Number(costoTotalConstruccion) || 0, escaladoMix,
+        superficieRentable: Number(superficieVendible) || 0, rangoHonorarios,
+      }))
+    } catch (error) {
+      console.error('Agente Financiero (minibodegas) error:', error)
+      return NextResponse.json({ error: error instanceof Error ? error.message : 'Error en Agente Financiero' }, { status: 500 })
+    }
+  }
 
   const prompt = `Eres el Agente Financiero y Mastermind de SMT Developer.
 Tu tarea es construir el modelo financiero completo del proyecto inmobiliario, usando los valores ya validados de terreno, construcción, normativa y mercado.

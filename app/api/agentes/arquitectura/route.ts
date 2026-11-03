@@ -4,6 +4,8 @@ import { requireUser, unauthorized } from '@/lib/api-auth'
 import { calcularEnvolvente, validarMix, validarSuperficieConstruida } from '@/lib/analisis/envolventeYAreas'
 import type { EntradaEnvolvente, SalidaEnvolvente } from '@/lib/analisis/envolventeYAreas'
 import { callClaudeJson } from '@smt/shared-realestate'
+import { esMinibodegas } from '@/lib/producto/minibodegas'
+import { aplicarPasosMinibodegas } from '@/lib/producto/minibodegasArquitectura'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -15,8 +17,9 @@ const ESTACIONAMIENTO_LABELS: Record<string, string> = {
 // Mapeo pragmático de tiposDesarrollo (intake) a la tipología de eficiencia vendible del
 // módulo determinístico — no hay categoría 1:1 para "industrial"/"no-definido"/"otro", se
 // tratan como 'vertical' (el fallback más conservador de los tres perfiles definidos).
-function tipologiaEnvolvente(tiposDesarrollo: string[] | undefined): EntradaEnvolvente['tipologia'] {
+function tipologiaEnvolvente(tiposDesarrollo: string[] | undefined, tipoOtroTexto?: string): EntradaEnvolvente['tipologia'] {
   const tipos = tiposDesarrollo || []
+  if (esMinibodegas(tipos, tipoOtroTexto)) return 'minibodegas'
   if (tipos.includes('mixto') || tipos.includes('comercial')) return 'mixto'
   if (tipos.includes('residencial-horizontal') || tipos.includes('unifamiliar')) return 'horizontal'
   return 'vertical'
@@ -37,11 +40,13 @@ export async function POST(req: NextRequest) {
   const cos = Number(fl?.cosNum) || 0
   const cus = Number(fl?.cusNum) || 0
   const nivelesMax = Number(fl?.nivelesMax) || 0
-  const densidadMaxUnidades = Number(fl?.densidadMaxUnidades) || undefined
+  const minibodegas = esMinibodegas(data.tiposDesarrollo, data.tipoOtroTexto)
+  // La densidad máxima es de viviendas — no limita el número de bodegas.
+  const densidadMaxUnidades = minibodegas ? undefined : Number(fl?.densidadMaxUnidades) || undefined
   const envolvente: SalidaEnvolvente | null = (superficieTerreno > 0 && cos > 0 && cus > 0 && nivelesMax > 0)
     ? calcularEnvolvente({
         superficieTerreno, cos, cus, nivelesMax, densidadMaxUnidades,
-        tipologia: tipologiaEnvolvente(data.tiposDesarrollo),
+        tipologia: tipologiaEnvolvente(data.tiposDesarrollo, data.tipoOtroTexto),
       })
     : null
 
@@ -54,14 +59,14 @@ export async function POST(req: NextRequest) {
   const desarrolloLabels: Record<string, string> = {
     'residencial-vertical': 'Residencial vertical', 'residencial-horizontal': 'Residencial horizontal',
     unifamiliar: 'Unifamiliar', comercial: 'Comercial', mixto: 'Uso mixto',
-    industrial: 'Industrial / Nave', 'no-definido': 'Sin definir',
+    industrial: 'Industrial / Nave', minibodegas: 'Minibodegas para renta (self storage)', 'no-definido': 'Sin definir',
   }
 
   const tiposLabels = (data.tiposDesarrollo as string[] || [])
     .map((t: string) => t === 'otro' ? (data.tipoOtroTexto || 'Otro') : (desarrolloLabels[t] || t))
     .join(', ')
 
-  const prompt = `Eres el Agente de Arquitectura de SMT Developer.
+  let prompt = `Eres el Agente de Arquitectura de SMT Developer.
 Tu única tarea es proponer el diseño del proyecto — envolvente legal, desglose de áreas por zona (m², no costo) y tipología de unidades — maximizando la capacidad que permite la normativa del predio.
 No calculas costos de construcción, valor de terreno ni mercado. El Agente de Construcción tomará tu diseño como dato ya aprobado y solo lo costeará; el Agente de Mercado evalúa después si ese tamaño de proyecto tiene demanda, pero esa evaluación no te corresponde a ti ni debe achicar tu propuesta.
 
@@ -213,6 +218,7 @@ ${densidadMaxUnidades ? `- El total de unidades habitacionales propuestas debe a
 - desgloseZonas[*].participacion debe reflejar el % real de cada zona sobre superficieConstruida
 - bitacoraArquitectura.superficieConstruida/superficieVendible deben coincidir exactamente con las variables raíz del mismo nombre
 - Retorna ÚNICAMENTE el JSON, sin markdown, sin texto extra`
+  if (minibodegas) prompt = aplicarPasosMinibodegas(prompt, envolvente)
 
   try {
     const parsed = await callClaudeJson(client, {
@@ -232,6 +238,14 @@ ${densidadMaxUnidades ? `- El total de unidades habitacionales propuestas debe a
       // modelo lo repita) para que la UI sepa con certeza qué botón de tipo de estacionamiento
       // está activo, sin tener que parsear el texto libre de "concepto".
       ba.tipoEstacionamientoFijado = data.estacionamientoOverride || null
+      if (minibodegas && ba.tipologiaPropuesta) {
+        ba.tipologiaPropuesta.producto = 'minibodegas'
+        // El total que reporta el modelo no siempre coincide con su propio mix (visto: 299 vs 362).
+        const mixMB = ba.tipologiaPropuesta.habitacional?.mix
+        if (Array.isArray(mixMB) && mixMB.length > 0) {
+          ba.tipologiaPropuesta.habitacional.totalDepartamentos = mixMB.reduce((s: number, r: any) => s + (Number(r.unidades) || 0), 0)
+        }
+      }
     }
 
     // Validación de mix contra el envolvente determinístico (lib/analisis/envolventeYAreas.ts)
