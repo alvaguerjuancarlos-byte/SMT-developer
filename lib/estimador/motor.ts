@@ -1,4 +1,4 @@
-// Motor de cálculo del Estimador de Costos SMT Developer
+// Motor de cálculo del Estimador de Costos SMT Land
 // Módulo TypeScript puro — sin LLM, sin efectos secundarios, 100% determinístico.
 // Cada función es pura y componible; el orchestrator calcular() las ensambla en secuencia.
 

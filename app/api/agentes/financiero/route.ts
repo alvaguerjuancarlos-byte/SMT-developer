@@ -72,7 +72,7 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const prompt = `Eres el Agente Financiero y Mastermind de SMT Developer.
+  const prompt = `Eres el Agente Financiero y Mastermind de SMT Land.
 Tu tarea es construir el modelo financiero completo del proyecto inmobiliario, usando los valores ya validados de terreno, construcción, normativa y mercado.
 Los valores de terreno y construcción ya fueron calculados y aprobados — NO los recalcules, úsalos exactamente.
 

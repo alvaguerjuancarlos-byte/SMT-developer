@@ -726,7 +726,7 @@ export default function FlujoB() {
         </div>
         <div>
           <span className="text-[15px] tracking-wide" style={{ fontFamily: 'var(--font-fraunces)', fontWeight: 500, color: '#f4f0e6' }}>
-            SMT <em style={{ fontStyle: 'normal', color: '#8FB6E8' }}>Developer</em>
+            SMT <em style={{ fontStyle: 'normal', color: '#8FB6E8' }}>Land</em>
           </span>
           <span className="block text-[10px] text-[#8b96ab] tracking-[0.12em] uppercase">Inteligencia inmobiliaria</span>
         </div>

@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
     privada:    'Privada / Andador — acceso cerrado o sin salida (factor -5% a -10%)',
   }
 
-  const prompt = `Eres el Agente Mastermind de SMT Developer, especialista en análisis de inversión inmobiliaria en México.
+  const prompt = `Eres el Agente Mastermind de SMT Land, especialista en análisis de inversión inmobiliaria en México.
 
 Con base en los siguientes datos del terreno, genera un análisis de inversión completo y profesional.
 

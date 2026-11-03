@@ -17,7 +17,7 @@ export default function ContextBar() {
 
   const activeStep = steps.find(s => pathname.startsWith(s.href))?.step ?? 1
 
-  // PREFORMA es una pantalla completa aparte, sin el breadcrumb de pasos de SMT Developer.
+  // PREFORMA es una pantalla completa aparte, sin el breadcrumb de pasos de SMT Land.
   if (pathname?.startsWith('/preforma')) return null
 
   // El selector de camino (portada) trae su propio header navy/oro — sin chrome duplicado.

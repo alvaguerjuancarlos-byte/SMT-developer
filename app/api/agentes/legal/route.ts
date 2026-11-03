@@ -82,7 +82,7 @@ export async function POST(req: NextRequest) {
     ? `\n\nRESULTADOS DE BÚSQUEDA REAL (Google, vía Serper) — ÚNICA fuente permitida para respaldar COS/CUS/altura/retiros/factibilidades:\n${snippets.join('\n---\n')}\n\nUsa ÚNICAMENTE estos resultados para fundamentar valores normativos. Si no confirman un dato específico, NO lo completes de memoria — dilo explícitamente en la alerta correspondiente y baja nivelRiesgo/confianza de ese punto.${gisBlock}`
     : `\n\nNO se encontraron resultados de búsqueda real para este municipio/colonia (SERPER_API_KEY ausente o sin resultados). NO tienes ninguna fuente verificada para COS/CUS/altura — cualquier valor que devuelvas es una ESTIMACIÓN basada en tu conocimiento general, no en una fuente consultada. Debes decirlo explícitamente.${gisBlock}`
 
-  const prompt = `Eres el Agente Legal y Normativo de SMT Developer.
+  const prompt = `Eres el Agente Legal y Normativo de SMT Land.
 Tu única tarea es analizar la normativa urbana y legal aplicable al predio: uso de suelo, Plan de Desarrollo Urbano, restricciones, factibilidades y alertas legales.
 No calculas valores, costos ni mercado — solo normativa.
 

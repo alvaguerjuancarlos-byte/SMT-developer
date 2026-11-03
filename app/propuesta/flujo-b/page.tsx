@@ -278,7 +278,7 @@ function PropuestaFlujoBContent() {
           </svg>
         </div>
         <div>
-          <span className="text-[15px] tracking-wide" style={{ fontFamily: 'var(--font-fraunces)', fontWeight: 500 }}>SMT <em style={{ fontStyle: 'normal', color: '#8FB6E8' }}>Developer</em></span>
+          <span className="text-[15px] tracking-wide" style={{ fontFamily: 'var(--font-fraunces)', fontWeight: 500 }}>SMT <em style={{ fontStyle: 'normal', color: '#8FB6E8' }}>Land</em></span>
           <span className="block text-[10px] text-[#8b96ab] tracking-[0.12em] uppercase">Inteligencia inmobiliaria</span>
         </div>
         <div className="ml-auto flex items-center gap-2">
@@ -346,7 +346,7 @@ function PropuestaFlujoBContent() {
                     </svg>
                   </div>
                   <div>
-                    <p className="text-[14px] font-semibold text-[#f4f0e6]">SMT Developer</p>
+                    <p className="text-[14px] font-semibold text-[#f4f0e6]">SMT Land</p>
                     <p className="text-[10px] text-[#f4f0e6]/40 tracking-[0.12em] uppercase">Inteligencia inmobiliaria</p>
                   </div>
                 </div>
@@ -598,7 +598,7 @@ function PropuestaFlujoBContent() {
                   </svg>
                 </div>
                 <div>
-                  <p className="text-[14px] font-bold text-[#f4f0e6]">SMT Developer</p>
+                  <p className="text-[14px] font-bold text-[#f4f0e6]">SMT Land</p>
                   <p className="text-[11px] text-[#f4f0e6]/40">Inteligencia inmobiliaria</p>
                 </div>
               </div>
@@ -609,7 +609,7 @@ function PropuestaFlujoBContent() {
             </div>
             <div className="bg-[#0e2038] px-8 py-4">
               <p className="text-[11px] text-[#5f6a80] leading-relaxed">
-                <strong className="text-[#8b96ab]">Aviso de confidencialidad:</strong> Este documento ha sido generado por SMT Developer con base en información de mercado disponible al {today} y constituye una proyección con fines informativos para inversionistas calificados. Las cifras son estimaciones y no garantizan rendimientos futuros. Se recomienda complementar con debida diligencia completa. Distribución restringida — uso exclusivo del destinatario.
+                <strong className="text-[#8b96ab]">Aviso de confidencialidad:</strong> Este documento ha sido generado por SMT Land con base en información de mercado disponible al {today} y constituye una proyección con fines informativos para inversionistas calificados. Las cifras son estimaciones y no garantizan rendimientos futuros. Se recomienda complementar con debida diligencia completa. Distribución restringida — uso exclusivo del destinatario.
               </p>
             </div>
           </div>

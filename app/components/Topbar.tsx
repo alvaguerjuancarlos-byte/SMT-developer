@@ -30,7 +30,7 @@ export default function Topbar() {
     router.push('/login')
   }
 
-  // PREFORMA es una pantalla completa aparte, sin el chrome verde de SMT Developer.
+  // PREFORMA es una pantalla completa aparte, sin el chrome verde de SMT Land.
   if (pathname?.startsWith('/preforma')) return null
 
   // El selector de camino (portada) trae su propio header navy/oro — sin chrome duplicado.
@@ -82,7 +82,7 @@ export default function Topbar() {
                 </svg>
               </div>
               <Link href="/" className="font-bold text-lg tracking-tight text-[#f4f0e6] transition-colors whitespace-nowrap" onMouseEnter={e => (e.currentTarget.style.color = accentLt)} onMouseLeave={e => (e.currentTarget.style.color = '#f4f0e6')}>
-                SMT Developer
+                SMT Land
               </Link>
             </div>
 
@@ -138,15 +138,6 @@ export default function Topbar() {
                 <span className="text-[#f4f0e6] font-medium text-sm truncate max-w-[160px]">{terrain.nombre}</span>
               </div>
             )}
-            <Link
-              href="/preforma"
-              className="text-xs font-semibold rounded-full px-3 py-1.5 transition-colors"
-              style={{ color: accentLt, border: `1px solid ${accent}` }}
-              onMouseEnter={e => { e.currentTarget.style.backgroundColor = accent; e.currentTarget.style.color = '#070f22' }}
-              onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = accentLt }}
-            >
-              PREFORMA
-            </Link>
             {email && (
               <>
                 <Link
@@ -178,18 +169,12 @@ export default function Topbar() {
             </svg>
           </div>
           <Link href="/" className="text-[#f4f0e6] font-bold text-lg tracking-tight hover:text-[#ddc06a] transition-colors">
-            SMT Developer
+            SMT Land
           </Link>
           <span className="text-[#2a3f5c] text-sm">|</span>
           <span className="text-[#8b96ab] text-sm">Plataforma de Análisis Inmobiliario</span>
         </div>
         <div className="flex items-center gap-4">
-          <Link
-            href="/preforma"
-            className="text-xs font-semibold text-[#ddc06a] border border-[#c9a227] hover:bg-[#c9a227] hover:text-[#070f22] rounded-full px-3 py-1.5 transition-colors"
-          >
-            PREFORMA
-          </Link>
           <span className="text-[#5f6a80] text-xs">v3.0 · Jul 2026</span>
           {email && (
             <>

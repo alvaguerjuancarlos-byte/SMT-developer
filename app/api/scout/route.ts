@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
       ? `- Coordenadas GPS verificadas: lat ${zonasGeo[0].lat}, lng ${zonasGeo[0].lng} — CRÍTICO: los 3 candidatos deben estar dentro de un radio de 1.5 km de este punto`
       : `- Zonas candidatas verificadas por GPS (${zonasGeo.length}) — CRÍTICO: cada candidato debe estar dentro de un radio de 1.5 km de AL MENOS UNA de estas zonas. Evalúa las ${zonasGeo.length} zonas en conjunto y elige entre todas ellas los 3 mejores candidatos — no es necesario un candidato por zona, pueden concentrarse en la(s) zona(s) más fuerte(s):\n${listaZonas('  ')}`
 
-  const prompt = `Eres el Agente Scout de SMT Developer, especialista en prospección de terrenos en el mercado inmobiliario mexicano.
+  const prompt = `Eres el Agente Scout de SMT Land, especialista en prospección de terrenos en el mercado inmobiliario mexicano.
 
 El cliente busca un terreno con los siguientes criterios:
 - Proyecto: ${data.nombreProyecto}

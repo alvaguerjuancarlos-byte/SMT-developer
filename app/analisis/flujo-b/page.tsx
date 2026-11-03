@@ -293,7 +293,7 @@ function AnalisisflujoB() {
           </svg>
         </div>
         <div>
-          <span className="text-[15px] tracking-wide" style={{ fontFamily: 'var(--font-fraunces)', fontWeight: 500 }}>SMT <em style={{ fontStyle: 'normal', color: '#8FB6E8' }}>Developer</em></span>
+          <span className="text-[15px] tracking-wide" style={{ fontFamily: 'var(--font-fraunces)', fontWeight: 500 }}>SMT <em style={{ fontStyle: 'normal', color: '#8FB6E8' }}>Land</em></span>
           <span className="block text-[10px] text-[#8b96ab] tracking-[0.12em] uppercase">Inteligencia inmobiliaria</span>
         </div>
         <div className="ml-auto flex items-center gap-3">
@@ -338,7 +338,7 @@ function AnalisisflujoB() {
                     </svg>
                   </div>
                   <div>
-                    <p className="text-[14px] font-semibold text-[#f4f0e6]">SMT Developer</p>
+                    <p className="text-[14px] font-semibold text-[#f4f0e6]">SMT Land</p>
                     <p className="text-[10px] text-[#f4f0e6]/40 tracking-[0.12em] uppercase">Inteligencia inmobiliaria</p>
                   </div>
                 </div>

@@ -86,7 +86,7 @@ export default function LoginPage() {
             </svg>
           </div>
           <h1 className="text-[22px] tracking-tight" style={{ fontFamily: 'var(--font-fraunces)', fontWeight: 500, color: '#f4f0e6', textShadow: '0 2px 16px rgba(7,15,34,0.6)' }}>
-            SMT <em style={{ fontStyle: 'normal', color: '#ddc06a' }}>Developer</em>
+            SMT <em style={{ fontStyle: 'normal', color: '#ddc06a' }}>Land</em>
           </h1>
           <p className="text-[11px] text-[#c7ccd6] tracking-[0.14em] uppercase mt-0.5" style={{ fontFamily: 'var(--font-plex-mono)', textShadow: '0 1px 10px rgba(7,15,34,0.6)' }}>Inteligencia inmobiliaria</p>
         </div>

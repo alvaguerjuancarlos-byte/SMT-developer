@@ -62,7 +62,7 @@ export async function financieroMinibodegas(client: Anthropic, e: EntradaFinanci
 - Payback solo con rentas: ${m.paybackMes ? `mes ${m.paybackMes}` : 'no se alcanza en el horizonte'}
 - Stress test (TIR proyecto): ${stress.map(s => `${s.titulo}: ${r1(s.resultado.tirProyectoAnual) ?? 'N/D'}%`).join(' · ')}`
 
-  const prompt = `Eres el Agente Financiero y Mastermind de SMT Developer. El proyecto es de MINIBODEGAS PARA RENTA
+  const prompt = `Eres el Agente Financiero y Mastermind de SMT Land. El proyecto es de MINIBODEGAS PARA RENTA
 (self storage) en ${data.colonia ? `${data.colonia}, ` : ''}${data.ciudad}, ${data.estado}. No se venden unidades: el negocio es
 rentar bodegas por mes, llenar el inmueble y quedarse con el flujo (o vender el activo estabilizado).
 

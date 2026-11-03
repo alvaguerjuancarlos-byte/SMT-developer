@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
   // Strip fuentes from context — not needed for Q&A and saves tokens
   const { fuentes: _f, proyecto: _p, ...analisisCore } = analisis
 
-  const systemPrompt = `Eres el Agente Mastermind de SMT Developer, especialista en análisis de inversión inmobiliaria en México. El usuario tiene preguntas sobre el análisis de inversión que generaste para el proyecto "${analisis.proyecto || 'este terreno'}".
+  const systemPrompt = `Eres el Agente Mastermind de SMT Land, especialista en análisis de inversión inmobiliaria en México. El usuario tiene preguntas sobre el análisis de inversión que generaste para el proyecto "${analisis.proyecto || 'este terreno'}".
 
 ANÁLISIS GENERADO:
 ${JSON.stringify(analisisCore, null, 2)}

@@ -1036,7 +1036,7 @@ function FluidoAContent() {
                 </svg>
               </div>
               <span className="text-[14px] hidden sm:block" style={{ fontFamily: 'var(--font-fraunces)', fontWeight: 500, color: '#f4f0e6' }}>
-                SMT <em style={{ fontStyle: 'normal', color: '#ddc06a' }}>Developer</em>
+                SMT <em style={{ fontStyle: 'normal', color: '#ddc06a' }}>Land</em>
               </span>
             </div>
           </div>

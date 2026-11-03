@@ -348,7 +348,7 @@ function PropuestaContent() {
           </svg>
         </div>
         <div>
-          <span className="text-[15px] font-medium text-[#f4f0e6] tracking-wide">SMT Developer</span>
+          <span className="text-[15px] font-medium text-[#f4f0e6] tracking-wide">SMT Land</span>
           <span className="block text-[10px] text-[#8b96ab] tracking-[0.12em] uppercase">Inteligencia inmobiliaria</span>
         </div>
         <div className="ml-auto flex items-center gap-2">
@@ -425,7 +425,7 @@ function PropuestaContent() {
                     </svg>
                   </div>
                   <div>
-                    <p className="text-[14px] font-semibold text-white">SMT Developer</p>
+                    <p className="text-[14px] font-semibold text-white">SMT Land</p>
                     <p className="text-[10px] text-white/40 tracking-[0.12em] uppercase">Inteligencia inmobiliaria</p>
                   </div>
                 </div>
@@ -1049,7 +1049,7 @@ function PropuestaContent() {
                   </svg>
                 </div>
                 <div>
-                  <p className="text-[14px] font-bold text-white">SMT Developer</p>
+                  <p className="text-[14px] font-bold text-white">SMT Land</p>
                   <p className="text-[11px] text-white/40">Inteligencia inmobiliaria</p>
                 </div>
               </div>
@@ -1060,7 +1060,7 @@ function PropuestaContent() {
             </div>
             <div className="bg-white px-8 py-4">
               <p className="text-[11px] text-[#9aab9f] leading-relaxed">
-                <strong className="text-[#5C7186]">Aviso de confidencialidad:</strong> Este documento ha sido generado por SMT Developer con base en información de mercado disponible al {today} y constituye una proyección con fines informativos para inversionistas calificados. Las cifras presentadas son estimaciones y no garantizan rendimientos futuros.
+                <strong className="text-[#5C7186]">Aviso de confidencialidad:</strong> Este documento ha sido generado por SMT Land con base en información de mercado disponible al {today} y constituye una proyección con fines informativos para inversionistas calificados. Las cifras presentadas son estimaciones y no garantizan rendimientos futuros.
               </p>
             </div>
           </div>

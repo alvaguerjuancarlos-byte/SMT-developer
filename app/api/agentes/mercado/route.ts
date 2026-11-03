@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
       (hayMarcados ? ` Los comparables marcados con ⚠ están muy por encima de la banda de construcción de este proyecto — no los descartes automáticamente (podría ser plusvalía real de ubicación), pero no ancles precioPromedioZona solo en ellos si el resto de comparables sin marcar sugiere algo más modesto.` : '')
   }
 
-  const prompt = `Eres el Agente de Análisis de Mercado de SMT Developer.
+  const prompt = `Eres el Agente de Análisis de Mercado de SMT Land.
 Tu única tarea es analizar el mercado inmobiliario de la zona del predio: comparables de venta, absorción, precios, segmentación y oferta activa.
 No calculas valor del terreno, costos de construcción ni análisis legal — solo mercado.
 

@@ -1,4 +1,4 @@
-// Motor de cálculo de Mastermind — factibilidad financiera SMT Developer.
+// Motor de cálculo de Mastermind — factibilidad financiera SMT Land.
 // Módulo TypeScript puro — sin LLM, sin efectos secundarios, 100% determinístico.
 // Cada función es pura y componible; calcularMastermind() las ensambla en secuencia.
 //

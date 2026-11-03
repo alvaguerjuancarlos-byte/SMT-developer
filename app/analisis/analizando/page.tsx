@@ -2517,7 +2517,7 @@ function PipelineContent() {
           </svg>
         </div>
         <div className="shrink-0">
-          <span className="text-[15px] font-medium text-white tracking-wide">SMT Developer</span>
+          <span className="text-[15px] font-medium text-white tracking-wide">SMT Land</span>
           <span className="block text-[10px] text-white/40 tracking-[0.12em] uppercase">Pipeline de análisis</span>
         </div>
         <div className="flex-1 flex justify-center">

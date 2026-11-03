@@ -10,7 +10,7 @@ const S = SUPUESTOS_MINIBODEGAS
 export function promptMercadoMinibodegas(data: any, comparables: any[]): string {
   const lineas = comparables.map((c: any) =>
     `- ${c.nombre} | ${c.direccion} | renta $${c.precioM2}/m²/mes | ${c.tipologia ?? '?'} | ${c.url}`).join('\n')
-  return `Eres el Agente de Análisis de Mercado de SMT Developer.
+  return `Eres el Agente de Análisis de Mercado de SMT Land.
 El proyecto es de MINIBODEGAS (self storage) PARA RENTA — no se venden unidades. Analiza el mercado de renta de
 bodegas chicas (3 a 30 m²) en la zona del predio: competidores, renta por m² al mes, ocupación y demanda.
 No calculas valor del terreno, costos de construcción ni análisis legal.

@@ -53,7 +53,7 @@ export default function RecuperarPage() {
             </svg>
           </div>
           <h1 className="text-[22px] tracking-tight" style={{ fontFamily: 'var(--font-fraunces)', fontWeight: 500, color: '#f4f0e6' }}>
-            SMT <em style={{ fontStyle: 'normal', color: '#ddc06a' }}>Developer</em>
+            SMT <em style={{ fontStyle: 'normal', color: '#ddc06a' }}>Land</em>
           </h1>
           <p className="text-[11px] text-[#8b96ab] tracking-[0.14em] uppercase mt-0.5" style={{ fontFamily: 'var(--font-plex-mono)' }}>Inteligencia inmobiliaria</p>
         </div>

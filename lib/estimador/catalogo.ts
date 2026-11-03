@@ -1,4 +1,4 @@
-// Catálogo de datos paramétricos del Estimador de Costos SMT Developer
+// Catálogo de datos paramétricos del Estimador de Costos SMT Land
 // ESTE ARCHIVO ES DATA EDITABLE — no contiene lógica de cálculo.
 // Fuentes: CMIC, Bimsa Reports, Varela, INEGI — validar antes de fijar valores definitivos.
 

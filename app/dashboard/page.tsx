@@ -184,7 +184,7 @@ export default function DashboardPage() {
         </div>
         <div>
           <span className="text-[15px]" style={{ fontFamily: 'var(--font-fraunces)', fontWeight: 500, color: '#f4f0e6' }}>
-            SMT <em style={{ fontStyle: 'normal', color: '#ddc06a' }}>Developer</em>
+            SMT <em style={{ fontStyle: 'normal', color: '#ddc06a' }}>Land</em>
           </span>
           <span className="block text-[10px] text-[#8b96ab] tracking-[0.12em] uppercase" style={{ fontFamily: 'var(--font-plex-mono)' }}>Inteligencia inmobiliaria</span>
         </div>

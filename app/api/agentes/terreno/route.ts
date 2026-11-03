@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
 
   const isoData: { rango_min: number; poblacion_alcanzada: number | null }[] = data.ubicacion?.isocronas ?? []
 
-  const prompt = `Eres el Agente de Valuación de Terrenos de SMT Developer.
+  const prompt = `Eres el Agente de Valuación de Terrenos de SMT Land.
 Tu única tarea es estimar el valor del suelo con la máxima precisión posible usando metodología formal de avalúos urbanos en México.
 No calculas construcción, mercado, ni finanzas — solo el valor del terreno.
 

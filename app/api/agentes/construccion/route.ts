@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
   const minibodegas = esMinibodegas(data.tiposDesarrollo, data.tipoOtroTexto)
   const tipologiaTexto = `${tip.niveles ? `${tip.niveles} niveles` : 'niveles no especificados'}${tip.habitacional ? `, ${tip.habitacional.totalDepartamentos} ${minibodegas ? 'bodegas' : 'departamentos'}` : ''}${tip.comercial ? `, ${tip.comercial.totalLocales} locales comerciales en ${tip.comercial.niveles} niveles` : ''}${tip.tamanoAmenidades ? `, amenidades nivel ${tip.tamanoAmenidades}/3` : ''}`
 
-  let prompt = `Eres el Agente de Costos de Construcción de SMT Developer: un motor PARAMÉTRICO de costos de
+  let prompt = `Eres el Agente de Costos de Construcción de SMT Land: un motor PARAMÉTRICO de costos de
 prefactibilidad, no una calculadora de precio único por m². No cambias m², niveles, tipología ni número de
 unidades — eso ya lo resolvió el Agente de Arquitectura. Tu trabajo es construir el costo directo mediante:
   COSTO_DIRECTO = Σ (superficie de cada zona × costo base de la zona × factores de ajuste)

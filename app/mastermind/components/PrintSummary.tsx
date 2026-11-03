@@ -136,7 +136,7 @@ export default function PrintSummary({ nombreProyecto }: { nombreProyecto: strin
       </div>
 
       <p className="text-[10px] text-[#C4CEC8] text-center pt-4 border-t border-[#E2E8E4]">
-        Generado por SMT Developer — {new Date().toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' })}
+        Generado por SMT Land — {new Date().toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' })}
       </p>
     </div>
   )
