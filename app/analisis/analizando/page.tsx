@@ -21,6 +21,7 @@ import CockpitQuadrant, { QuadrantPlaceholder, type CockpitEstado } from './Cock
 import CockpitMastermindFab from './CockpitMastermindFab'
 import MastermindOverlay from './MastermindOverlay'
 import { validarPoligono, type Lado, type Cuadrante } from '@/lib/terreno/geometryEngine'
+import { esMinibodegas } from '@/lib/producto/minibodegas'
 
 const fraunces = Fraunces({ subsets: ['latin'], weight: ['500', '600'], style: ['normal', 'italic'], variable: '--font-fraunces' })
 const plexMono = IBM_Plex_Mono({ subsets: ['latin'], weight: ['400', '500'], variable: '--font-plex-mono' })
@@ -140,8 +141,9 @@ function parsearNumeroTexto(texto: string | number | undefined | null): number |
 // Mismo mapeo que tipologiaEnvolvente() en app/preforma/page.tsx — pragmático, tiposDesarrollo a
 // la tipología que espera calcularArquitecturaEnVivo/calcularEnvolvente (lib/analisis/
 // envolventeYAreas.ts). Duplicado a propósito (5 líneas) en vez de importarlo de preforma/page.tsx.
-function tipologiaEnvolventeCaminoA(tipos: string[] | undefined): 'vertical' | 'horizontal' | 'mixto' {
+function tipologiaEnvolventeCaminoA(tipos: string[] | undefined, tipoOtroTexto?: string): 'vertical' | 'horizontal' | 'mixto' | 'minibodegas' {
   const t = tipos || []
+  if (esMinibodegas(t, tipoOtroTexto)) return 'minibodegas'
   if (t.includes('unifamiliar') || t.includes('residencial-horizontal')) return 'horizontal'
   if (t.includes('mixto') || (t.includes('comercial') && t.some(x => x.startsWith('residencial')))) return 'mixto'
   return 'vertical'
@@ -600,7 +602,7 @@ function resumenMixUnidades(tip: any): string {
   const partes: string[] = []
   if (tip.habitacional?.mix?.length) {
     const mix = tip.habitacional.mix.map((r: any) => `${r.unidades} unid. ${r.tipo} (${r.m2Promedio} m² prom.)`).join(', ')
-    partes.push(`Habitacional — ${tip.habitacional.totalDepartamentos} unidades: ${mix}`)
+    partes.push(`${tip.producto === 'minibodegas' ? 'Bodegas' : 'Habitacional'} — ${tip.habitacional.totalDepartamentos} unidades: ${mix}`)
   }
   if (tip.comercial?.totalLocales) {
     partes.push(`Comercial — ${tip.comercial.totalLocales} locales en ${tip.comercial.niveles} nivel(es)`)
@@ -1667,6 +1669,8 @@ function PipelineContent() {
   const proyecto = params.get('proyecto') || ''
 
   const [formData, setFormData] = useState<any>(null)
+  // Minibodegas para renta: Mercado trae rentas y Financiero un modelo de renta (lib/producto/minibodegas.ts).
+  const rentasMB = esMinibodegas(formData?.tiposDesarrollo, formData?.tipoOtroTexto)
   const [modoRapido, setModoRapido] = useState(false)
   const [expandido, setExpandido] = useState<string | null>(null)
   const [mastermindAbierto, setMastermindAbierto] = useState(false)
@@ -2012,7 +2016,7 @@ function PipelineContent() {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: abortRef.current.signal,
         body: JSON.stringify({
           colonia: input.colonia, ciudad: input.ciudad, estado: input.estado,
-          codigoPostal: input.codigoPostal, tiposDesarrollo: input.tiposDesarrollo,
+          codigoPostal: input.codigoPostal, tiposDesarrollo: input.tiposDesarrollo, tipoOtroTexto: input.tipoOtroTexto,
           bandaConstruccion: input.bandaConstruccion,
         }),
       })
@@ -2172,7 +2176,7 @@ function PipelineContent() {
   // en runMarketResumen sobre por qué la primera (dentro de runMercado) casi nunca lo trae.
   useEffect(() => {
     if (detenidoRef.current) return
-    if (pipe.legal.status === 'done' && pipe.comparablesVenta.status === 'done' && pipe.comparablesVenta.data.length > 0) {
+    if (pipe.legal.status === 'done' && pipe.comparablesVenta.status === 'done' && pipe.comparablesVenta.data.length > 0 && !rentasMB) {
       runMarketResumen(pipe.comparablesVenta.data, pipe.legal.data?.fichaLegal)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -2192,7 +2196,8 @@ function PipelineContent() {
     const comparablesVenta = pipe.comparablesVenta.status === 'waiting'
       ? await runComparablesVenta(input)
       : pipe.comparablesVenta.data
-    runMarketResumen(comparablesVenta) // en paralelo, sin bloquear el Agente Mercado
+    // El resumen de lib/market/ es de precios de venta/m² — no aplica a rentas de minibodegas.
+    if (!esMinibodegas(input?.tiposDesarrollo, input?.tipoOtroTexto)) runMarketResumen(comparablesVenta) // en paralelo, sin bloquear el Agente Mercado
     try {
       const res = await authedFetch('/api/agentes/mercado', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -3430,14 +3435,14 @@ function PipelineContent() {
               <section>
 
                 {pipe.comparablesVenta.status === 'running' && (
-                  <RunningCard label="Buscando referencias de venta…" hint="Consultando Lamudi, Inmuebles24 y más portales en tiempo real" color={AGENTE_COLOR.mercado} />
+                  <RunningCard label={rentasMB ? 'Buscando rentas de minibodegas…' : 'Buscando referencias de venta…'} hint={rentasMB ? 'Consultando competidores y anuncios de renta en tiempo real' : 'Consultando Lamudi, Inmuebles24 y más portales en tiempo real'} color={AGENTE_COLOR.mercado} />
                 )}
                 {pipe.comparablesVenta.status === 'done' && pipe.comparablesVenta.data.length > 0 && (
                   <div className="bg-[#132a4d] rounded-2xl border border-[#2a3f5c] px-5 py-3">
-                    <VerDetalle label={`Ver referencias de venta (${pipe.comparablesVenta.data.length})`}>
+                    <VerDetalle label={`${rentasMB ? 'Ver rentas de minibodegas' : 'Ver referencias de venta'} (${pipe.comparablesVenta.data.length})`}>
                       <div className="flex items-center gap-2 mb-2">
                         <span className="w-2 h-2 rounded-full bg-[#c9a227]" />
-                        <p className="text-[12px] font-bold text-[#f4f0e6]">Referencias reales de venta ({pipe.comparablesVenta.data.length})</p>
+                        <p className="text-[12px] font-bold text-[#f4f0e6]">{rentasMB ? 'Rentas reales de minibodegas' : 'Referencias reales de venta'} ({pipe.comparablesVenta.data.length})</p>
                         <span className="text-[10px] text-[#5f6a80] ml-auto">Serper · Google Search</span>
                       </div>
                       <div className="flex flex-col gap-1.5">
@@ -3451,7 +3456,7 @@ function PipelineContent() {
                               )}
                             </div>
                             <div className="text-right shrink-0 ml-3">
-                              {c.precioM2 && <p className={`text-[12px] font-bold ${c.sospechosoPorBanda ? 'text-[#FBBF24]' : 'text-[#f4f0e6]'}`}>${c.precioM2.toLocaleString()}/m²</p>}
+                              {c.precioM2 && <p className={`text-[12px] font-bold ${c.sospechosoPorBanda ? 'text-[#FBBF24]' : 'text-[#f4f0e6]'}`}>${c.precioM2.toLocaleString()}/m²{rentasMB ? '/mes' : ''}</p>}
                               {c.precioTotal && !c.precioM2 && <p className={`text-[12px] font-bold ${c.sospechosoPorBanda ? 'text-[#FBBF24]' : 'text-[#f4f0e6]'}`}>${c.precioTotal.toLocaleString()}</p>}
                             </div>
                           </div>
@@ -3460,7 +3465,7 @@ function PipelineContent() {
                       {!!pipe.comparablesVenta.descartados && (
                         <p className="text-[10px] text-[#8b96ab] mt-2">{pipe.comparablesVenta.descartados} resultado{pipe.comparablesVenta.descartados === 1 ? '' : 's'} descartado{pipe.comparablesVenta.descartados === 1 ? '' : 's'}: sin precio o superficie verificable, o páginas con muchos anuncios.</p>
                       )}
-                      <p className="text-[10px] text-[#5f6a80] mt-2 italic">Estas referencias se pasan al Agente Mercado para calibrar precio de venta y absorción.</p>
+                      <p className="text-[10px] text-[#5f6a80] mt-2 italic">{rentasMB ? 'Estas rentas se pasan al Agente Mercado para calibrar la renta y la ocupación.' : 'Estas referencias se pasan al Agente Mercado para calibrar precio de venta y absorción.'}</p>
                     </VerDetalle>
                   </div>
                 )}
@@ -3491,11 +3496,11 @@ function PipelineContent() {
                       </div>
                       <div className="px-4 py-3 space-y-2.5">
                         <div className="flex items-center justify-between">
-                          <span className="text-[11px] text-[#8b96ab]">Precio/m² zona</span>
+                          <span className="text-[11px] text-[#8b96ab]">{m?.renta ? 'Renta/m²/mes zona' : 'Precio/m² zona'}</span>
                           <span className="text-[11px] font-bold text-[#f4f0e6]">{m?.precioPromedioZona || '—'}</span>
                         </div>
                         <div className="flex items-center justify-between">
-                          <span className="text-[11px] text-[#8b96ab]">Absorción</span>
+                          <span className="text-[11px] text-[#8b96ab]">{m?.renta ? 'Ocupación' : 'Absorción'}</span>
                           <span className="text-[11px] font-semibold text-[#f4f0e6]">{m?.absorcion || '—'}</span>
                         </div>
                         <div className="flex items-center justify-between">
@@ -3512,13 +3517,27 @@ function PipelineContent() {
                         </div>
                       </div>
 
-                      <div className="border-t border-[#2a3f5c] px-4 py-3">
+                      {m?.renta && (
+                        <div className="border-t border-[#2a3f5c] px-4 py-3 space-y-1.5">
+                          <p className="text-[10px] font-bold text-[#5f6a80] uppercase tracking-wide">Renta usada en el modelo</p>
+                          <p className="text-[13px] font-bold text-[#f4f0e6]">${Number(m.renta.rentaM2MesPromedio || 0).toLocaleString('es-MX')}/m²/mes
+                            <span className="text-[10px] text-[#8b96ab] font-normal"> · {m.renta.comparablesVerificados ? `${m.renta.comparablesVerificados} rentas verificadas` : 'estimada, sin rentas verificadas'}</span>
+                          </p>
+                          <p className="text-[10.5px] text-[#8b96ab]">Ocupación estabilizada {m.renta.ocupacionEstabilizadaPct}% en {m.renta.mesesEstabilizacion} meses{m.renta.rangoRentaM2Mes ? ` · rango ${m.renta.rangoRentaM2Mes}` : ''}</p>
+                          {m.renta.rentaAjustada && (
+                            <p className="text-[10px] text-[#FBBF24]">Se ajustó la renta del modelo (${m.renta.rentaAjustada.rentaModelo}/m²/mes): {m.renta.rentaAjustada.motivo}.</p>
+                          )}
+                          {m.renta.notas && <p className="text-[10px] text-[#5f6a80] leading-snug">{m.renta.notas}</p>}
+                        </div>
+                      )}
+                      {/* El ajuste manual es de precio de venta y absorción — no aplica a renta. */}
+                      {!m?.renta && <div className="border-t border-[#2a3f5c] px-4 py-3">
                         <AjustarSupuestosMercado
                           precioVentaActual={pipe.mercado.overridePrecioVenta}
                           absorcionActual={pipe.mercado.overrideAbsorcion}
                           onAplicar={(precio, absorcion) => runMercado({ precioVentaObjetivo: precio, absorcionObjetivoManual: absorcion })}
                         />
-                      </div>
+                      </div>}
                     </DoneCard>
                   )
                 })()}
@@ -3778,7 +3797,7 @@ function PipelineContent() {
                             </div>
                             {tip.habitacional && (
                               <div className="bg-[#132a4d] rounded-xl px-3 py-2.5 text-center">
-                                <p className="text-[10px] text-[#5f6a80] uppercase tracking-wide font-semibold">Departamentos</p>
+                                <p className="text-[10px] text-[#5f6a80] uppercase tracking-wide font-semibold">{tip.producto === 'minibodegas' ? 'Bodegas' : 'Departamentos'}</p>
                                 <p className="text-[14px] font-bold text-[#f4f0e6] mt-0.5">{tip.habitacional.totalDepartamentos}</p>
                               </div>
                             )}
@@ -3816,12 +3835,17 @@ function PipelineContent() {
                             // Ingresos por tipo — mismo cálculo que app/preforma/page.tsx tab
                             // "arquitectura" (unidades × m²prom × precio de venta del Agente
                             // Mercado). '—' si Mercado no ha corrido todavía.
-                            const precioVentaEfectivo = mercadoActual?.mercado?.precioVentaDepasM2 ?? null
+                            // Minibodegas: renta de lista al mes por tamaño (renta/m²/mes de Mercado), no venta.
+                            const esRenta = tip.producto === 'minibodegas'
+                            const precioVentaEfectivo = esRenta
+                              ? (mercadoActual?.mercado?.renta?.rentaM2MesPromedio ?? null)
+                              : (mercadoActual?.mercado?.precioVentaDepasM2 ?? null)
+                            const colIngreso = esRenta ? 'Renta/mes' : 'Ingresos'
                             return (
                             <div className="rounded-xl border border-[#2a3f5c] overflow-hidden">
                               <div className="grid grid-cols-4 bg-[#2a3f5c] px-3 py-1.5">
-                                {['Tipo', 'Unidades', 'm² prom.', 'Ingresos'].map(h => (
-                                  <span key={h} className={`text-[9px] font-bold text-[#5f6a80] uppercase tracking-wider ${h === 'Ingresos' ? 'text-right' : ''}`}>{h}</span>
+                                {['Tipo', 'Unidades', 'm² prom.', colIngreso].map(h => (
+                                  <span key={h} className={`text-[9px] font-bold text-[#5f6a80] uppercase tracking-wider ${h === colIngreso ? 'text-right' : ''}`}>{h}</span>
                                 ))}
                               </div>
                               {tip.habitacional.mix.map((row: any, i: number) => {
@@ -3860,7 +3884,7 @@ function PipelineContent() {
                                 cosPermitidoPct: fl.cosNum * 100,
                                 cusPermitido: fl.cusNum ?? null,
                                 superficieTerreno: Number(formData?.superficie) || 0,
-                                tipologia: tipologiaEnvolventeCaminoA(formData?.tiposDesarrollo),
+                                tipologia: tipologiaEnvolventeCaminoA(formData?.tiposDesarrollo, formData?.tipoOtroTexto),
                                 unidadesBase: tip.habitacional?.totalDepartamentos
                                   ?? (tip.habitacional?.mix ?? []).reduce((s: number, r: any) => s + (r.unidades || 0), 0) ?? null,
                                 areaVendibleBase: arq.superficieVendible ?? null,
@@ -4429,19 +4453,19 @@ function PipelineContent() {
                           </p>
                         </div>
                         <div className="text-center">
-                          <p className="text-[10px] text-[#5f6a80] uppercase tracking-wide">Margen</p>
-                          <p className="text-[22px] font-black text-[#f4f0e6]">{f?.margenBruto}%</p>
+                          <p className="text-[10px] text-[#5f6a80] uppercase tracking-wide">{f?.renta ? 'Yield on cost' : 'Margen'}</p>
+                          <p className="text-[22px] font-black text-[#f4f0e6]">{f?.renta ? f.renta.yieldOnCostPct : f?.margenBruto}%</p>
                         </div>
                         <div className="text-center">
                           <p className="text-[10px] text-[#5f6a80] uppercase tracking-wide">Inversión</p>
                           <p className="text-[22px] font-black text-[#f4f0e6]">{fmt(f?.inversionTotal || 0)}</p>
                         </div>
                         <div className="text-center">
-                          <p className="text-[10px] text-[#5f6a80] uppercase tracking-wide">Utilidad bruta</p>
-                          <p className="text-[16px] font-bold text-[#f4f0e6]">{fmt(f?.utilidadBruta || 0)}</p>
+                          <p className="text-[10px] text-[#5f6a80] uppercase tracking-wide">{f?.renta ? 'NOI anual estabilizado' : 'Utilidad bruta'}</p>
+                          <p className="text-[16px] font-bold text-[#f4f0e6]">{fmt((f?.renta ? f.renta.noiEstabilizadoAnual : f?.utilidadBruta) || 0)}</p>
                         </div>
                         <div className="text-center">
-                          <p className="text-[10px] text-[#5f6a80] uppercase tracking-wide">Ingresos</p>
+                          <p className="text-[10px] text-[#5f6a80] uppercase tracking-wide">{f?.renta ? 'Valor del activo' : 'Ingresos'}</p>
                           <p className="text-[16px] font-bold text-[#f4f0e6]">{fmt(f?.ingresosProyectados || 0)}</p>
                         </div>
                         <div className="text-center">
@@ -4451,6 +4475,36 @@ function PipelineContent() {
                           </p>
                         </div>
                       </div>
+
+                      {f?.renta && (() => {
+                        const r = f.renta
+                        const sup = r.supuestos || {}
+                        const filas: [string, string][] = [
+                          ['Renta de lista', `$${Number(r.rentaM2Mes).toLocaleString('es-MX')}/m²/mes · ${r.rentasVerificadas ? `${r.rentasVerificadas} rentas verificadas` : 'estimada'}`],
+                          ['Área rentable', `${Number(r.areaRentableM2).toLocaleString('es-MX')} m²`],
+                          ['Ocupación', `${Math.round((sup.ocupacionApertura ?? 0) * 100)}% al abrir → ${Math.round((sup.ocupacionEstabilizada ?? 0) * 100)}% en ${sup.mesesEstabilizacion} meses`],
+                          ['Ingreso anual estabilizado', fmt(r.ingresoBrutoEstabilizadoAnual)],
+                          ['Gastos de operación', `${fmt(r.opexEstabilizadoAnual)} (${Math.round((sup.opexPctIngreso ?? 0) * 100)}% del ingreso)`],
+                          ['TIR proyecto (sin deuda)', f.tirProyecto == null ? 'N/D' : `${f.tirProyecto}%`],
+                          ['Valor del activo', `${fmt(r.valorActivo)} a cap rate ${Math.round((sup.capRateSalida ?? 0) * 100)}% · creación de valor ${f.margenBruto}%`],
+                          ['Apertura / estabilizada / venta', `mes ${r.mesApertura} / mes ${r.mesEstabilizacion} / mes ${r.mesSalida}`],
+                          ['Payback solo con rentas', r.paybackMes ? `mes ${r.paybackMes}` : 'no se alcanza en el horizonte'],
+                        ]
+                        return (
+                          <div className="px-5 pb-4">
+                            <p className="text-[10px] font-bold text-[#5f6a80] uppercase tracking-wide mb-1.5">Operación en renta</p>
+                            <div className="bg-[#132a4d] rounded-xl border border-[#2a3f5c] overflow-hidden">
+                              {filas.map(([k, v], i) => (
+                                <div key={k} className={`flex items-center justify-between gap-3 px-3 py-2 ${i > 0 ? 'border-t border-[#2a3f5c]' : ''}`}>
+                                  <span className="text-[11px] text-[#8b96ab]">{k}</span>
+                                  <span className="text-[11px] font-semibold text-[#f4f0e6] text-right">{v}</span>
+                                </div>
+                              ))}
+                            </div>
+                            <p className="text-[10px] text-[#5f6a80] mt-1.5 leading-snug">Ocupación, gastos de operación, cap rate, plazo de {sup.aniosOperacion} años y crédito al {sup.tasaDeudaAnual}% son supuestos de la industria a validar con datos de la plaza.</p>
+                          </div>
+                        )
+                      })()}
 
                       {ec && (
                         <div className="px-5 pb-4">
