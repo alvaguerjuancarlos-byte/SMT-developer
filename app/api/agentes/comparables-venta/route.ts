@@ -5,6 +5,7 @@ import { validarComparableVenta, evaluarPlausibilidadBanda } from '@/lib/mercado
 import type { ComparableVenta } from '@/lib/mercado/validarComparableVenta'
 import { callClaudeJson } from '@smt/shared-realestate'
 import { geocodificarTexto, distanciaHaversineKm } from '@/lib/geo/geocodeTexto'
+import { buscarSerper, formatearResultados, numeroDeFuente, verificarCampo, type MotivoDescarte } from '@/lib/mercado/serperComparables'
 import { registrarFuente, guardarComparablesSnapshot } from '@/lib/market/persistencia'
 
 // Bloque 5 — "ningún comparable proviene de más de 5km" (criterio de aceptación del bloque
@@ -38,61 +39,98 @@ export async function POST(req: NextRequest) {
   try {
     const lugar = [colonia, ciudad, estado].filter(Boolean).join(' ')
     const palabraClave = palabraClaveVenta(tiposDesarrollo)
+    const zona = [colonia, ciudad, codigoPostal].filter(Boolean).join(' ')
+    // Una búsqueda por portal — ver comparables/route.ts (terreno), mismo motivo.
     const queries = [
-      `${palabraClave} en venta ${colonia} ${ciudad} precio m2`,
+      `${palabraClave} en venta ${zona} precio m2`,
+      `preventa ${palabraClave} ${colonia} ${ciudad} precio`,
       `preventa ${palabraClave} ${ciudad} ${estado} precio m2 site:lamudi.com.mx OR site:inmuebles24.com`,
+      ...['lamudi.com.mx', 'inmuebles24.com', 'propiedades.com', 'vivanuncios.com.mx']
+        .map(sitio => `${palabraClave} venta ${colonia} ${ciudad} m2 site:${sitio}`),
     ]
 
-    const snippets: string[] = []
-    for (const q of queries) {
-      const res = await fetch('https://google.serper.dev/search', {
-        method: 'POST',
-        headers: { 'X-API-KEY': serperKey, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ q, gl: 'mx', hl: 'es', num: 8 }),
-      })
-      if (!res.ok) continue
-      const json = await res.json()
-      ;(json.organic ?? []).forEach((r: any) => {
-        snippets.push(`URL: ${r.link}\nTÍTULO: ${r.title}\nSNIPPET: ${r.snippet ?? ''}`)
-      })
-    }
-
-    if (snippets.length === 0) return NextResponse.json({ comparables: [] })
+    const resultados = await buscarSerper(queries, serperKey)
+    if (resultados.length === 0) return NextResponse.json({ comparables: [], descartados: 0 })
 
     const prompt = `Analiza estos resultados de búsqueda de Google sobre ${palabraClave} en venta en ${lugar}${codigoPostal ? ` (CP ${codigoPostal})` : ''}.
-Extrae comparables de propiedades TERMINADAS o en preventa/construcción con precio identificable — NO terrenos baldíos.
+Cada resultado tiene un número entre corchetes y solo incluye el TEXTO que Google muestra.
 
 RESULTADOS:
-${snippets.join('\n---\n')}
+${formatearResultados(resultados)}
 
-Para cada propiedad en venta que encuentres con precio, extrae:
+Para cada propiedad TERMINADA o en preventa/construcción EN VENTA (no terreno baldío) regresa:
+- fuente: número del resultado entre corchetes
+- tipoAnuncio: "individual" si el TEXTO describe una propiedad concreta con su propio precio o superficie, aunque la página sea un listado (un listado puede dar varios objetos, uno por propiedad); "varios" si los números son un resumen o rango de muchos anuncios (ej. "1,240 departamentos desde $1,200,000"); "otro" si es renta, no aplica o no es un anuncio
 - nombre: nombre real del proyecto/desarrollo, o descripción corta si no tiene nombre propio
 - direccion: dirección o colonia aproximada real
-- colonia: colonia/barrio si se puede identificar en el texto, null si no aparece
-- precioM2: precio por m² como número, null si no se puede calcular
-- precioTotal: precio total en MXN como número, null si no aparece
-- superficieM2: superficie de la unidad en m² como número, null si no aparece
+- colonia: colonia/barrio si aparece en el texto, null si no
+- precioTotal: precio de venta total en MXN, o null
+- citaPrecioTotal: fragmento EXACTO, copiado letra por letra del TEXTO, que contiene ese precio, o null
+- precioM2: precio por m² SOLO si el texto lo dice explícitamente, o null
+- citaPrecioM2: fragmento exacto que lo contiene, o null
+- superficieM2: superficie de la unidad en m², o null
+- citaSuperficie: fragmento exacto que la contiene (ej. "75 m²"), o null
 - tipologia: ej. "2 rec · 75 m²", null si no se puede determinar
-- avanceObra: EXACTAMENTE "Entregado", "En obra" o "Preventa" SOLO si el snippet lo indica claramente — null si no hay forma de saberlo, NO adivines
-- fechaReferencia: fecha o periodo (ej: "Q1 2026", "2025"), null si no aparece
-- url: URL completa del anuncio
-- origen: siempre "web_search"
+- avanceObra: EXACTAMENTE "Entregado", "En obra" o "Preventa" SOLO si el texto lo indica claramente — null si no, NO adivines
+- fechaReferencia: fecha o periodo si aparece, si no ""
 
-Reglas:
-- Solo incluye propiedades en VENTA, no renta, y NO terrenos sin construir
-- Solo si puedes identificar al menos el precio total O el precio/m²
-- Máximo 8 comparables
+Reglas estrictas:
+- Un listado con varias propiedades y sus datos da un objeto por propiedad: ej. "37 Departamentos en Valle Alto ; MN 850,000. 46 m² ; MN 3,252,000. 89 m²" son DOS departamentos individuales
+- NO calcules, estimes ni completes números: si un dato no aparece escrito en el TEXTO, va null
+- "desde", "a partir de", "pagos de", "mensualidades", "enganche" NO son precio total: precioTotal null
+- Solo propiedades en VENTA, no renta, y NO terrenos sin construir
+- Máximo 15 objetos
 - Retorna ÚNICAMENTE un array JSON válido, sin markdown`
 
-    const comparablesRaw: ComparableVenta[] = await callClaudeJson(client, {
+    const extraidos: any[] = await callClaudeJson(client, {
       model: 'claude-haiku-4-5-20251001',
-      max_tokens: 2000,
+      max_tokens: 4000,
+      temperature: 0, // misma entrada → misma extracción; sin esto el número de comparables variaba entre corridas
       messages: [{ role: 'user', content: prompt }],
     }, /\[[\s\S]*\]/)
 
-    let comparables = comparablesRaw
-      .map(validarComparableVenta)
-      .filter((c): c is ComparableVenta => c !== null)
+    const descartes: Partial<Record<MotivoDescarte, number>> = {}
+    const descartar = (m: MotivoDescarte) => { descartes[m] = (descartes[m] ?? 0) + 1 }
+    const vistos = new Set<string>()
+    const verificados: ComparableVenta[] = []
+
+    for (const x of extraidos) {
+      const fuente = resultados.find(r => r.id === numeroDeFuente(x?.fuente))
+      if (!fuente) { descartar('sin_evidencia'); continue }
+      if (x.tipoAnuncio !== 'individual' && x.tipoAnuncio !== 'varios') { descartar('no_aplica'); continue }
+
+      // Solo lo comprobable en el texto de Google; la URL sale de Serper, no de Haiku.
+      const candidato: ComparableVenta = {
+        nombre: x.nombre || fuente.titulo,
+        direccion: x.direccion || '',
+        colonia: x.colonia ?? null,
+        precioM2: verificarCampo(x.precioM2, x.citaPrecioM2, fuente.texto, { esPrecio: true }),
+        precioTotal: verificarCampo(x.precioTotal, x.citaPrecioTotal, fuente.texto, { esPrecio: true }),
+        superficieM2: verificarCampo(x.superficieM2, x.citaSuperficie, fuente.texto),
+        tipologia: x.tipologia ?? null,
+        avanceObra: ['Entregado', 'En obra', 'Preventa'].includes(x.avanceObra) ? x.avanceObra : null,
+        fechaReferencia: x.fechaReferencia || '',
+        url: fuente.url,
+        origen: 'web_search',
+      }
+      // A diferencia de terreno, el precio total sin m² sí sirve aquí: es el ticket por unidad.
+      if (!candidato.precioM2 && !candidato.precioTotal) { descartar('sin_precio'); continue }
+      // Haiku marca "varios" a páginas de listado; se aceptan solo si el anuncio trae precio y
+      // superficie comprobados (los rangos "desde…" ya los rechaza verificarCampo).
+      if (x.tipoAnuncio === 'varios' && !(candidato.superficieM2 && (candidato.precioM2 || candidato.precioTotal))) { descartar('varios_anuncios'); continue }
+
+      const valido = validarComparableVenta(candidato)
+      if (!valido) { descartar('fuera_de_rango'); continue }
+
+      const clave = valido.precioTotal && valido.superficieM2
+        ? `${valido.precioTotal}|${valido.superficieM2}` : fuente.url
+      // Una página de listado puede traer varios anuncios con datos: se repite la URL pero no el par precio|superficie.
+      if (vistos.has(clave)) { descartar('repetido'); continue }
+      vistos.add(clave)
+      verificados.push(valido)
+    }
+
+    let comparables = verificados.slice(0, 10)
       // No se descarta ninguno por esto — solo se anota si el precio parece de un
       // desarrollo/zona no representativo de la banda de construcción declarada (ver
       // evaluarPlausibilidadBanda: puede ser plusvalía real de ubicación, no un error).
@@ -136,7 +174,8 @@ Reglas:
       }
     }
 
-    return NextResponse.json({ comparables, lugar })
+    const descartados = Object.values(descartes).reduce((a, b) => a + (b ?? 0), 0)
+    return NextResponse.json({ comparables, descartados, descartes, lugar })
   } catch (e: any) {
     console.error('Comparables venta error:', e)
     return NextResponse.json({ comparables: [], error: e.message })

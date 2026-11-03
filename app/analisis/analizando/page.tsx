@@ -93,8 +93,8 @@ interface ComparableVentaItem {
 }
 
 export interface PipelineState {
-  comparables: { status: AgentStatus; data: ComparableItem[] }
-  comparablesVenta: { status: AgentStatus; data: ComparableVentaItem[] }
+  comparables: { status: AgentStatus; data: ComparableItem[]; descartados?: number }
+  comparablesVenta: { status: AgentStatus; data: ComparableVentaItem[]; descartados?: number }
   // terreno/construccion/mercado permiten "Ajustar parámetros" las veces que hagan falta:
   // cada corrida se agrega a `corridas` (nunca se reemplaza) y `seleccionada` indexa cuál
   // usan los pasos siguientes — el analista elige a su criterio, sin sugerencia automática.
@@ -1992,7 +1992,7 @@ function PipelineContent() {
       })
       const json = await res.json()
       const items: ComparableItem[] = json.comparables ?? []
-      setPipe(p => ({ ...p, comparables: { status: 'done', data: items } }))
+      setPipe(p => ({ ...p, comparables: { status: 'done', data: items, descartados: json.descartados ?? 0 } }))
       return items
     } catch {
       setPipe(p => ({ ...p, comparables: { status: 'done', data: [] } }))
@@ -2018,7 +2018,7 @@ function PipelineContent() {
       })
       const json = await res.json()
       const items: ComparableVentaItem[] = json.comparables ?? []
-      setPipe(p => ({ ...p, comparablesVenta: { status: 'done', data: items } }))
+      setPipe(p => ({ ...p, comparablesVenta: { status: 'done', data: items, descartados: json.descartados ?? 0 } }))
       return items
     } catch {
       setPipe(p => ({ ...p, comparablesVenta: { status: 'done', data: [] } }))
@@ -2616,6 +2616,9 @@ function PipelineContent() {
                         </div>
                       ))}
                     </div>
+                    {!!pipe.comparables.descartados && (
+                      <p className="text-[10px] text-[#8b96ab] mt-2">{pipe.comparables.descartados} resultado{pipe.comparables.descartados === 1 ? '' : 's'} descartado{pipe.comparables.descartados === 1 ? '' : 's'}: sin precio o superficie verificable, o páginas con muchos anuncios.</p>
+                    )}
                     <p className="text-[10px] text-[#5f6a80] mt-2 italic">Estas referencias se pasan al Agente Terreno para calibrar la valuación.</p>
                   </VerDetalle>
                 </div>
@@ -3454,6 +3457,9 @@ function PipelineContent() {
                           </div>
                         ))}
                       </div>
+                      {!!pipe.comparablesVenta.descartados && (
+                        <p className="text-[10px] text-[#8b96ab] mt-2">{pipe.comparablesVenta.descartados} resultado{pipe.comparablesVenta.descartados === 1 ? '' : 's'} descartado{pipe.comparablesVenta.descartados === 1 ? '' : 's'}: sin precio o superficie verificable, o páginas con muchos anuncios.</p>
+                      )}
                       <p className="text-[10px] text-[#5f6a80] mt-2 italic">Estas referencias se pasan al Agente Mercado para calibrar precio de venta y absorción.</p>
                     </VerDetalle>
                   </div>

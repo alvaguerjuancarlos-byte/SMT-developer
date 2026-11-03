@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireUser, unauthorized } from '@/lib/api-auth'
 import Anthropic from '@anthropic-ai/sdk'
 import { callClaudeJson } from '@smt/shared-realestate'
+import { buscarSerper, formatearResultados, numeroDeFuente, portalDeUrl, verificarCampo, type MotivoDescarte } from '@/lib/mercado/serperComparables'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -31,62 +32,96 @@ export async function POST(req: NextRequest) {
 
   try {
     const lugar = [colonia, ciudad, estado].filter(Boolean).join(' ')
+    const zona = [colonia, ciudad, codigoPostal].filter(Boolean).join(' ')
+    // Una búsqueda por portal: con 2 búsquedas generales salían sobre todo páginas que juntan
+    // muchos anuncios ("6 terrenos desde…"), que no traen precio ni superficie de uno solo.
     const queries = [
-      `terreno en venta ${colonia} ${ciudad} precio m2`,
+      `terreno en venta ${zona} precio m2`,
       `terreno en venta ${ciudad} ${estado} precio m2 site:lamudi.com.mx OR site:inmuebles24.com`,
+      ...['lamudi.com.mx', 'inmuebles24.com', 'propiedades.com', 'vivanuncios.com.mx', 'mercadolibre.com.mx']
+        .map(sitio => `terreno venta ${colonia} ${ciudad} m2 site:${sitio}`),
     ]
 
-    const snippets: string[] = []
-    for (const q of queries) {
-      const res = await fetch('https://google.serper.dev/search', {
-        method: 'POST',
-        headers: { 'X-API-KEY': serperKey, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ q, gl: 'mx', hl: 'es', num: 8 }),
-      })
-      if (!res.ok) continue
-      const json = await res.json()
-      ;(json.organic ?? []).forEach((r: any) => {
-        snippets.push(`URL: ${r.link}\nTÍTULO: ${r.title}\nSNIPPET: ${r.snippet ?? ''}`)
-      })
-    }
-
-    if (snippets.length === 0) return NextResponse.json({ comparables: [] })
+    const resultados = await buscarSerper(queries, serperKey)
+    if (resultados.length === 0) return NextResponse.json({ comparables: [], descartados: 0 })
 
     const prompt = `Analiza estos resultados de búsqueda de Google sobre terrenos en venta en ${lugar}.
-Extrae comparables de terrenos con precio identificable.
+Cada resultado tiene un número entre corchetes y solo incluye el TEXTO que Google muestra.
 
 RESULTADOS:
-${snippets.join('\n---\n')}
+${formatearResultados(resultados)}
 
-Para cada terreno en venta que encuentres con precio, extrae:
-- portal: nombre del portal (Lamudi, Inmuebles24, Vivanuncios, etc.)
-- colonia: colonia o zona del terreno
-- superficieM2: superficie en m² como número, null si no aparece
-- precioM2: precio por m² como número, null si no se puede calcular
-- precioTotal: precio total en MXN como número, null si no aparece
-- distanciaRef: distancia estimada a ${colonia || ciudad} (ej: "0.5 km", "zona", "misma colonia")
-- fechaPublicacion: fecha o periodo (ej: "Mayo 2026", "2025", null si no aparece)
-- url: URL completa del anuncio
-- titulo: título corto del listado
-- origen: siempre "web_search"
+Para cada terreno en venta que aparezca en los resultados regresa un objeto con:
+- fuente: número del resultado entre corchetes (ej. 3)
+- tipoAnuncio: "individual" si el TEXTO describe una propiedad concreta con su propio precio o superficie, aunque la página sea un listado (un listado puede dar varios objetos, uno por propiedad); "varios" si los números son un resumen o rango de muchos anuncios (ej. "6 terrenos en venta desde $1,150,000"); "otro" si es renta, no aplica o no es un anuncio
+- colonia: colonia o zona del terreno si aparece, si no ""
+- precioTotal: precio de venta total en MXN, o null
+- citaPrecioTotal: el fragmento EXACTO, copiado letra por letra del TEXTO, que contiene ese precio (ej. "$1,250,000"), o null
+- precioM2: precio por m² SOLO si el texto lo dice explícitamente, o null
+- citaPrecioM2: fragmento exacto que lo contiene, o null
+- superficieM2: superficie del terreno en m², o null
+- citaSuperficie: fragmento exacto que la contiene (ej. "250 m²"), o null
+- distanciaRef: distancia estimada a ${colonia || ciudad} (ej. "misma colonia", "zona", "2 km")
+- fechaPublicacion: fecha o periodo si aparece, si no ""
+- titulo: título corto del anuncio
 
-Reglas:
-- Solo incluye terrenos en VENTA, no renta
-- Solo si puedes identificar al menos el precio total O el precio/m²
-- Máximo 8 comparables
+Reglas estrictas:
+- Un listado con varias propiedades y sus datos da un objeto por propiedad: ej. "55 Terrenos en venta en Culiacán ; MN 3,150,000. 252 m² lote. Francisco Labastida 157 ; MN 2,000,000. 1500 m² lote" son DOS terrenos individuales
+- NO calcules, estimes ni completes números: si un dato no aparece escrito en el TEXTO, va null
+- "desde", "a partir de", "pagos de", "mensualidades", "enganche" NO son precio total: precioTotal null
+- Solo terrenos en VENTA (no renta, no casas ni departamentos)
+- Máximo 15 objetos
 - Retorna ÚNICAMENTE un array JSON válido, sin markdown`
 
-    const comparablesRaw: Comparable[] = await callClaudeJson(client, {
+    const extraidos: any[] = await callClaudeJson(client, {
       model: 'claude-haiku-4-5-20251001',
-      max_tokens: 2000,
+      max_tokens: 4000,
+      temperature: 0, // misma entrada → misma extracción; sin esto el número de comparables variaba entre corridas
       messages: [{ role: 'user', content: prompt }],
     }, /\[[\s\S]*\]/)
 
-    const comparables = comparablesRaw
-      .map(validarComparable)
-      .filter((c): c is Comparable => c !== null)
+    const descartes: Partial<Record<MotivoDescarte, number>> = {}
+    const descartar = (m: MotivoDescarte) => { descartes[m] = (descartes[m] ?? 0) + 1 }
+    const vistos = new Set<string>()
+    const comparables: Comparable[] = []
 
-    return NextResponse.json({ comparables, lugar })
+    for (const x of extraidos) {
+      const fuente = resultados.find(r => r.id === numeroDeFuente(x?.fuente))
+      if (!fuente) { descartar('sin_evidencia'); continue }
+      if (x.tipoAnuncio !== 'individual' && x.tipoAnuncio !== 'varios') { descartar('no_aplica'); continue }
+
+      // Solo se queda lo que se puede comprobar en el texto de Google; la URL y el portal
+      // salen del resultado de Serper, no de lo que escriba Haiku.
+      const candidato: Comparable = {
+        portal: portalDeUrl(fuente.url),
+        colonia: x.colonia || '',
+        superficieM2: verificarCampo(x.superficieM2, x.citaSuperficie, fuente.texto),
+        precioM2: verificarCampo(x.precioM2, x.citaPrecioM2, fuente.texto, { esPrecio: true }),
+        precioTotal: verificarCampo(x.precioTotal, x.citaPrecioTotal, fuente.texto, { esPrecio: true }),
+        distanciaRef: x.distanciaRef || '',
+        fechaPublicacion: x.fechaPublicacion || '',
+        url: fuente.url,
+        titulo: x.titulo || fuente.titulo,
+        origen: 'web_search',
+      }
+      // Haiku marca "varios" a páginas de listado; se aceptan solo si el anuncio trae precio y
+      // superficie comprobados (los rangos "desde…" ya los rechaza verificarCampo).
+      if (x.tipoAnuncio === 'varios' && !(candidato.superficieM2 && (candidato.precioM2 || candidato.precioTotal))) { descartar('varios_anuncios'); continue }
+      if (!candidato.precioM2 && !(candidato.precioTotal && candidato.superficieM2)) { descartar('sin_precio'); continue }
+
+      const valido = validarComparable(candidato)
+      if (!valido) { descartar('fuera_de_rango'); continue }
+
+      const clave = valido.precioTotal && valido.superficieM2
+        ? `${valido.precioTotal}|${valido.superficieM2}` : fuente.url
+      // Una página de listado puede traer varios anuncios con datos: se repite la URL pero no el par precio|superficie.
+      if (vistos.has(clave)) { descartar('repetido'); continue }
+      vistos.add(clave)
+      comparables.push(valido)
+    }
+
+    const descartados = Object.values(descartes).reduce((a, b) => a + (b ?? 0), 0)
+    return NextResponse.json({ comparables: comparables.slice(0, 10), descartados, descartes, lugar })
   } catch (e: any) {
     console.error('Comparables error:', e)
     return NextResponse.json({ comparables: [], error: e.message })
