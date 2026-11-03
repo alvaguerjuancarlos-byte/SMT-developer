@@ -11,7 +11,7 @@ export interface EntradaEnvolvente {
   cos: number
   nivelesMax: number
   densidadMaxUnidades?: number
-  tipologia: 'vertical' | 'horizontal' | 'mixto'
+  tipologia: 'vertical' | 'horizontal' | 'mixto' | 'minibodegas'
 }
 
 export interface SalidaEnvolvente {
@@ -40,6 +40,8 @@ export const FACTOR_EFICIENCIA_VENDIBLE: Record<EntradaEnvolvente['tipologia'], 
   vertical: { piso: 0.72, base: 0.76, techo: 0.80 },
   horizontal: { piso: 0.80, base: 0.83, techo: 0.85 },
   mixto: { piso: 0.70, base: 0.74, techo: 0.78 },
+  // Área rentable de bodegas / construida — ver SUPUESTOS_MINIBODEGAS.eficienciaRentable.
+  minibodegas: { piso: 0.65, base: 0.72, techo: 0.78 },
 }
 
 // Debajo de este % de la densidad máxima autorizada, el proyecto está subdensificando el
