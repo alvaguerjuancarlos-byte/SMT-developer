@@ -2604,7 +2604,7 @@ function PipelineContent() {
                     </div>
                     <div className="flex flex-col gap-1.5">
                       {pipe.comparables.data.map((c, i) => (
-                        <div key={i} className="flex items-center justify-between bg-[#F0FAF5] border border-[#5DCAA5]/30 rounded-xl px-3 py-2">
+                        <div key={i} className="flex items-center justify-between bg-[#14301f] border border-[#5DCAA5]/30 rounded-xl px-3 py-2">
                           <div className="min-w-0">
                             <p className="text-[11px] font-semibold text-[#f4f0e6] truncate">{c.colonia || c.titulo}</p>
                             <p className="text-[10px] text-[#5f6a80]">{c.portal} · {c.superficieM2 ? `${c.superficieM2} m²` : '—'} · {c.distanciaRef}</p>
@@ -2984,7 +2984,7 @@ function PipelineContent() {
                               {t.bitacoraTerreno.fuentesComparables.map((c: any, i: number) => {
                                 const esWeb = c.origen === 'web_search'
                                 return (
-                                  <div key={i} className={`flex items-center justify-between rounded-xl px-4 py-2.5 ${esWeb ? 'bg-[#F0FAF5] border border-[#5DCAA5]/30' : 'bg-[#132a4d] border border-dashed border-[#5f6a80]'}`}>
+                                  <div key={i} className={`flex items-center justify-between rounded-xl px-4 py-2.5 ${esWeb ? 'bg-[#14301f] border border-[#5DCAA5]/30' : 'bg-[#132a4d] border border-dashed border-[#5f6a80]'}`}>
                                     <div className="flex items-start gap-2.5 min-w-0">
                                       <span className={`mt-1 w-1.5 h-1.5 rounded-full flex-shrink-0 ${esWeb ? 'bg-[#c9a227]' : 'bg-[#5f6a80]'}`} />
                                       <div className="min-w-0">
@@ -3439,7 +3439,7 @@ function PipelineContent() {
                       </div>
                       <div className="flex flex-col gap-1.5">
                         {pipe.comparablesVenta.data.map((c, i) => (
-                          <div key={i} className={`flex items-center justify-between rounded-xl px-3 py-2 ${c.sospechosoPorBanda ? 'bg-[#2e2510] border border-[#F59E0B]/40' : 'bg-[#F0FAF5] border border-[#5DCAA5]/30'}`}>
+                          <div key={i} className={`flex items-center justify-between rounded-xl px-3 py-2 ${c.sospechosoPorBanda ? 'bg-[#2e2510] border border-[#F59E0B]/40' : 'bg-[#14301f] border border-[#5DCAA5]/30'}`}>
                             <div className="min-w-0">
                               <p className="text-[11px] font-semibold text-[#f4f0e6] truncate">{c.nombre}</p>
                               <p className="text-[10px] text-[#5f6a80]">{c.tipologia || '—'} · {c.avanceObra || '—'}</p>
