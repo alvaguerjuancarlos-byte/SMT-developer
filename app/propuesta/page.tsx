@@ -15,8 +15,9 @@ interface PricingFase { fase: string; precioM2: number; descuento: string; meta:
 interface EstructuraCapital {
   equity: number; deuda: number; montoEquity: number; montoDeuda: number
   tipoDeuda: string; tasaDeuda: string; costoFinanciero: number
-  preventa: { unidadesMinimas: number; porcentajeMinimo: string; montoMinimo: number; condicion: string }
-  tasaDescuento: string; isrEstimado: number; utilidadNeta: number; descripcion: string
+  // Minibodegas en renta no tiene preventa ni ISR/utilidad neta de venta.
+  preventa?: { unidadesMinimas: number; porcentajeMinimo: string; montoMinimo: number; condicion: string }
+  tasaDescuento: string; isrEstimado?: number; utilidadNeta?: number; descripcion: string
 }
 interface FlujoMes { mes: number; fase: string; egresos: number; ingresos: number; acumulado: number; nota: string }
 
@@ -40,6 +41,16 @@ interface AnalisisData {
     validacionIndirectos?: ResultadoValidacionIndirectos
     escaladoPorMix?: ResultadoEscaladoMix
     precioVentaAjustadoPorBanda?: { precioVentaM2Modelo: number; precioVentaM2Ajustado: number; techoBandaConstruccion: number }
+    tirProyecto?: number | null
+    // Minibodegas para renta (lib/producto/minibodegasFinanciero.ts): ingresosProyectados es el
+    // valor del activo estabilizado y utilidadBruta/margenBruto la creación de valor.
+    renta?: {
+      rentaM2Mes: number; rentasVerificadas: number; areaRentableM2: number
+      ingresoBrutoEstabilizadoAnual: number; opexEstabilizadoAnual: number; noiEstabilizadoAnual: number
+      valorActivo: number; yieldOnCostPct: number; paybackMes: number | null
+      mesApertura: number; mesEstabilizacion: number; mesSalida: number
+      supuestos: { ocupacionApertura: number; ocupacionEstabilizada: number; mesesEstabilizacion: number; opexPctIngreso: number; capRateSalida: number; aniosOperacion: number; equityPct: number; tasaDeudaAnual: number }
+    }
   }
   mercado: {
     demanda: string; zona: string; absorcion: string; proyectosActivos: string
@@ -75,7 +86,7 @@ const FALLBACK_A: AnalisisData = {
   puntoQuiebre: { desviacionMaxCostos: '+28.4%', absorcionMinViable: '38%', precioVentaMinimo: '$29,800/m²', resumen: '' },
 }
 
-function fmt(n: number) { return `$${n.toLocaleString('es-MX')}` }
+function fmt(n: number | null | undefined) { return n == null || !Number.isFinite(n) ? '—' : `$${Math.round(n).toLocaleString('es-MX')}` }
 function fmtM(n: number) { return `$${(n / 1_000_000).toFixed(1)} M` }
 
 function MetricRow({ label, value, valueClass = 'text-[#111d17]', border = true }: { label: string; value: React.ReactNode; valueClass?: string; border?: boolean }) {
@@ -325,6 +336,7 @@ function PropuestaContent() {
   }, [proyecto])
 
   const f = d.financiero
+  const renta = f.renta
 
   return (
     <div className="min-h-screen bg-[#0b1d3a] flex flex-col">
@@ -427,7 +439,9 @@ function PropuestaContent() {
               {[
                 { label: 'TIR Socio',         num: f.tir === null ? 'N/D' : `${f.tir.toFixed(1)}`,   sym: f.tir === null ? '' : '%' },
                 { label: 'Inversión Total',   num: `$${(f.inversionTotal  / 1_000_000).toFixed(1)}`, sym: ' M'  },
-                { label: 'Utilidad Bruta',    num: `$${(f.utilidadBruta   / 1_000_000).toFixed(1)}`, sym: ' M'  },
+                renta
+                  ? { label: 'NOI anual',      num: `$${(renta.noiEstabilizadoAnual / 1_000_000).toFixed(1)}`, sym: ' M' }
+                  : { label: 'Utilidad Bruta', num: `$${(f.utilidadBruta   / 1_000_000).toFixed(1)}`, sym: ' M'  },
                 { label: 'Score Resiliencia', num: `${d.score.total}`,                               sym: '/100' },
               ].map((m, i) => (
                 <div key={i} className="px-6 py-5">
@@ -448,7 +462,9 @@ function PropuestaContent() {
                 {[
                   { label: 'TIR Socio',           num: f.tir === null ? 'N/D' : `${f.tir.toFixed(1)}`, sym: f.tir === null ? '' : '%', sub: 'caso base', dark: true },
                   { label: 'Inversión Total',      num: `$${(f.inversionTotal / 1_000_000).toFixed(1)}`, sym: ' M', sub: 'MXN',          dark: false },
-                  { label: 'Utilidad Proyectada',  num: `$${(f.utilidadBruta  / 1_000_000).toFixed(1)}`, sym: ' M', sub: 'MXN bruto',    dark: false },
+                  renta
+                    ? { label: 'Valor del activo', num: `$${(renta.valorActivo / 1_000_000).toFixed(1)}`, sym: ' M', sub: `NOI / cap rate ${Math.round(renta.supuestos.capRateSalida * 100)}%`, dark: false }
+                    : { label: 'Utilidad Proyectada',  num: `$${(f.utilidadBruta  / 1_000_000).toFixed(1)}`, sym: ' M', sub: 'MXN bruto',    dark: false },
                   { label: 'Score Resiliencia',    num: `${d.score.total}`, sym: '',   sub: '/ 100 · Viable', dark: false },
                 ].map((m, i) => (
                   <div key={i} className={`rounded-2xl p-5 border ${m.dark ? 'bg-[#0D2137] border-[#1A7A6E]/40' : 'bg-white border-[rgba(0,0,0,0.08)]'}`}>
@@ -463,9 +479,22 @@ function PropuestaContent() {
               <div className="bg-[#F7F8F6] rounded-xl px-5 py-4 border border-[rgba(0,0,0,0.08)]">
                 <p className="text-[14px] text-[#5C7186] leading-relaxed">
                   El proyecto <strong className="text-[#111d17]">{proyecto}</strong>{form ? ` ubicado en ${form.ciudad}${form.colonia ? `, ${form.colonia}` : ''}` : ''} tiene una tipología recomendada de <strong className="text-[#111d17]">{d.recomendacion.tipologia}</strong>.
+                  {renta ? (
+                    <>
+                      Es un proyecto para <strong className="text-[#111d17]">rentar</strong>: con una inversión total de <strong className="text-[#111d17]">{fmt(f.inversionTotal)}</strong> y
+                      una renta de lista de {fmt(renta.rentaM2Mes)}/m²/mes, al llegar a {Math.round(renta.supuestos.ocupacionEstabilizada * 100)}% de ocupación genera un
+                      NOI de {fmt(renta.noiEstabilizadoAnual)} al año (yield on cost de {renta.yieldOnCostPct}%) y un valor del activo de {fmt(renta.valorActivo)}.
+                      La <strong className="text-[#0F6E56]">TIR de proyecto {f.tirProyecto == null ? 'no es calculable' : `es de ${f.tirProyecto.toFixed(1)}%`}</strong> y
+                      la TIR Socio {f.tir === null ? 'no es calculable' : `de ${f.tir.toFixed(1)}%`}, con venta del activo a los {renta.supuestos.aniosOperacion} años de operación.
+                      El Score de Resiliencia es de <strong className="text-[#0F6E56]">{d.score.total}/100</strong>.
+                    </>
+                  ) : (
+                    <>
                   Con una inversión total de <strong className="text-[#111d17]">{fmt(f.inversionTotal)}</strong> y precio de venta estimado de {fmt(f.precioVentaM2)}/m², el proyecto genera una{' '}
                   <strong className="text-[#0F6E56]">TIR Socio {f.tir === null ? 'no calculable' : `del ${f.tir.toFixed(1)}% anual`}</strong> y una utilidad bruta de {fmt(f.utilidadBruta)}.
                   El Score de Resiliencia de <strong className="text-[#0F6E56]">{d.score.total}/100</strong> confirma viabilidad ante desviaciones moderadas en costos, absorción y precio de mercado.
+                    </>
+                  )}
                 </p>
               </div>
             </Card>
@@ -672,10 +701,28 @@ function PropuestaContent() {
                     <TableRow label="Honorarios y diseño" value={fmt(f.honorarios)} sub={`${f.costoTotalConstruccion > 0 ? ((f.honorarios / f.costoTotalConstruccion) * 100).toFixed(1) : '0'}% sobre costo de obra`} alerta={!!f.validacionIndirectos?.honorariosFueraDeRango} />
                     <TableRow label="Imprevistos (5%)" value={fmt(f.imprevistos)} sub="Reserva de contingencia" />
                     <TableRow label="Inversión Total" value={fmt(f.inversionTotal)} highlight />
+                    {renta ? (
+                      <>
+                        <TableRow label="Renta de lista / m² / mes" value={`${fmt(renta.rentaM2Mes)} / m²`} sub={renta.rentasVerificadas ? `${renta.rentasVerificadas} rentas verificadas en Google` : 'Estimada — sin rentas verificadas'} alerta={!renta.rentasVerificadas} />
+                        <TableRow label="Área rentable" value={`${Math.round(renta.areaRentableM2).toLocaleString('es-MX')} m²`} />
+                        <TableRow label="Ocupación" value={`${Math.round(renta.supuestos.ocupacionApertura * 100)}% → ${Math.round(renta.supuestos.ocupacionEstabilizada * 100)}%`} sub={`Estabilizada en el mes ${renta.mesEstabilizacion} (${renta.supuestos.mesesEstabilizacion} meses después de abrir)`} />
+                        <TableRow label="Ingreso anual estabilizado" value={fmt(renta.ingresoBrutoEstabilizadoAnual)} />
+                        <TableRow label="Gastos de operación" value={fmt(renta.opexEstabilizadoAnual)} sub={`${Math.round(renta.supuestos.opexPctIngreso * 100)}% del ingreso`} />
+                        <TableRow label="NOI anual estabilizado" value={fmt(renta.noiEstabilizadoAnual)} highlight />
+                        <TableRow label="Yield on cost" value={`${renta.yieldOnCostPct}%`} sub={`NOI / inversión — vs cap rate ${Math.round(renta.supuestos.capRateSalida * 100)}%`} alerta={renta.yieldOnCostPct < renta.supuestos.capRateSalida * 100} />
+                        <TableRow label="Valor del activo estabilizado" value={fmt(renta.valorActivo)} sub={`NOI / cap rate ${Math.round(renta.supuestos.capRateSalida * 100)}% · venta en el mes ${renta.mesSalida}`} />
+                        <TableRow label="Creación de valor" value={fmt(f.utilidadBruta)} sub={`${f.margenBruto}% sobre la inversión`} alerta={f.utilidadBruta < 0} />
+                        <TableRow label="TIR de proyecto (sin deuda)" value={f.tirProyecto == null ? 'N/D' : `${f.tirProyecto.toFixed(1)}%`} />
+                        <TableRow label="Payback solo con rentas" value={renta.paybackMes ? `Mes ${renta.paybackMes}` : 'No se alcanza en el horizonte'} highlight />
+                      </>
+                    ) : (
+                      <>
                     <TableRow label="Precio de venta estimado / m²" value={`${fmt(f.precioVentaM2)} / m²`} sub={f.precioVentaAjustadoPorBanda ? 'Ajustado a un valor representativo de tu banda de construcción' : `Mercado ${d.mercado.zona}`} alerta={!!f.precioVentaAjustadoPorBanda} />
                     <TableRow label="Ingresos proyectados (100%)" value={fmt(f.ingresosProyectados)} />
                     <TableRow label="Utilidad bruta" value={fmt(f.utilidadBruta)} />
                     <TableRow label="Margen bruto sobre inversión" value={`${f.margenBruto}%`} highlight />
+                      </>
+                    )}
                   </tbody>
                 </table>
               </Card>
@@ -712,11 +759,11 @@ function PropuestaContent() {
                   <MetricRow label="Tasa de interés" value={ec.tasaDeuda} />
                   <MetricRow label="Costo financiero" value={fmt(ec.costoFinanciero)} />
                   <MetricRow label="TIR — tipo" value={ec.tasaDescuento} />
-                  <MetricRow label="ISR estimado (30%)" value={fmt(ec.isrEstimado)} />
-                  <MetricRow label="Utilidad neta" value={fmt(ec.utilidadNeta)} valueClass="text-[#0F6E56] font-bold" />
+                  {ec.isrEstimado != null && <MetricRow label="ISR estimado (30%)" value={fmt(ec.isrEstimado)} />}
+                  {ec.utilidadNeta != null && <MetricRow label="Utilidad neta" value={fmt(ec.utilidadNeta)} valueClass="text-[#0F6E56] font-bold" />}
                 </div>
 
-                <div className="bg-[#EEF2FF] border border-[#C7D2FE] rounded-xl px-4 py-4">
+                {ec.preventa && <div className="bg-[#EEF2FF] border border-[#C7D2FE] rounded-xl px-4 py-4">
                   <p className="text-[11px] font-bold text-[#3730A3] uppercase tracking-wide mb-2">Preventa mínima para crédito puente</p>
                   <div className="flex items-center gap-6 mb-2">
                     <div>
@@ -729,7 +776,7 @@ function PropuestaContent() {
                     </div>
                   </div>
                   <p className="text-[12px] text-[#4338CA]">{ec.preventa.condicion}</p>
-                </div>
+                </div>}
 
                 {ec.descripcion && (
                   <p className="text-[12px] text-[#5C7186] mt-4 px-1 leading-relaxed">{ec.descripcion}</p>
@@ -845,9 +892,9 @@ function PropuestaContent() {
                         </div>
                         <p className="text-[11px] text-[#8a9e92] mb-1.5">{c.direccion} · {c.fechaReferencia}</p>
                         <div className="flex gap-5">
-                          {c.precioM2 != null && <span className="text-[11px] text-[#5C7186]">Precio: <strong className="text-[#111d17]">${c.precioM2.toLocaleString('es-MX')}/m²</strong></span>}
+                          {c.precioM2 != null && <span className="text-[11px] text-[#5C7186]">{renta ? 'Renta' : 'Precio'}: <strong className="text-[#111d17]">${c.precioM2.toLocaleString('es-MX')}/m²{renta ? '/mes' : ''}</strong></span>}
                           <span className="text-[11px] text-[#5C7186]">{c.tipologia}</span>
-                          <span className="text-[11px] text-[#5C7186]">{c.unidades} unidades</span>
+                          {!renta && <span className="text-[11px] text-[#5C7186]">{c.unidades} unidades</span>}
                         </div>
                       </div>
                     ))}
@@ -870,8 +917,8 @@ function PropuestaContent() {
                           <div className="h-full bg-[#1D9E75] rounded-full" style={{ width: s.participacion }} />
                         </div>
                         <div className="flex gap-5">
-                          <span className="text-[11px] text-[#5C7186]">Precio: <strong className="text-[#111d17]">${s.precioM2.toLocaleString('es-MX')}/m²</strong></span>
-                          <span className="text-[11px] text-[#5C7186]">Absorción: <strong className="text-[#111d17]">{s.absorcionMensual}</strong></span>
+                          <span className="text-[11px] text-[#5C7186]">{renta ? 'Renta' : 'Precio'}: <strong className="text-[#111d17]">${s.precioM2.toLocaleString('es-MX')}/m²{renta ? '/mes' : ''}</strong></span>
+                          <span className="text-[11px] text-[#5C7186]">{renta ? 'Demanda' : 'Absorción'}: <strong className="text-[#111d17]">{s.absorcionMensual}</strong></span>
                         </div>
                       </div>
                     ))}
@@ -944,8 +991,8 @@ function PropuestaContent() {
               <div className="mt-5 grid grid-cols-3 gap-3">
                 {[
                   { label: 'Desviación máx. costos', value: d.puntoQuiebre.desviacionMaxCostos, color: '#1D9E75' },
-                  { label: 'Absorción mínima viable', value: d.puntoQuiebre.absorcionMinViable, color: '#D97706' },
-                  { label: 'Precio venta mínimo', value: d.puntoQuiebre.precioVentaMinimo, color: '#D97706' },
+                  { label: renta ? 'Ocupación mínima viable' : 'Absorción mínima viable', value: d.puntoQuiebre.absorcionMinViable, color: '#D97706' },
+                  { label: renta ? 'Renta mínima' : 'Precio venta mínimo', value: d.puntoQuiebre.precioVentaMinimo, color: '#D97706' },
                 ].map(b => (
                   <div key={b.label} className="bg-[#F7F8F6] border border-[rgba(0,0,0,0.08)] rounded-xl p-4 text-center">
                     <p className="text-[10px] text-[#9aab9f] uppercase tracking-wide mb-2">{b.label}</p>

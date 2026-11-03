@@ -21,7 +21,8 @@ import CockpitQuadrant, { QuadrantPlaceholder, type CockpitEstado } from './Cock
 import CockpitMastermindFab from './CockpitMastermindFab'
 import MastermindOverlay from './MastermindOverlay'
 import { validarPoligono, type Lado, type Cuadrante } from '@/lib/terreno/geometryEngine'
-import { esMinibodegas } from '@/lib/producto/minibodegas'
+import { esMinibodegas, type SupuestosRentaUsuario } from '@/lib/producto/minibodegas'
+import type { AjustesRenta } from './MastermindRenta'
 
 const fraunces = Fraunces({ subsets: ['latin'], weight: ['500', '600'], style: ['normal', 'italic'], variable: '--font-fraunces' })
 const plexMono = IBM_Plex_Mono({ subsets: ['latin'], weight: ['400', '500'], variable: '--font-plex-mono' })
@@ -108,7 +109,7 @@ export interface PipelineState {
   // al pipeline") — si están seteados, Financiero los ancla en vez de elegirlos libremente (ver
   // app/api/agentes/financiero/route.ts). A diferencia de "Ajustar parámetros" en Arquitectura,
   // esto NO reabre ni recalcula el diseño — solo cambia lo que Financiero apunta.
-  financiero:  { status: AgentStatus; data: FinancieroResult | null; precioVentaObjetivo: string; unidadesObjetivo: string }
+  financiero:  { status: AgentStatus; data: FinancieroResult | null; precioVentaObjetivo: string; unidadesObjetivo: string; supuestosRenta?: SupuestosRentaUsuario }
   ubicacion:   { status: AgentStatus; data: UbicacionData | null }
   catastro:    { status: AgentStatus; data: CatastroData | null }
   // MVP portado de PREFORMA (ver app/preforma/page.tsx::runParcela) — cruce contra el catastro
@@ -2255,17 +2256,22 @@ function PipelineContent() {
   }
 
   // ── Step 4: Financiero ──
-  const runFinanciero = async () => {
+  const runFinanciero = () => runFinancieroCon()
+  // ajustes: los que Mastermind de renta acaba de fijar — se pasan directo porque setPipe es
+  // asíncrono y este cierre todavía vería los overrides anteriores.
+  const runFinancieroCon = async (ajustes?: AjustesRenta) => {
     const t = terrenoActual!
     const c = construccionActual!
-    const m2t = pipe.terreno.usarPrecioSolicitado
+    const overrideTerrenoM2 = ajustes?.terrenoM2 ?? pipe.terreno.overrideM2
+    const overrideConstruccionM2 = ajustes?.construccionM2 ?? pipe.construccion.overrideM2
+    const m2t = pipe.terreno.usarPrecioSolicitado && !ajustes?.terrenoM2
       ? Number(formData.precioSolicitado) / Number(formData.superficie)
-      : (pipe.terreno.overrideM2 !== '' ? Number(pipe.terreno.overrideM2) : t.costoTerrenoM2)
+      : (overrideTerrenoM2 !== '' ? Number(overrideTerrenoM2) : t.costoTerrenoM2)
     const parametricoM2Fin = BANDA_CONSTRUCCION_PARAMETRICO_MXN_M2[String(c.bitacoraConstruccion?.bandaElegida)]
-    const usaOverrideConstruccion = pipe.construccion.overrideM2 !== '' || (pipe.construccion.usarParametricoZona && !!parametricoM2Fin)
-    const m2c = pipe.construccion.usarParametricoZona && parametricoM2Fin
+    const usaOverrideConstruccion = overrideConstruccionM2 !== '' || (pipe.construccion.usarParametricoZona && !!parametricoM2Fin)
+    const m2c = pipe.construccion.usarParametricoZona && parametricoM2Fin && !ajustes?.construccionM2
       ? parametricoM2Fin
-      : (pipe.construccion.overrideM2 !== '' ? Number(pipe.construccion.overrideM2) : c.construccionM2)
+      : (overrideConstruccionM2 !== '' ? Number(overrideConstruccionM2) : c.construccionM2)
     const costoTerreno = m2t * Number(formData.superficie)
     // Use actual total from agent (sum of zones). Recompute only if user overrode cost/m²
     // (a mano o con el paramétrico de zona).
@@ -2316,6 +2322,7 @@ function PipelineContent() {
       // libremente, sin recalcular el diseño de Arquitectura/Construcción.
       precioVentaObjetivo: pipe.financiero.precioVentaObjetivo || undefined,
       unidadesObjetivo,
+      supuestosRenta: ajustes?.supuestosRenta ?? pipe.financiero.supuestosRenta,
     }
     setPipe(p => ({ ...p, financiero: { ...p.financiero, status: 'running', data: null } }))
     try {
@@ -2517,8 +2524,9 @@ function PipelineContent() {
           <CockpitMastermindFab
             agentesListos={agentesMastermindListos}
             construccionLista={pipe.construccion.status === 'done'}
-            ingresoPotencial={ingresoPreliminarSidebar.ingresoBrutoTotal > 0 ? ingresoPreliminarSidebar.ingresoBrutoTotal : null}
-            margenBruto={resumenSidebar.utilidad.margenBruto}
+            // En renta el ingreso y el margen de venta no significan nada — solo el score real.
+            ingresoPotencial={!rentasMB && ingresoPreliminarSidebar.ingresoBrutoTotal > 0 ? ingresoPreliminarSidebar.ingresoBrutoTotal : null}
+            margenBruto={rentasMB ? null : resumenSidebar.utilidad.margenBruto}
             scoreFinanciero={pipe.financiero.data?.score?.total ?? null}
             onOpen={() => setMastermindAbierto(true)}
           />
@@ -4651,6 +4659,17 @@ function PipelineContent() {
           proyecto={proyecto}
           construirSnapshotAnalisis={construirSnapshotAnalisis}
           mastermindCoreInputsActuales={mastermindCoreInputsActuales}
+          esRenta={rentasMB}
+          onAplicarRenta={ajustes => {
+            setPipe(p => ({
+              ...p,
+              terreno: ajustes.terrenoM2 ? { ...p.terreno, overrideM2: ajustes.terrenoM2 } : p.terreno,
+              construccion: ajustes.construccionM2 ? { ...p.construccion, overrideM2: ajustes.construccionM2 } : p.construccion,
+              financiero: { ...p.financiero, supuestosRenta: ajustes.supuestosRenta },
+            }))
+            setMastermindAbierto(false)
+            if (terrenoActual && construccionActual) runFinancieroCon(ajustes)
+          }}
         />
       </main>
     </div>

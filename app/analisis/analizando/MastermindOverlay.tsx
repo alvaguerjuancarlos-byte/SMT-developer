@@ -29,6 +29,7 @@ import MastermindCockpit from '@/app/mastermind/components/cockpit/MastermindCoc
 import ExportButtons from '@/app/mastermind/components/ExportButtons'
 import PrintSummary from '@/app/mastermind/components/PrintSummary'
 import CoreCockpit from '@/app/mastermind-core/components/CoreCockpit'
+import MastermindRenta, { datosRentaDesdePipe, type AjustesRenta } from './MastermindRenta'
 
 const BG_TEXTURE = {
   backgroundColor: '#0b1d3a',
@@ -474,7 +475,7 @@ function OverlayFull({ proyecto }: { proyecto: string }) {
 // ─── Shell — pantalla completa, decide el nivel, header con regreso al cockpit ──────────────
 
 export default function MastermindOverlay({
-  open, onClose, pipe, setPipe, proyecto, construirSnapshotAnalisis, mastermindCoreInputsActuales,
+  open, onClose, pipe, setPipe, proyecto, construirSnapshotAnalisis, mastermindCoreInputsActuales, esRenta, onAplicarRenta,
 }: {
   open: boolean
   onClose: () => void
@@ -483,6 +484,9 @@ export default function MastermindOverlay({
   proyecto: string
   construirSnapshotAnalisis: () => Partial<AnalisisData>
   mastermindCoreInputsActuales: () => MastermindCoreInputs
+  // Minibodegas para renta: un solo panel de renta en todos los niveles (ver MastermindRenta).
+  esRenta?: boolean
+  onAplicarRenta?: (ajustes: AjustesRenta) => void
 }) {
   if (!open) return null
 
@@ -490,7 +494,8 @@ export default function MastermindOverlay({
   const nivelCore = !nivelCompleto && pipe.construccion.status === 'done'
   const nivelPreliminar = !nivelCompleto && !nivelCore
 
-  const etiquetaNivel = nivelCompleto ? 'Veredicto financiero completo'
+  const etiquetaNivel = esRenta ? 'Minibodegas · modelo de renta'
+    : nivelCompleto ? 'Veredicto financiero completo'
     : nivelCore ? 'Calibración de costos e ingresos · antes de Financiero'
     : 'Panorama preliminar · antes de Costos de Construcción'
 
@@ -517,7 +522,12 @@ export default function MastermindOverlay({
       </header>
 
       <div className="flex-1 overflow-y-auto">
-        {nivelCompleto ? (
+        {esRenta && onAplicarRenta ? (() => {
+          const datos = datosRentaDesdePipe(pipe, mastermindCoreInputsActuales().terreno)
+          return datos
+            ? <MastermindRenta datos={datos} onAplicar={onAplicarRenta} />
+            : <p className="max-w-5xl mx-auto px-8 py-10 text-[13px] text-[#8b96ab]">Mastermind de renta necesita el mix de bodegas del Agente de Arquitectura.</p>
+        })() : nivelCompleto ? (
           <MastermindProvider>
             <OverlayFull proyecto={proyecto} />
           </MastermindProvider>

@@ -33,7 +33,7 @@ const FALLBACK: AnalisisData = {
   puntoQuiebre: { desviacionMaxCostos: '+28.4%', absorcionMinViable: '38%', precioVentaMinimo: '$29,800/m²', resumen: 'El proyecto mantiene viabilidad en el 87% de los escenarios simulados. La principal vulnerabilidad es una caída sostenida en precio de venta mayor al 22.4%.' },
 }
 
-function fmt(n: number) { return `$${n.toLocaleString('es-MX')}` }
+function fmt(n: number | null | undefined) { return n == null || !Number.isFinite(n) ? '—' : `$${Math.round(n).toLocaleString('es-MX')}` }
 // Versión corta para montos grandes en espacios chicos (hero banner) — $276,150,214 no cabe
 // en una columna angosta sin desbordarse, $276.2M sí.
 function fmtCompact(n: number) {
@@ -272,6 +272,7 @@ function AnalisisContent() {
   }
 
   const f = d.financiero
+  const renta = f.renta
 
   const BitacoraModal = () => {
     const b = d.bitacoraTerreno
@@ -1216,7 +1217,7 @@ function AnalisisContent() {
 
           {/* Estimación de costos */}
           <div>
-            <SectionTitle>Estimación de Costos e Ingresos</SectionTitle>
+            <SectionTitle>{renta ? 'Estimación de Costos y Operación en Renta' : 'Estimación de Costos e Ingresos'}</SectionTitle>
             <Card className="p-0 overflow-hidden">
               <table className="w-full">
                 <tbody>
@@ -1227,14 +1228,25 @@ function AnalisisContent() {
                     { label: 'Indirectos y permisos', value: fmt(f.indirectos), sub: `${f.costoTotalConstruccion > 0 ? ((f.indirectos / f.costoTotalConstruccion) * 100).toFixed(1) : '0'}% sobre costo de obra${f.validacionIndirectos?.indirectosFueraDeRango ? ' — fuera del rango esperado (15–18%)' : ''}`, highlight: false, bitacora: false, bitacoraCons: false, bitacoraFin: true, alerta: !!f.validacionIndirectos?.indirectosFueraDeRango },
                     { label: 'Honorarios y diseño', value: fmt(f.honorarios), sub: `${f.costoTotalConstruccion > 0 ? ((f.honorarios / f.costoTotalConstruccion) * 100).toFixed(1) : '0'}% sobre costo de obra${f.validacionIndirectos?.honorariosFueraDeRango ? ' — fuera del rango esperado (8–10%)' : ''}`, highlight: false, bitacora: false, bitacoraCons: false, alerta: !!f.validacionIndirectos?.honorariosFueraDeRango },
                     { label: 'Imprevistos (5%)', value: fmt(f.imprevistos), sub: 'Reserva de contingencia', highlight: false, bitacora: false, bitacoraCons: false },
-                    ...(f.comercializacion !== undefined ? [{ label: 'Comercialización (3%)', value: fmt(f.comercializacion), sub: 'Comisión de venta sobre ingreso neto', highlight: false, bitacora: false, bitacoraCons: false }] : []),
+                    ...(f.comercializacion !== undefined && !renta ? [{ label: 'Comercialización (3%)', value: fmt(f.comercializacion), sub: 'Comisión de venta sobre ingreso neto', highlight: false, bitacora: false, bitacoraCons: false }] : []),
                     { label: 'Inversión Total', value: fmt(f.inversionTotal), sub: '', highlight: true, bitacora: false, bitacoraCons: false },
+                    ...(renta ? [
+                      { label: 'Renta de lista / m² / mes', value: `${fmt(renta.rentaM2Mes)}/m²`, sub: renta.rentasVerificadas ? `${renta.rentasVerificadas} rentas de minibodegas verificadas en Google` : 'Estimada — sin rentas verificadas', alerta: !renta.rentasVerificadas, highlight: false, bitacora: false, bitacoraCons: false },
+                      { label: 'Ocupación', value: `${Math.round(renta.supuestos.ocupacionApertura * 100)}% → ${Math.round(renta.supuestos.ocupacionEstabilizada * 100)}%`, sub: `${Math.round(renta.areaRentableM2).toLocaleString('es-MX')} m² rentables · estabilizada en el mes ${renta.mesEstabilizacion}`, highlight: false, bitacora: false, bitacoraCons: false },
+                      { label: 'Ingreso anual estabilizado', value: fmt(renta.ingresoBrutoEstabilizadoAnual), sub: '', highlight: false, bitacora: false, bitacoraCons: false },
+                      { label: 'Gastos de operación', value: `-${fmt(renta.opexEstabilizadoAnual)}`, sub: `${Math.round(renta.supuestos.opexPctIngreso * 100)}% del ingreso`, highlight: false, bitacora: false, bitacoraCons: false },
+                      { label: 'NOI anual estabilizado', value: fmt(renta.noiEstabilizadoAnual), sub: `Yield on cost ${renta.yieldOnCostPct}% (NOI / inversión)`, alerta: renta.yieldOnCostPct < renta.supuestos.capRateSalida * 100, highlight: true, bitacora: false, bitacoraCons: false },
+                      { label: 'Valor del activo estabilizado', value: fmt(renta.valorActivo), sub: `NOI / cap rate ${Math.round(renta.supuestos.capRateSalida * 100)}% · venta en el mes ${renta.mesSalida}`, highlight: false, bitacora: false, bitacoraCons: false },
+                      { label: 'Creación de valor', value: fmt(f.utilidadBruta), sub: `${f.margenBruto}% sobre inversión total`, alerta: f.utilidadBruta < 0, highlight: true, bitacora: false, bitacoraCons: false },
+                      { label: 'Payback solo con rentas', value: renta.paybackMes ? `Mes ${renta.paybackMes}` : 'No se alcanza', sub: `en ${renta.supuestos.aniosOperacion} años de operación`, highlight: false, bitacora: false, bitacoraCons: false },
+                    ] : [
                     { label: 'Precio venta estimado / m²', value: `${fmt(f.precioVentaM2)}/m²`, sub: f.precioVentaAjustadoPorBanda ? `Ajustado — el modelo eligió ${fmt(f.precioVentaAjustadoPorBanda.precioVentaM2Modelo)}/m², de zona premium no representativo de tu banda de construcción` : `Mercado ${d.mercado.zona} · NSE ${d.mercado.perfilNSE.split('·')[0].trim()}`, highlight: false, bitacora: false, bitacoraCons: false, alerta: !!f.precioVentaAjustadoPorBanda },
                     { label: 'Ingresos proyectados (bruto)', value: fmt(f.ingresosProyectados), sub: '100% absorción', highlight: false, bitacora: false, bitacoraCons: false },
                     ...(f.descuentos !== undefined ? [{ label: 'Descuentos y cancelaciones (5%)', value: `-${fmt(f.descuentos)}`, sub: 'Sobre ingreso bruto', highlight: false, bitacora: false, bitacoraCons: false }] : []),
                     ...(f.ingresosNetos !== undefined ? [{ label: 'Ingresos netos', value: fmt(f.ingresosNetos), sub: '', highlight: false, bitacora: false, bitacoraCons: false }] : []),
                     { label: 'Utilidad bruta', value: fmt(f.utilidadBruta), sub: '', highlight: false, bitacora: false, bitacoraCons: false },
                     { label: 'Margen bruto', value: `${f.margenBruto}%`, sub: 'sobre inversión total', highlight: true, bitacora: false, bitacoraCons: false },
+                    ]),
                   ].map((row, i) => (
                     <tr key={i} className={row.highlight ? 'bg-[#14301f]' : i % 2 === 0 ? 'bg-[#132a4d]' : 'bg-[#0f2340]'}>
                       <td className="px-6 py-3 border-b border-[#2a3f5c]">
@@ -1323,12 +1335,12 @@ function AnalisisContent() {
                   <MetricRow label="Tasa de interés" value={d.estructuraCapital.tasaDeuda} />
                   <MetricRow label="Costo financiero" value={fmt(d.estructuraCapital.costoFinanciero)} />
                   <MetricRow label="TIR — tipo" value={d.estructuraCapital.tasaDescuento} />
-                  <MetricRow label="ISR estimado (30%)" value={fmt(d.estructuraCapital.isrEstimado)} />
-                  <MetricRow label="Utilidad neta" value={fmt(d.estructuraCapital.utilidadNeta)} valueClass="text-[#4ADE80] font-bold" />
+                  {d.estructuraCapital.isrEstimado != null && <MetricRow label="ISR estimado (30%)" value={fmt(d.estructuraCapital.isrEstimado)} />}
+                  {d.estructuraCapital.utilidadNeta != null && <MetricRow label="Utilidad neta" value={fmt(d.estructuraCapital.utilidadNeta)} valueClass="text-[#4ADE80] font-bold" />}
                 </div>
 
-                {/* Preventa mínima */}
-                <div className="bg-[#EEF2FF] border border-[#C7D2FE] rounded-xl px-4 py-4">
+                {/* Preventa mínima — no aplica a proyectos en renta */}
+                {d.estructuraCapital.preventa && <div className="bg-[#EEF2FF] border border-[#C7D2FE] rounded-xl px-4 py-4">
                   <p className="text-[11px] font-bold text-[#3730A3] uppercase tracking-wide mb-2">Preventa mínima para crédito puente</p>
                   <div className="flex items-center gap-6 mb-2">
                     <div>
@@ -1341,7 +1353,7 @@ function AnalisisContent() {
                     </div>
                   </div>
                   <p className="text-[12px] text-[#4338CA]">{d.estructuraCapital.preventa.condicion}</p>
-                </div>
+                </div>}
 
                 {d.estructuraCapital.descripcion && (
                   <p className="text-[12px] text-[#8b96ab] mt-4 px-1 leading-relaxed">{d.estructuraCapital.descripcion}</p>
@@ -1413,9 +1425,9 @@ function AnalisisContent() {
               </div>
               <div className="grid grid-cols-2 gap-x-8 mb-5">
                 <div className="divide-y divide-[#2a3f5c]">
-                  <MetricRow label="Velocidad de absorción" value={d.mercado.absorcion} valueClass="text-[#4ADE80] font-semibold" />
+                  <MetricRow label={renta ? 'Ocupación esperada' : 'Velocidad de absorción'} value={d.mercado.absorcion} valueClass="text-[#4ADE80] font-semibold" />
                   <MetricRow label="Proyectos activos radio 500 m" value={d.mercado.proyectosActivos} />
-                  <MetricRow label="Precio promedio zona" value={d.mercado.precioPromedioZona} />
+                  <MetricRow label={renta ? 'Renta promedio zona' : 'Precio promedio zona'} value={d.mercado.precioPromedioZona} />
                 </div>
                 <div className="divide-y divide-[#2a3f5c]">
                   <MetricRow label="Perfil comprador NSE" value={d.mercado.perfilNSE} />
@@ -1441,8 +1453,8 @@ function AnalisisContent() {
                         </div>
                         <p className="text-[11px] text-[#8b96ab] mb-2">{c.direccion} · {c.fechaReferencia}</p>
                         <div className="flex gap-4">
-                          {c.precioM2 != null && <span className="text-[11px] text-[#8b96ab]">💰 <b>${c.precioM2.toLocaleString('es-MX')}/m²</b></span>}
-                          <span className="text-[11px] text-[#8b96ab]">🏢 {c.unidades} unidades</span>
+                          {c.precioM2 != null && <span className="text-[11px] text-[#8b96ab]">💰 <b>${c.precioM2.toLocaleString('es-MX')}/m²{renta ? '/mes' : ''}</b></span>}
+                          {!renta && <span className="text-[11px] text-[#8b96ab]">🏢 {c.unidades} unidades</span>}
                           <span className="text-[11px] text-[#8b96ab]">📐 {c.tipologia}</span>
                         </div>
                       </div>
@@ -1497,7 +1509,7 @@ function AnalisisContent() {
                         </div>
                         <div className="flex gap-4">
                           <span className="text-[11px] text-[#8b96ab]">⚡ {s.absorcionMensual}</span>
-                          <span className="text-[11px] text-[#8b96ab]">💰 ${s.precioM2.toLocaleString('es-MX')}/m²</span>
+                          <span className="text-[11px] text-[#8b96ab]">💰 ${s.precioM2.toLocaleString('es-MX')}/m²{renta ? '/mes' : ''}</span>
                           <span className="text-[11px] text-[#8b96ab]">👤 {s.perfilComprador}</span>
                         </div>
                       </div>
@@ -1618,9 +1630,9 @@ function AnalisisContent() {
             <Card>
               <div className="grid grid-cols-3 gap-4 mb-5">
                 {[
-                  { label: 'Desviación máx. de costos', value: d.puntoQuiebre.desviacionMaxCostos, desc: 'antes de TIR < 12%', color: '#1D9E75' },
-                  { label: 'Absorción mínima viable', value: d.puntoQuiebre.absorcionMinViable, desc: 'de las unidades proyectadas', color: '#D97706' },
-                  { label: 'Precio venta mínimo', value: d.puntoQuiebre.precioVentaMinimo, desc: 'para recuperar inversión', color: '#D97706' },
+                  { label: 'Desviación máx. de costos', value: d.puntoQuiebre.desviacionMaxCostos, desc: renta ? `para TIR de ${renta.supuestos.tasaDeudaAnual}% (costo del crédito)` : 'antes de TIR < 12%', color: '#1D9E75' },
+                  { label: renta ? 'Ocupación mínima viable' : 'Absorción mínima viable', value: d.puntoQuiebre.absorcionMinViable, desc: renta ? 'ocupación estabilizada, mismo umbral' : 'de las unidades proyectadas', color: '#D97706' },
+                  { label: renta ? 'Renta mínima' : 'Precio venta mínimo', value: d.puntoQuiebre.precioVentaMinimo, desc: renta ? 'renta de lista, mismo umbral' : 'para recuperar inversión', color: '#D97706' },
                 ].map(b => (
                   <div key={b.label} className="bg-[#132a4d] rounded-xl p-4 text-center border border-[#2a3f5c]">
                     <p className="text-[10px] text-[#5f6a80] uppercase tracking-wide mb-2">{b.label}</p>

@@ -9,6 +9,7 @@ import type { AnalisisData } from '@/lib/analisis/tipos'
 import MastermindCockpit from './components/cockpit/MastermindCockpit'
 import ExportButtons from './components/ExportButtons'
 import PrintSummary from './components/PrintSummary'
+import MastermindRenta, { datosRentaDesdeAnalisis } from '@/app/analisis/analizando/MastermindRenta'
 
 function MastermindContent() {
   const router = useRouter()
@@ -123,6 +124,22 @@ function MastermindContent() {
       setGuardado(true)
       setTimeout(() => setGuardado(false), 3000)
     }
+  }
+
+  // Minibodegas para renta: el cockpit de venta no aplica — panel de renta en modo simulación
+  // (los ajustes se guardan desde Mastermind dentro del análisis, que vuelve a correr Financiero).
+  const datosRenta = analisisData ? datosRentaDesdeAnalisis(analisisData) : null
+  if (datosRenta) {
+    return (
+      <div className="min-h-screen bg-[#0b1d3a]">
+        <div className="px-6 pt-6 pb-0 max-w-7xl mx-auto flex items-center gap-2 text-[12px] text-[#5f6a80]">
+          <button onClick={() => router.push('/analisis')} className="text-[#c9a227] font-medium hover:underline">Análisis</button>
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4 2L8 6L4 10" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" /></svg>
+          <span className="text-[#f4f0e6] font-medium">Mastermind · Modelo de renta</span>
+        </div>
+        <MastermindRenta datos={datosRenta} />
+      </div>
+    )
   }
 
   return (
