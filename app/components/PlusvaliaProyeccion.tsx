@@ -201,7 +201,7 @@ export function PlusvaliaProyeccion({ estimacion, ciudad }: { estimacion: Estima
     <div className="mt-2 pt-2 border-t border-[#2a3f5c]">
       <div className="flex items-center justify-between mb-2">
         <p className="text-[9px] font-bold text-[#5f6a80] uppercase tracking-wide">Plusvalía premium — hacia adelante</p>
-        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-[#2e2510] text-[#FBBF24]">No es dato real</span>
+        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-[#2e2510] text-[#FBBF24]">Proyección</span>
       </div>
 
       <div className="grid grid-cols-2 gap-2">
