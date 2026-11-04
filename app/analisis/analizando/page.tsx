@@ -2975,7 +2975,7 @@ function PipelineContent() {
                                 <path d="M4 8h8M9 5l3 3-3 3" stroke="#5f6a80" strokeWidth="1.5" strokeLinecap="round"/>
                               </svg>
                               <div className="flex-1 bg-[#c9a227] rounded-lg px-3 py-2 text-center">
-                                <p className="text-[9px] text-[#070f22]/70 uppercase tracking-wide">Calculado</p>
+                                <p className="text-[9px] text-[#070f22]/70 uppercase tracking-wide">Recomendado</p>
                                 <p className="text-[13px] font-bold text-[#070f22]">${t.bitacoraTerreno.precioM2Final?.toLocaleString()}/m²</p>
                               </div>
                               <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
