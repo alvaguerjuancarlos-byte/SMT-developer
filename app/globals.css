@@ -66,3 +66,48 @@ input[type="range"] {
     display: none !important;
   }
 }
+
+/* ─── Propuesta en pantalla: tema oscuro ───────────────────────────────────────
+   El reporte (/propuesta) está diseñado claro para el PDF/impresión. En pantalla
+   se oscurece aquí, bajo .reporte-pantalla (en <main>). lib/downloadPDF.ts clona
+   #propuesta-print FUERA de <main>, así que el PDF sigue saliendo claro. */
+@media screen {
+  .reporte-pantalla .bg-white { background-color: #132a4d; }
+  .reporte-pantalla .bg-\[\#F7F8F6\],
+  .reporte-pantalla .bg-\[\#FAFBFA\] { background-color: #0e2038; }
+  .reporte-pantalla .bg-\[\#E1F5EE\],
+  .reporte-pantalla .bg-\[\#F0FBF6\] { background-color: #12302a; }
+  .reporte-pantalla .bg-\[\#E2E8E4\] { background-color: #2a3f5c; }
+  .reporte-pantalla .bg-\[\#EEF2FF\] { background-color: #1e2550; }
+  .reporte-pantalla .bg-\[\#FEE2E2\],
+  .reporte-pantalla .bg-\[\#FFF5F5\] { background-color: #3a1717; }
+  .reporte-pantalla .bg-\[\#FEF3C7\],
+  .reporte-pantalla .bg-\[\#FFFBEB\] { background-color: #33280f; }
+
+  .reporte-pantalla .text-\[\#111d17\] { color: #f4f0e6; }
+  .reporte-pantalla .text-\[\#5C7186\] { color: #aab4c5; }
+  .reporte-pantalla .text-\[\#9aab9f\],
+  .reporte-pantalla .text-\[\#8a9e92\],
+  .reporte-pantalla .text-\[\#5a7065\] { color: #8b96ab; }
+  .reporte-pantalla .text-\[\#0F6E56\],
+  .reporte-pantalla .text-\[\#1A7A6E\] { color: #5DCAA5; }
+  .reporte-pantalla .text-\[\#04342C\] { color: #9FE1CB; }
+  .reporte-pantalla .text-\[\#991B1B\],
+  .reporte-pantalla .text-\[\#DC2626\] { color: #F87171; }
+  .reporte-pantalla .text-\[\#92600A\],
+  .reporte-pantalla .text-\[\#D97706\] { color: #F5D97A; }
+  .reporte-pantalla .text-\[\#4F46E5\],
+  .reporte-pantalla .text-\[\#6366F1\],
+  .reporte-pantalla .text-\[\#3730A3\],
+  .reporte-pantalla .text-\[\#4338CA\] { color: #A5B4FC; }
+
+  .reporte-pantalla .border-\[rgba\(0\,0\,0\,0\.06\)\],
+  .reporte-pantalla .border-\[rgba\(0\,0\,0\,0\.08\)\],
+  .reporte-pantalla .border-\[\#F0F4F2\],
+  .reporte-pantalla .border-\[\#D4EFE3\],
+  .reporte-pantalla .divide-\[\#F0F4F2\] > :not(:last-child) { border-color: #2a3f5c; }
+  .reporte-pantalla .border-\[\#9FE1CB\] { border-color: #1f5f4c; }
+  .reporte-pantalla .border-\[\#C7D2FE\] { border-color: #3b4a8a; }
+  .reporte-pantalla .border-\[\#FECACA\] { border-color: #7f2a2a; }
+  .reporte-pantalla .border-\[\#F5D97A\] { border-color: #7a5f1f; }
+}

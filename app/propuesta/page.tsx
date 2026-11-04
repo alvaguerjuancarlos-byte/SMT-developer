@@ -410,7 +410,7 @@ function PropuestaContent() {
         </div>
       </header>
 
-      <main className="flex-1 px-4 py-10">
+      <main className="reporte-pantalla flex-1 px-4 py-10">
         <div id="propuesta-print" className="w-full max-w-[800px] mx-auto flex flex-col gap-10">
 
           {/* 1 · Cover */}
