@@ -332,23 +332,23 @@ export function VistasArquitectura({ tipologia, superficieTerreno, superficieCon
   )
   return (
     <div className="@container">
-      <div className="grid grid-cols-1 @3xl:grid-cols-3 gap-3">
-        <div className={`${PANEL} @3xl:col-span-2 flex flex-col`}>
+      {/* Compacto (JC, 6-nov): las tres vistas en una sola fila de altura contenida, para que el
+          dibujo no domine la tarjeta y se vean también cifras, tipología y mix. */}
+      <div className="grid grid-cols-1 @3xl:grid-cols-[1.7fr_1fr_1.2fr] gap-3">
+        <div className={`${PANEL} flex flex-col`}>
           <p className={TITULO}>Perspectiva</p>
-          <div className="flex-1 flex items-center"><Perspectiva m={m} /></div>
+          <div className="flex-1 flex items-center justify-center"><div className="w-full max-w-[460px]"><Perspectiva m={m} /></div></div>
           <p className="text-[10px] text-[#8b96ab] mt-1">
             {m.pisos.length} niveles{deptos ? ` · ${deptos} departamentos` : ''}{m.amenidades ? ' · amenidades en azotea' : ''}
           </p>
         </div>
-        <div className="grid grid-cols-2 gap-3 @3xl:flex @3xl:flex-col">
-          <div className={PANEL}>
-            <p className={TITULO}>Planta de conjunto</p>
-            <Planta m={m} />
-          </div>
-          <div className={PANEL}>
-            <p className={TITULO}>Corte · estacionamiento</p>
-            <Corte m={m} />
-          </div>
+        <div className={`${PANEL} flex flex-col`}>
+          <p className={TITULO}>Planta de conjunto</p>
+          <div className="flex-1 flex items-center justify-center"><div className="w-full max-w-[250px]"><Planta m={m} /></div></div>
+        </div>
+        <div className={`${PANEL} flex flex-col`}>
+          <p className={TITULO}>Corte · estacionamiento</p>
+          <div className="flex-1 flex items-center justify-center"><div className="w-full max-w-[360px]"><Corte m={m} /></div></div>
         </div>
       </div>
       <div className="flex items-center gap-x-4 gap-y-1 mt-2 flex-wrap px-1">
