@@ -4,7 +4,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { Suspense, useEffect, useRef, useState } from 'react'
 import FuentesConsultadas from '@/app/components/FuentesConsultadas'
 import { authedFetch } from '@/lib/apiClient'
-import { BocetoVolumetria, VistaAereaTerreno } from '@/app/components/BocetoVolumetria'
+import { VistasArquitectura } from '@/app/components/VistasArquitectura'
 import type { AnalisisData, StressItem, FlujoMes } from '@/lib/analisis/tipos'
 import { resolveBitacoraArquitectura } from '@/lib/analisis/bitacoraArquitectura'
 import { Fraunces, IBM_Plex_Mono } from 'next/font/google'
@@ -811,21 +811,14 @@ function AnalisisContent() {
               </div>
             </div>
 
-            {/* Bocetos — elevación (apilamiento) + planta (huella sobre el lote) */}
-            <div>
-              <p className="text-[11px] font-bold text-[#8b96ab] uppercase tracking-wide mb-2">Elevación</p>
-              <BocetoVolumetria tipologia={t} />
-            </div>
-            <div>
-              <p className="text-[11px] font-bold text-[#8b96ab] uppercase tracking-wide mb-2">Vista en planta (aérea)</p>
-              <VistaAereaTerreno
-                superficieTerreno={d.bitacoraTerreno?.superficieM2 ?? 0}
-                superficieConstruida={ba?.superficieConstruida ?? 0}
-                niveles={t.niveles}
-                desgloseZonas={ba?.desgloseZonas}
-                areaLibreYVerde={ba?.areaLibreYVerde}
-              />
-            </div>
+            {/* Vistas — perspectiva + planta de conjunto + corte con sótanos (VistasArquitectura) */}
+            <VistasArquitectura
+              tipologia={t}
+              superficieTerreno={d.bitacoraTerreno?.superficieM2 ?? 0}
+              superficieConstruida={ba?.superficieConstruida ?? 0}
+              desgloseZonas={ba?.desgloseZonas}
+              areaLibreYVerde={ba?.areaLibreYVerde}
+            />
 
             {/* Mix de unidades habitacionales */}
             {mix.length > 0 && (

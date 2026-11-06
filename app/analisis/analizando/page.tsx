@@ -8,7 +8,7 @@ import { calcular } from '@/lib/estimador/motor'
 import { construirInputsNormativos, programaAUsos, type ProgramaUnidades } from '@/lib/construccion/programaAdapter'
 import { calcularConfidenceScore, calcularRango, incertidumbreDesdeConfianza } from '@/lib/construccion/costoParametricoEngine'
 import { calcularArquitecturaEnVivo, type EntradaArquitecturaEnVivo } from '@/lib/analisis/envolventeYAreas'
-import { BocetoVolumetria, VistaAereaTerreno } from '@/app/components/BocetoVolumetria'
+import { VistasArquitectura } from '@/app/components/VistasArquitectura'
 import { PlanoTerreno } from '@/app/components/PlanoTerreno'
 import { PlusvaliaProyeccion } from '@/app/components/PlusvaliaProyeccion'
 import type { AnalisisData } from '@/lib/analisis/tipos'
@@ -3822,22 +3822,15 @@ function PipelineContent() {
                           </div>
                           {/* Bocetos — aquí es donde de verdad se ve si la tipología que
                               resolvió Arquitectura tiene sentido, antes de esperar hasta el
-                              análisis final guardado. Elevación (apilamiento de niveles) +
-                              planta (huella sobre el lote, estacionamiento, área libre). */}
-                          <div>
-                            <p className="text-[9px] font-bold text-[#5f6a80] uppercase tracking-wider mb-1.5">Elevación</p>
-                            <BocetoVolumetria tipologia={tip} />
-                          </div>
-                          <div>
-                            <p className="text-[9px] font-bold text-[#5f6a80] uppercase tracking-wider mb-1.5">Vista en planta (aérea)</p>
-                            <VistaAereaTerreno
-                              superficieTerreno={Number(formData?.superficie || 0)}
-                              superficieConstruida={arq.superficieConstruida}
-                              niveles={tip.niveles}
-                              desgloseZonas={zonas}
-                              areaLibreYVerde={ba?.areaLibreYVerde}
-                            />
-                          </div>
+                              análisis final guardado. Perspectiva + planta de conjunto +
+                              corte con sótanos de estacionamiento (VistasArquitectura). */}
+                          <VistasArquitectura
+                            tipologia={tip}
+                            superficieTerreno={Number(formData?.superficie || 0)}
+                            superficieConstruida={arq.superficieConstruida}
+                            desgloseZonas={zonas}
+                            areaLibreYVerde={ba?.areaLibreYVerde}
+                          />
                           <p className="text-[9px] text-[#5f6a80] italic">Bocetos ilustrativos a partir del programa propuesto — no sustituyen un plano arquitectónico ni asumen distribución real por nivel.</p>
                           {tip.habitacional?.mix && tip.habitacional.mix.length > 0 && (() => {
                             // Ingresos por tipo — mismo cálculo que app/preforma/page.tsx tab
