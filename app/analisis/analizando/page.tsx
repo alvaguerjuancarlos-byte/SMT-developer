@@ -3846,17 +3846,17 @@ function PipelineContent() {
                       </div>
 
                       {ba && (
-                        <div className="px-5 pt-4 pb-2 grid grid-cols-4 gap-2">
+                        <div className="@container px-5 pt-4 pb-2 grid grid-cols-4 gap-2">
                           {[
                             { label: 'COS', val: ba.cosEstimado, hint: 'Huella máxima' },
                             { label: 'CUS', val: ba.cusEstimado, hint: 'Superficie total' },
                             { label: 'Eficiencia', val: eficiencia, hint: 'Área vendible / total' },
                             { label: 'Área libre', val: `${ba.areaLibreYVerde?.m2?.toLocaleString() ?? '—'} m²`, hint: (ba.areaLibreYVerde?.porcentajeLote ?? '') + ' del lote' },
                           ].map(item => (
-                            <div key={item.label} className="bg-[#132a4d] rounded-xl px-3 py-2.5 text-center">
-                              <p className="text-[10px] text-[#5f6a80] uppercase tracking-wide font-semibold">{item.label}</p>
-                              <p className="text-[15px] font-bold text-[#f4f0e6] mt-0.5">{item.val}</p>
-                              <p className="text-[9px] text-[#5f6a80] mt-0.5 leading-tight">{item.hint}</p>
+                            <div key={item.label} className="bg-[#132a4d] rounded-xl px-3 py-2.5 @3xl:py-5 text-center">
+                              <p className="text-[10px] @3xl:text-[30px] @3xl:leading-tight text-[#5f6a80] uppercase tracking-wide font-semibold">{item.label}</p>
+                              <p className="text-[15px] @3xl:text-[45px] @3xl:leading-tight font-bold text-[#f4f0e6] mt-0.5">{item.val}</p>
+                              <p className="text-[9px] @3xl:text-[18px] text-[#5f6a80] mt-0.5 leading-tight">{item.hint}</p>
                             </div>
                           ))}
                         </div>
@@ -3896,26 +3896,26 @@ function PipelineContent() {
                       {tip && (
                         <div className="px-5 pb-4 flex flex-col gap-3 border-t border-[#2a3f5c] pt-4">
                           <p className="text-[10px] font-bold text-[#5f6a80] uppercase tracking-widest">Tipología propuesta</p>
-                          <div className="grid grid-cols-3 gap-2">
-                            <div className="bg-[#132a4d] rounded-xl px-3 py-2.5 text-center">
-                              <p className="text-[10px] text-[#5f6a80] uppercase tracking-wide font-semibold">Niveles</p>
-                              <p className="text-[14px] font-bold text-[#f4f0e6] mt-0.5">{tip.niveles ?? '—'}</p>
+                          <div className="@container grid grid-cols-3 gap-2">
+                            <div className="bg-[#132a4d] rounded-xl px-3 py-2.5 @3xl:py-5 text-center">
+                              <p className="text-[10px] @3xl:text-[30px] @3xl:leading-tight text-[#5f6a80] uppercase tracking-wide font-semibold">Niveles</p>
+                              <p className="text-[14px] @3xl:text-[42px] @3xl:leading-tight font-bold text-[#f4f0e6] mt-0.5">{tip.niveles ?? '—'}</p>
                             </div>
                             {tip.habitacional && (
-                              <div className="bg-[#132a4d] rounded-xl px-3 py-2.5 text-center">
-                                <p className="text-[10px] text-[#5f6a80] uppercase tracking-wide font-semibold">{tip.producto === 'minibodegas' ? 'Bodegas' : 'Departamentos'}</p>
-                                <p className="text-[14px] font-bold text-[#f4f0e6] mt-0.5">{tip.habitacional.totalDepartamentos}</p>
+                              <div className="bg-[#132a4d] rounded-xl px-3 py-2.5 @3xl:py-5 text-center">
+                                <p className="text-[10px] @3xl:text-[30px] @3xl:leading-tight text-[#5f6a80] uppercase tracking-wide font-semibold">{tip.producto === 'minibodegas' ? 'Bodegas' : 'Departamentos'}</p>
+                                <p className="text-[14px] @3xl:text-[42px] @3xl:leading-tight font-bold text-[#f4f0e6] mt-0.5">{tip.habitacional.totalDepartamentos}</p>
                               </div>
                             )}
                             {tip.comercial && (
-                              <div className="bg-[#132a4d] rounded-xl px-3 py-2.5 text-center">
-                                <p className="text-[10px] text-[#5f6a80] uppercase tracking-wide font-semibold">Locales</p>
-                                <p className="text-[14px] font-bold text-[#f4f0e6] mt-0.5">{tip.comercial.totalLocales} · {tip.comercial.niveles} niv.</p>
+                              <div className="bg-[#132a4d] rounded-xl px-3 py-2.5 @3xl:py-5 text-center">
+                                <p className="text-[10px] @3xl:text-[30px] @3xl:leading-tight text-[#5f6a80] uppercase tracking-wide font-semibold">Locales</p>
+                                <p className="text-[14px] @3xl:text-[42px] @3xl:leading-tight font-bold text-[#f4f0e6] mt-0.5">{tip.comercial.totalLocales} · {tip.comercial.niveles} niv.</p>
                               </div>
                             )}
-                            <div className="bg-[#132a4d] rounded-xl px-3 py-2.5 text-center">
-                              <p className="text-[10px] text-[#5f6a80] uppercase tracking-wide font-semibold">Amenidades</p>
-                              <p className="text-[14px] font-bold text-[#f4f0e6] mt-0.5">{AMENIDADES_NIVEL_LABELS[String(tip.tamanoAmenidades)] ?? '—'}</p>
+                            <div className="bg-[#132a4d] rounded-xl px-3 py-2.5 @3xl:py-5 text-center">
+                              <p className="text-[10px] @3xl:text-[30px] @3xl:leading-tight text-[#5f6a80] uppercase tracking-wide font-semibold">Amenidades</p>
+                              <p className="text-[14px] @3xl:text-[42px] @3xl:leading-tight font-bold text-[#f4f0e6] mt-0.5">{AMENIDADES_NIVEL_LABELS[String(tip.tamanoAmenidades)] ?? '—'}</p>
                             </div>
                           </div>
                           {/* Bocetos — aquí es donde de verdad se ve si la tipología que
@@ -4271,18 +4271,18 @@ function PipelineContent() {
                                 {recalculado && <span className="text-[9px] text-[#c9a227]">recalculado</span>}
                               </label>
 
-                              <div className="grid grid-cols-3 gap-2 mb-3">
-                                <div className="bg-[#0b1d3a] rounded-lg px-3 py-2 text-center">
-                                  <p className="text-[9px] text-[#5f6a80] uppercase tracking-wide font-semibold">Low</p>
-                                  <p className="text-[13px] font-bold text-[#f4f0e6] mt-0.5">${rangoMostrado.low.toLocaleString('es-MX')}</p>
+                              <div className="@container grid grid-cols-3 gap-2 mb-3">
+                                <div className="bg-[#0b1d3a] rounded-lg px-3 py-2 @3xl:py-4 text-center">
+                                  <p className="text-[9px] @3xl:text-[27px] @3xl:leading-tight text-[#5f6a80] uppercase tracking-wide font-semibold">Low</p>
+                                  <p className="text-[13px] @3xl:text-[39px] @3xl:leading-tight font-bold text-[#f4f0e6] mt-0.5">${rangoMostrado.low.toLocaleString('es-MX')}</p>
                                 </div>
-                                <div className="bg-[#0b1d3a] rounded-lg px-3 py-2 text-center border border-[#c9a227]/40">
-                                  <p className="text-[9px] text-[#ddc06a] uppercase tracking-wide font-semibold">Base</p>
-                                  <p className="text-[13px] font-bold text-[#ddc06a] mt-0.5">${rangoMostrado.base.toLocaleString('es-MX')}</p>
+                                <div className="bg-[#0b1d3a] rounded-lg px-3 py-2 @3xl:py-4 text-center border border-[#c9a227]/40">
+                                  <p className="text-[9px] @3xl:text-[27px] @3xl:leading-tight text-[#ddc06a] uppercase tracking-wide font-semibold">Base</p>
+                                  <p className="text-[13px] @3xl:text-[39px] @3xl:leading-tight font-bold text-[#ddc06a] mt-0.5">${rangoMostrado.base.toLocaleString('es-MX')}</p>
                                 </div>
-                                <div className="bg-[#0b1d3a] rounded-lg px-3 py-2 text-center">
-                                  <p className="text-[9px] text-[#5f6a80] uppercase tracking-wide font-semibold">High</p>
-                                  <p className="text-[13px] font-bold text-[#f4f0e6] mt-0.5">${rangoMostrado.high.toLocaleString('es-MX')}</p>
+                                <div className="bg-[#0b1d3a] rounded-lg px-3 py-2 @3xl:py-4 text-center">
+                                  <p className="text-[9px] @3xl:text-[27px] @3xl:leading-tight text-[#5f6a80] uppercase tracking-wide font-semibold">High</p>
+                                  <p className="text-[13px] @3xl:text-[39px] @3xl:leading-tight font-bold text-[#f4f0e6] mt-0.5">${rangoMostrado.high.toLocaleString('es-MX')}</p>
                                 </div>
                               </div>
 
@@ -4311,17 +4311,17 @@ function PipelineContent() {
                       })()}
 
                       {/* Costo ponderado + total */}
-                      <div className="px-5 pb-4 grid grid-cols-2 gap-3">
+                      <div className="@container px-5 pb-4 grid grid-cols-2 gap-3">
                         <EditableM2
                           label="Costo ponderado / m²"
                           value={c.construccionM2}
                           override={pipe.construccion.usarParametricoZona && parametricoM2 ? String(parametricoM2) : pipe.construccion.overrideM2}
                           onOverride={v => setPipe(p => ({ ...p, construccion: { ...p.construccion, overrideM2: v, usarParametricoZona: false } }))}
                         />
-                        <div className="bg-[#132a4d] rounded-xl px-4 py-3">
-                          <p className="text-[10px] text-[#5f6a80] uppercase tracking-wide font-semibold">Costo total directo</p>
-                          <p className="text-[17px] font-bold text-[#f4f0e6] mt-0.5">{fmt(totalCons)}</p>
-                          <p className="text-[10px] text-[#5f6a80]">Suma ponderada por zona</p>
+                        <div className="bg-[#132a4d] rounded-xl px-4 py-3 @3xl:py-5">
+                          <p className="text-[10px] @3xl:text-[30px] @3xl:leading-tight text-[#5f6a80] uppercase tracking-wide font-semibold">Costo total directo</p>
+                          <p className="text-[17px] @3xl:text-[48px] @3xl:leading-tight font-bold text-[#f4f0e6] mt-0.5">{fmt(totalCons)}</p>
+                          <p className="text-[10px] @3xl:text-[20px] text-[#5f6a80]">Suma ponderada por zona</p>
                         </div>
                       </div>
 
