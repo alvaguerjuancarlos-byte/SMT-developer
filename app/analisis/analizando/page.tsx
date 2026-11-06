@@ -410,19 +410,19 @@ export function EditableM2({
     onOverride(String(Math.round(value * (1 + p / 100))))
   }
   return (
-    <div className="bg-[#132a4d] rounded-xl px-4 py-3">
+    <div className="bg-[#132a4d] rounded-xl px-4 py-3 @3xl:py-5">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <p className="text-[10px] text-[#5f6a80] uppercase tracking-wide font-semibold">{label}</p>
+          <p className="text-[10px] @3xl:text-[30px] @3xl:leading-tight text-[#5f6a80] uppercase tracking-wide font-semibold">{label}</p>
           <div className="flex items-center gap-2 mt-0.5">
-            {prefix && <span className="text-[11px] text-[#5f6a80]">{prefix}</span>}
+            {prefix && <span className="text-[11px] @3xl:text-[30px] text-[#5f6a80]">{prefix}</span>}
             <input
               type="number"
               value={override !== '' ? override : value}
               onChange={e => onOverride(e.target.value)}
-              className="w-24 text-[17px] font-bold text-[#f4f0e6] bg-transparent border-b border-dashed border-[#5f6a80] focus:outline-none focus:border-[#c9a227]"
+              className="w-24 @3xl:w-[170px] text-[17px] @3xl:text-[48px] font-bold text-[#f4f0e6] bg-transparent border-b border-dashed border-[#5f6a80] focus:outline-none focus:border-[#c9a227]"
             />
-            <span className="text-[12px] text-[#5f6a80]">{unit}</span>
+            <span className="text-[12px] @3xl:text-[24px] text-[#5f6a80]">{unit}</span>
           </div>
         </div>
         {override !== '' && Number(override) !== value && (
@@ -4396,7 +4396,7 @@ function PipelineContent() {
                       </div>
                     </div>
 
-                    <div className="px-5 py-4 grid grid-cols-2 md:grid-cols-4 gap-2">
+                    <div className="@container px-5 py-4 grid grid-cols-2 md:grid-cols-4 gap-2">
                       <EditableM2
                         label="Costo terreno"
                         value={Math.round(terrenoActual?.costoTerrenoM2 ?? coreInputs.terreno.costoTerrenoM2)}
@@ -4415,13 +4415,13 @@ function PipelineContent() {
                         override={pipe.financiero.precioVentaObjetivo}
                         onOverride={v => setPipe(p => ({ ...p, financiero: { ...p.financiero, precioVentaObjetivo: v } }))}
                       />
-                      <div className="rounded-xl px-3 py-2.5 text-center" style={{ backgroundColor: resumen.utilidad.margenBruto >= 12 ? '#14301f' : '#2e1414' }}>
-                        <p className="text-[10px] uppercase tracking-wide font-semibold" style={{ color: resumen.utilidad.margenBruto >= 12 ? '#0F6E56' : '#F87171' }}>Margen bruto</p>
-                        <p className="text-[13px] font-bold mt-0.5" style={{ color: resumen.utilidad.margenBruto >= 12 ? '#0F6E56' : '#F87171' }}>{resumen.utilidad.margenBruto.toFixed(1)}%</p>
+                      <div className="rounded-xl px-3 py-2.5 @3xl:py-5 text-center flex flex-col justify-center" style={{ backgroundColor: resumen.utilidad.margenBruto >= 12 ? '#14301f' : '#2e1414' }}>
+                        <p className="text-[10px] @3xl:text-[30px] @3xl:leading-tight uppercase tracking-wide font-semibold" style={{ color: resumen.utilidad.margenBruto >= 12 ? '#0F6E56' : '#F87171' }}>Margen bruto</p>
+                        <p className="text-[13px] @3xl:text-[39px] font-bold mt-0.5" style={{ color: resumen.utilidad.margenBruto >= 12 ? '#0F6E56' : '#F87171' }}>{resumen.utilidad.margenBruto.toFixed(1)}%</p>
                       </div>
                     </div>
 
-                    <div className="px-5 pb-4 grid grid-cols-2 md:grid-cols-4 gap-2">
+                    <div className="@container px-5 pb-4 grid grid-cols-2 md:grid-cols-4 gap-2">
                       <EditableM2
                         label="Unidades objetivo"
                         value={Math.round(proyectoRaw.unidadesHabitacionales)}
@@ -4430,24 +4430,24 @@ function PipelineContent() {
                         unit="uds"
                         prefix=""
                       />
-                      <div className="bg-[#132a4d] rounded-xl px-3 py-2.5 text-center">
-                        <p className="text-[10px] text-[#5f6a80] uppercase tracking-wide font-semibold">Costo / m² vendible</p>
-                        <p className="text-[13px] font-bold text-[#f4f0e6] mt-0.5">{fmt(resumen.costoPorM2Vendible)}</p>
+                      <div className="bg-[#132a4d] rounded-xl px-3 py-2.5 @3xl:py-5 text-center flex flex-col justify-center">
+                        <p className="text-[10px] @3xl:text-[30px] @3xl:leading-tight text-[#5f6a80] uppercase tracking-wide font-semibold">Costo / m² vendible</p>
+                        <p className="text-[13px] @3xl:text-[39px] font-bold text-[#f4f0e6] mt-0.5">{fmt(resumen.costoPorM2Vendible)}</p>
                       </div>
-                      <div className="rounded-xl px-3 py-2.5 text-center" style={{ backgroundColor: spreadBajo ? '#2e1414' : '#132a4d' }}>
-                        <p className="text-[10px] uppercase tracking-wide font-semibold" style={{ color: spreadBajo ? '#F87171' : '#5f6a80' }}>Spread venta/construcción</p>
-                        <p className="text-[13px] font-bold mt-0.5" style={{ color: spreadBajo ? '#F87171' : '#f4f0e6' }}>{resumen.spreadVentaConstruccion !== null ? `${resumen.spreadVentaConstruccion.toFixed(2)}x` : '—'}</p>
+                      <div className="rounded-xl px-3 py-2.5 @3xl:py-5 text-center flex flex-col justify-center" style={{ backgroundColor: spreadBajo ? '#2e1414' : '#132a4d' }}>
+                        <p className="text-[10px] @3xl:text-[30px] @3xl:leading-tight uppercase tracking-wide font-semibold" style={{ color: spreadBajo ? '#F87171' : '#5f6a80' }}>Spread venta/construcción</p>
+                        <p className="text-[13px] @3xl:text-[39px] font-bold mt-0.5" style={{ color: spreadBajo ? '#F87171' : '#f4f0e6' }}>{resumen.spreadVentaConstruccion !== null ? `${resumen.spreadVentaConstruccion.toFixed(2)}x` : '—'}</p>
                       </div>
-                      <div className="bg-[#132a4d] rounded-xl px-3 py-2.5 text-center">
-                        <p className="text-[10px] text-[#5f6a80] uppercase tracking-wide font-semibold">Punto de equilibrio</p>
-                        <p className="text-[13px] font-bold text-[#f4f0e6] mt-0.5">{resumen.puntoEquilibrioUnidades} uds</p>
+                      <div className="bg-[#132a4d] rounded-xl px-3 py-2.5 @3xl:py-5 text-center flex flex-col justify-center">
+                        <p className="text-[10px] @3xl:text-[30px] @3xl:leading-tight text-[#5f6a80] uppercase tracking-wide font-semibold">Punto de equilibrio</p>
+                        <p className="text-[13px] @3xl:text-[39px] font-bold text-[#f4f0e6] mt-0.5">{resumen.puntoEquilibrioUnidades} uds</p>
                       </div>
                     </div>
 
-                    <div className="px-5 pb-2">
-                      <div className="bg-[#132a4d] rounded-xl px-3 py-2.5 text-center">
-                        <p className="text-[10px] text-[#5f6a80] uppercase tracking-wide font-semibold">Utilidad bruta</p>
-                        <p className="text-[13px] font-bold text-[#f4f0e6] mt-0.5">{fmt(resumen.utilidad.utilidadAntesImpuestos)}</p>
+                    <div className="@container px-5 pb-2">
+                      <div className="bg-[#132a4d] rounded-xl px-3 py-2.5 @3xl:py-5 text-center flex flex-col justify-center">
+                        <p className="text-[10px] @3xl:text-[30px] @3xl:leading-tight text-[#5f6a80] uppercase tracking-wide font-semibold">Utilidad bruta</p>
+                        <p className="text-[13px] @3xl:text-[39px] font-bold text-[#f4f0e6] mt-0.5">{fmt(resumen.utilidad.utilidadAntesImpuestos)}</p>
                       </div>
                     </div>
 
@@ -4525,32 +4525,32 @@ function PipelineContent() {
                         <span className="text-[11px] text-[#5f6a80]">Análisis financiero completo</span>
                       </div>
 
-                      <div className="px-5 py-4 grid grid-cols-3 gap-3">
+                      <div className="@container px-5 py-4 grid grid-cols-3 gap-3 @3xl:gap-y-6">
                         <div className="text-center">
-                          <p className="text-[10px] text-[#5f6a80] uppercase tracking-wide">TIR Socio</p>
-                          <p className={`text-[22px] font-black ${f?.tir == null ? 'text-[#5f6a80]' : f.tir >= 0 ? 'text-[#1D9E75]' : 'text-[#DC2626]'}`}>
+                          <p className="text-[10px] @3xl:text-[30px] @3xl:leading-tight text-[#5f6a80] uppercase tracking-wide">TIR Socio</p>
+                          <p className={`text-[22px] @3xl:text-[66px] @3xl:leading-none font-black ${f?.tir == null ? 'text-[#5f6a80]' : f.tir >= 0 ? 'text-[#1D9E75]' : 'text-[#DC2626]'}`}>
                             {f?.tir == null ? 'N/D' : `${f.tir.toFixed(1)}%`}
                           </p>
                         </div>
                         <div className="text-center">
-                          <p className="text-[10px] text-[#5f6a80] uppercase tracking-wide">{f?.renta ? 'Yield on cost' : 'Margen'}</p>
-                          <p className="text-[22px] font-black text-[#f4f0e6]">{f?.renta ? f.renta.yieldOnCostPct : f?.margenBruto}%</p>
+                          <p className="text-[10px] @3xl:text-[30px] @3xl:leading-tight text-[#5f6a80] uppercase tracking-wide">{f?.renta ? 'Yield on cost' : 'Margen'}</p>
+                          <p className="text-[22px] @3xl:text-[66px] @3xl:leading-none font-black text-[#f4f0e6]">{f?.renta ? f.renta.yieldOnCostPct : f?.margenBruto}%</p>
                         </div>
                         <div className="text-center">
-                          <p className="text-[10px] text-[#5f6a80] uppercase tracking-wide">Inversión</p>
-                          <p className="text-[22px] font-black text-[#f4f0e6]">{fmt(f?.inversionTotal || 0)}</p>
+                          <p className="text-[10px] @3xl:text-[30px] @3xl:leading-tight text-[#5f6a80] uppercase tracking-wide">Inversión</p>
+                          <p className="text-[22px] @3xl:text-[66px] @3xl:leading-none font-black text-[#f4f0e6]">{fmt(f?.inversionTotal || 0)}</p>
                         </div>
                         <div className="text-center">
-                          <p className="text-[10px] text-[#5f6a80] uppercase tracking-wide">{f?.renta ? 'NOI anual estabilizado' : 'Utilidad bruta'}</p>
-                          <p className="text-[16px] font-bold text-[#f4f0e6]">{fmt((f?.renta ? f.renta.noiEstabilizadoAnual : f?.utilidadBruta) || 0)}</p>
+                          <p className="text-[10px] @3xl:text-[30px] @3xl:leading-tight text-[#5f6a80] uppercase tracking-wide">{f?.renta ? 'NOI anual estabilizado' : 'Utilidad bruta'}</p>
+                          <p className="text-[16px] @3xl:text-[48px] @3xl:leading-none font-bold text-[#f4f0e6]">{fmt((f?.renta ? f.renta.noiEstabilizadoAnual : f?.utilidadBruta) || 0)}</p>
                         </div>
                         <div className="text-center">
-                          <p className="text-[10px] text-[#5f6a80] uppercase tracking-wide">{f?.renta ? 'Valor del activo' : 'Ingresos'}</p>
-                          <p className="text-[16px] font-bold text-[#f4f0e6]">{fmt(f?.ingresosProyectados || 0)}</p>
+                          <p className="text-[10px] @3xl:text-[30px] @3xl:leading-tight text-[#5f6a80] uppercase tracking-wide">{f?.renta ? 'Valor del activo' : 'Ingresos'}</p>
+                          <p className="text-[16px] @3xl:text-[48px] @3xl:leading-none font-bold text-[#f4f0e6]">{fmt(f?.ingresosProyectados || 0)}</p>
                         </div>
                         <div className="text-center">
-                          <p className="text-[10px] text-[#5f6a80] uppercase tracking-wide">Score resiliencia</p>
-                          <p className={`text-[16px] font-bold ${score?.total >= 70 ? 'text-[#0F6E56]' : score?.total >= 50 ? 'text-[#FBBF24]' : 'text-[#F87171]'}`}>
+                          <p className="text-[10px] @3xl:text-[30px] @3xl:leading-tight text-[#5f6a80] uppercase tracking-wide">Score resiliencia</p>
+                          <p className={`text-[16px] @3xl:text-[48px] @3xl:leading-none font-bold ${score?.total >= 70 ? 'text-[#0F6E56]' : score?.total >= 50 ? 'text-[#FBBF24]' : 'text-[#F87171]'}`}>
                             {score?.total ?? '—'}/100
                           </p>
                         </div>
