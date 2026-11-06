@@ -4435,7 +4435,7 @@ function PipelineContent() {
                         <p className="text-[13px] @3xl:text-[39px] font-bold text-[#f4f0e6] mt-0.5">{fmt(resumen.costoPorM2Vendible)}</p>
                       </div>
                       <div className="rounded-xl px-3 py-2.5 @3xl:py-5 text-center flex flex-col justify-center" style={{ backgroundColor: spreadBajo ? '#2e1414' : '#132a4d' }}>
-                        <p className="text-[10px] @3xl:text-[30px] @3xl:leading-tight uppercase tracking-wide font-semibold" style={{ color: spreadBajo ? '#F87171' : '#5f6a80' }}>Spread venta/construcción</p>
+                        <p className="text-[10px] @3xl:text-[30px] @3xl:leading-tight uppercase tracking-wide font-semibold" style={{ color: spreadBajo ? '#F87171' : '#5f6a80' }}>Spread venta / construcción</p>
                         <p className="text-[13px] @3xl:text-[39px] font-bold mt-0.5" style={{ color: spreadBajo ? '#F87171' : '#f4f0e6' }}>{resumen.spreadVentaConstruccion !== null ? `${resumen.spreadVentaConstruccion.toFixed(2)}x` : '—'}</p>
                       </div>
                       <div className="bg-[#132a4d] rounded-xl px-3 py-2.5 @3xl:py-5 text-center flex flex-col justify-center">
