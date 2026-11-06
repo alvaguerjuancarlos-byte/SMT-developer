@@ -8,6 +8,7 @@ import CostosGauge from './CostosGauge'
 import KpiGauge from './KpiGauge'
 import IngresosGauge from './IngresosGauge'
 import Palanca from './Palanca'
+import KpiStrip from './KpiStrip'
 import DetailDrawer from './DetailDrawer'
 import type { LeverId } from './types'
 
@@ -33,6 +34,7 @@ export default function MastermindCockpit({ origenAnalisis, tirAnalisisOriginal 
 
   return (
     <div className="space-y-4">
+      <KpiStrip />
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
         <div className="space-y-2">
           <CostosGauge />

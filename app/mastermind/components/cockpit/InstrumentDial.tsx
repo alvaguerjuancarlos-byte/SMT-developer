@@ -3,7 +3,7 @@
 type DialSize = 'lg' | 'md' | 'sm'
 
 const GEOMETRY: Record<DialSize, { cx: number; cy: number; r: number; stroke: number; w: number; h: number; valueSize: number; labelSize: number }> = {
-  lg: { cx: 70, cy: 74, r: 54, stroke: 12, w: 140, h: 90, valueSize: 26, labelSize: 10 },
+  lg: { cx: 88, cy: 92, r: 68, stroke: 12, w: 176, h: 112, valueSize: 30, labelSize: 10 },
   md: { cx: 50, cy: 53, r: 38, stroke: 9, w: 100, h: 64, valueSize: 18, labelSize: 9 },
   sm: { cx: 32, cy: 34, r: 22, stroke: 6, w: 64, h: 40, valueSize: 11, labelSize: 0 },
 }
@@ -67,11 +67,16 @@ export default function InstrumentDial({
             d={`M ${g.cx - g.r} ${g.cy} A ${g.r} ${g.r} 0 0 1 ${g.cx + g.r} ${g.cy}`}
             stroke="rgba(255,255,255,0.08)" strokeWidth={g.stroke} strokeLinecap="round" fill="none"
           />
+          {/* marcas de escala del instrumento */}
+          {size !== 'sm' && Array.from({ length: 11 }, (_, i) => {
+            const ang = Math.PI * (1 - i / 10), r1 = g.r + g.stroke / 2 + 3, r2 = r1 + (i % 5 === 0 ? 6 : 3)
+            return <line key={i} x1={g.cx + r1 * Math.cos(ang)} y1={g.cy - r1 * Math.sin(ang)} x2={g.cx + r2 * Math.cos(ang)} y2={g.cy - r2 * Math.sin(ang)} stroke="rgba(255,255,255,0.28)" strokeWidth="1" />
+          })}
           <path
             d={`M ${g.cx - g.r} ${g.cy} A ${g.r} ${g.r} 0 0 1 ${g.cx + g.r} ${g.cy}`}
             stroke={strokeColor} strokeWidth={g.stroke} strokeLinecap="round" fill="none"
             strokeDasharray={`${dash} ${circ}`}
-            style={{ transition: 'stroke-dasharray 0.6s ease' }}
+            style={{ transition: 'stroke-dasharray 0.6s ease', filter: `drop-shadow(0 0 6px ${strokeColor})` }}
           />
           {marca && (
             <line x1={marca.x1} y1={marca.y1} x2={marca.x2} y2={marca.y2} stroke="white" strokeWidth="2" strokeLinecap="round" />

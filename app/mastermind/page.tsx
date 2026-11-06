@@ -143,7 +143,7 @@ function MastermindContent() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0b1d3a]">
+    <div className="min-h-screen bg-[#0b1d3a]" style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px)', backgroundSize: '48px 48px' }}>
       <div className="px-6 pt-6 pb-0 max-w-7xl mx-auto">
         <div className="flex items-center gap-2 text-[12px] text-[#5f6a80]">
           <button onClick={() => router.push('/analisis')} className="text-[#c9a227] font-medium hover:underline">
@@ -157,7 +157,11 @@ function MastermindContent() {
       <div className="max-w-7xl mx-auto px-6 py-8">
         <div className="mb-8 flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-[24px] font-bold text-[#f4f0e6] mb-1">Mastermind</h1>
+            <p className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.22em] text-[#1D9E75] mb-1.5">
+              <span className="relative flex w-2 h-2"><span className="absolute inset-0 rounded-full bg-[#1D9E75] animate-ping opacity-60" /><span className="relative w-2 h-2 rounded-full bg-[#1D9E75]" /></span>
+              Tablero de control · en vivo
+            </p>
+            <h1 className="text-[30px] font-bold text-[#f4f0e6] mb-1 tracking-tight">Mastermind</h1>
             <p className="text-[14px] text-[#8b96ab]">
               Ajusta los parámetros del proyecto y ve la TIR recalcularse en vivo, o fija una TIR objetivo para saber qué necesitas alcanzarla.
             </p>

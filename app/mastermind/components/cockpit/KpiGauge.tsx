@@ -11,18 +11,10 @@ function fmtCompact(n: number) {
   return fmt(n)
 }
 
-function semaforoMargen(margenNeto: number): { color: string; label: string } {
-  if (margenNeto > 20) return { color: '#1D9E75', label: 'Saludable' }
-  if (margenNeto >= 10) return { color: '#D97706', label: 'Ajustado' }
-  return { color: '#DC2626', label: 'Riesgo' }
-}
-
 export default function KpiGauge({ tirAnalisisOriginal }: { tirAnalisisOriginal?: number }) {
   const { inputs, outputs } = useMastermind()
   const r = outputs.retorno
-  const u = outputs.utilidad
   const viable = r.tirSocioConverge && (r.tirSocioAnual as number) >= inputs.tirObjetivo
-  const sMargen = semaforoMargen(u.margenNeto)
 
   return (
     <Panel titulo="KPIs financieros" accent="#c9a227">
@@ -65,7 +57,7 @@ export default function KpiGauge({ tirAnalisisOriginal }: { tirAnalisisOriginal?
       </div>
 
       {/* Estructura de capital — mismo peso visual que las TIR, no solo dentro de la palanca Financiero */}
-      <div className="mb-3">
+      <div>
         <div className="flex items-center justify-between mb-1.5">
           <span className="text-[10px] font-bold text-[#c9a227]">Socio {(100 - inputs.financiamiento.porcentajeFinanciado)}%</span>
           <span className="text-[10px] font-bold text-[#818CF8]">Banca {inputs.financiamiento.porcentajeFinanciado}%</span>
@@ -80,27 +72,6 @@ export default function KpiGauge({ tirAnalisisOriginal }: { tirAnalisisOriginal?
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-2 mb-3 text-center">
-        <div>
-          <div className="font-mono text-[14px] font-bold text-white">{r.roiSimple.toFixed(0)}%</div>
-          <div className="text-[9px] text-white/30 uppercase tracking-wider mt-0.5">ROI</div>
-        </div>
-        <div>
-          <div className="font-mono text-[14px] font-bold text-white">{r.paybackMeses.toFixed(0)}m</div>
-          <div className="text-[9px] text-white/30 uppercase tracking-wider mt-0.5">Payback</div>
-        </div>
-      </div>
-
-      <div className="flex items-center justify-between rounded-lg px-3 py-2" style={{ backgroundColor: 'rgba(255,255,255,0.03)' }}>
-        <div>
-          <div className="text-[9px] uppercase tracking-wider" style={{ color: sMargen.color }}>{sMargen.label} · UAI</div>
-          <div className="font-mono text-[15px] font-bold text-white">{fmtCompact(u.utilidadAntesImpuestos)}</div>
-        </div>
-        <div className="text-right">
-          <div className="text-[9px] text-white/30 uppercase tracking-wider">Margen neto</div>
-          <div className="font-mono text-[15px] font-bold" style={{ color: sMargen.color }}>{u.margenNeto.toFixed(1)}%</div>
-        </div>
-      </div>
     </Panel>
   )
 }

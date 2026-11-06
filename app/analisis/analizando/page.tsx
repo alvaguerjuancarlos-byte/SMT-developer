@@ -202,6 +202,82 @@ function Sonar({ color = '#c9a227', size = 36 }: { color?: string; size?: number
   )
 }
 
+// Radar central (simbólico) — la misma pantalla de sonar que Sonar pero 15 veces más grande
+// (36 → 540 px), con un punto por agente en su color: late mientras corre y queda fijo al
+// terminar. Se muestra arriba del tablero mientras haya agentes trabajando y ninguna tarjeta
+// expandida (pedido de JC, 6-nov); los Sonar chicos de cada tarjeta se conservan.
+const RADAR_POS: Record<keyof typeof AGENTE_COLOR, { ang: number; r: number; nombre: string }> = {
+  terreno: { ang: 35, r: 0.62, nombre: 'Valuación de terreno' },
+  legal: { ang: 105, r: 0.42, nombre: 'Legal' },
+  mercado: { ang: 160, r: 0.74, nombre: 'Valuación de mercado' },
+  arquitectura: { ang: 215, r: 0.5, nombre: 'Arquitectura' },
+  construccion: { ang: 285, r: 0.7, nombre: 'Costos de construcción' },
+  financiero: { ang: 330, r: 0.36, nombre: 'Plan financiero' },
+}
+
+function RadarCentral({ estados, size = 540 }: { estados: Record<keyof typeof AGENTE_COLOR, CockpitEstado>; size?: number }) {
+  const agentes = Object.keys(RADAR_POS) as (keyof typeof AGENTE_COLOR)[]
+  const corriendo = agentes.filter(a => estados[a] === 'corriendo').length
+  const listos = agentes.filter(a => estados[a] === 'listo').length
+  return (
+    <div className="flex items-center justify-center gap-12 flex-wrap mb-8">
+      <div className="relative shrink-0" style={{ width: size, height: size }}>
+        <div className="absolute inset-0 rounded-full" style={{ background: 'radial-gradient(circle, rgba(201,162,39,0.10) 0%, rgba(11,29,58,0) 70%)', boxShadow: '0 0 80px rgba(201,162,39,0.12), inset 0 0 60px rgba(0,0,0,0.35)' }} />
+        <svg className="absolute inset-0" width={size} height={size} viewBox="0 0 100 100">
+          {[48, 36, 24, 12].map(r => <circle key={r} cx="50" cy="50" r={r} fill="none" stroke="#c9a227" strokeOpacity={r === 48 ? 0.45 : 0.18} strokeWidth={r === 48 ? 0.4 : 0.25} />)}
+          <line x1="2" y1="50" x2="98" y2="50" stroke="#c9a227" strokeOpacity="0.15" strokeWidth="0.2" />
+          <line x1="50" y1="2" x2="50" y2="98" stroke="#c9a227" strokeOpacity="0.15" strokeWidth="0.2" />
+          {Array.from({ length: 72 }, (_, i) => {
+            const a = (i * 5 * Math.PI) / 180, largo = i % 6 === 0 ? 2.2 : 1
+            return <line key={i} x1={50 + 48 * Math.cos(a)} y1={50 + 48 * Math.sin(a)} x2={50 + (48 - largo) * Math.cos(a)} y2={50 + (48 - largo) * Math.sin(a)} stroke="#c9a227" strokeOpacity="0.4" strokeWidth="0.25" />
+          })}
+        </svg>
+        <div
+          className="absolute rounded-full"
+          style={{ inset: size * 0.02, animation: 'spin 4s linear infinite', background: 'conic-gradient(from 0deg, transparent 0deg, transparent 270deg, rgba(201,162,39,0.10) 315deg, rgba(201,162,39,0.55) 358deg, #ddc06a 360deg)' }}
+        />
+        {agentes.map(a => {
+          const { ang, r } = RADAR_POS[a]
+          const e = estados[a]
+          if (e === 'cola') return null
+          const rad = (ang * Math.PI) / 180
+          const x = size / 2 + Math.cos(rad) * r * size * 0.48
+          const y = size / 2 - Math.sin(rad) * r * size * 0.48
+          const d = e === 'corriendo' ? 16 : 11
+          return (
+            <span key={a} className="absolute" style={{ left: x - d / 2, top: y - d / 2, width: d, height: d }}>
+              {e === 'corriendo' && <span className="absolute inset-0 rounded-full animate-ping" style={{ backgroundColor: AGENTE_COLOR[a], opacity: 0.6 }} />}
+              <span className="absolute inset-0 rounded-full" style={{ backgroundColor: AGENTE_COLOR[a], boxShadow: `0 0 14px ${AGENTE_COLOR[a]}` }} />
+            </span>
+          )
+        })}
+        <span className="absolute rounded-full bg-[#ddc06a]" style={{ width: 14, height: 14, left: size / 2 - 7, top: size / 2 - 7, boxShadow: '0 0 18px #ddc06a' }} />
+      </div>
+      <div className="max-w-[380px]">
+        <p className="text-[11px] font-bold text-[#c9a227] uppercase tracking-[0.2em]">Equipo de agentes de IA</p>
+        <p className="text-[30px] leading-tight font-semibold text-[#f4f0e6] mt-2" style={{ fontFamily: 'var(--font-fraunces)' }}>
+          {corriendo} {corriendo === 1 ? 'agente trabajando' : 'agentes trabajando'} en paralelo
+        </p>
+        <p className="text-[13px] text-[#8b96ab] mt-1">{listos} de {agentes.length} entregables listos</p>
+        <div className="mt-5 flex flex-col gap-2.5">
+          {agentes.map(a => {
+            const e = estados[a]
+            return (
+              <div key={a} className="flex items-center gap-3">
+                <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: AGENTE_COLOR[a], opacity: e === 'cola' ? 0.35 : 1, boxShadow: e === 'corriendo' ? `0 0 10px ${AGENTE_COLOR[a]}` : 'none' }} />
+                <span className={`text-[14px] flex-1 ${e === 'cola' ? 'text-[#5f6a80]' : 'text-[#f4f0e6]'}`}>{RADAR_POS[a].nombre}</span>
+                <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: e === 'corriendo' ? AGENTE_COLOR[a] : e === 'listo' ? '#1D9E75' : e === 'error' ? '#F87171' : '#5f6a80' }}>
+                  {e === 'corriendo' ? 'Trabajando…' : e === 'listo' ? 'Listo' : e === 'error' ? 'Error' : e === 'esperando_aprobacion' ? 'Por aprobar' : 'En cola'}
+                </span>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // Etiquetas para los campos de lib/market/ (MarketMaster) que se muestran en la tarjeta
 // "Resumen de mercado" — mismos enums que lib/market/tipos.ts (EtapaInventario/VentanaPlusvalia/
 // TipoComparable), sin importar el archivo entero solo por estos labels.
@@ -2581,6 +2657,9 @@ function PipelineContent() {
 
       <main className="flex-1 min-h-0 overflow-y-auto px-4 md:px-8 py-8">
         <div className="max-w-[1400px] mx-auto">
+          {expandido === null && [estadoTerreno, estadoLegal, estadoMercado, estadoArquitectura, estadoCostos, estadoFinanciero].includes('corriendo') && (
+            <RadarCentral estados={{ terreno: estadoTerreno, legal: estadoLegal, mercado: estadoMercado, arquitectura: estadoArquitectura, construccion: estadoCostos, financiero: estadoFinanciero }} />
+          )}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 auto-rows-min" style={{ gridAutoFlow: 'dense' }}>
 
             {/* ══ TERRENO ══ */}
@@ -2966,26 +3045,26 @@ function PipelineContent() {
                         {t.bitacoraTerreno.rangoValoracion && (
                           <div>
                             <p className="text-[10px] font-bold text-[#5f6a80] uppercase tracking-wide mb-2">Rango de negociación (MXN/m²)</p>
-                            <div className="flex items-center gap-2">
-                              <div className="flex-1 bg-[#132a4d] rounded-lg px-3 py-2 text-center">
-                                <p className="text-[9px] text-[#5f6a80] uppercase tracking-wide">Mínimo</p>
-                                <p className="text-[13px] font-bold text-[#f4f0e6]">${t.bitacoraTerreno.rangoValoracion.minimo?.toLocaleString()}/m²</p>
+                            <div className="@container"><div className="flex items-center gap-2 @3xl:gap-3">
+                              <div className="flex-1 bg-[#132a4d] rounded-xl px-3 py-2 @3xl:px-4 @3xl:py-5 text-center">
+                                <p className="text-[9px] @3xl:text-[27px] leading-tight font-semibold text-[#5f6a80] uppercase tracking-wide">Mínimo</p>
+                                <p className="text-[13px] @3xl:text-[39px] leading-tight font-black text-[#f4f0e6] tabular-nums">${t.bitacoraTerreno.rangoValoracion.minimo?.toLocaleString()}/m²</p>
                               </div>
-                              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                              <svg viewBox="0 0 16 16" fill="none" className="shrink-0 w-4 h-4 @3xl:w-7 @3xl:h-7">
                                 <path d="M4 8h8M9 5l3 3-3 3" stroke="#5f6a80" strokeWidth="1.5" strokeLinecap="round"/>
                               </svg>
-                              <div className="flex-1 bg-[#c9a227] rounded-lg px-3 py-2 text-center">
-                                <p className="text-[9px] text-[#070f22]/70 uppercase tracking-wide">Recomendado</p>
-                                <p className="text-[13px] font-bold text-[#070f22]">${t.bitacoraTerreno.precioM2Final?.toLocaleString()}/m²</p>
+                              <div className="flex-1 bg-[#c9a227] rounded-xl px-3 py-2 @3xl:px-4 @3xl:py-5 text-center shadow-[0_0_24px_rgba(201,162,39,0.25)]">
+                                <p className="text-[9px] @3xl:text-[27px] leading-tight font-semibold text-[#070f22]/70 uppercase tracking-wide">Recomendado</p>
+                                <p className="text-[13px] @3xl:text-[39px] leading-tight font-black text-[#070f22] tabular-nums">${t.bitacoraTerreno.precioM2Final?.toLocaleString()}/m²</p>
                               </div>
-                              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                              <svg viewBox="0 0 16 16" fill="none" className="shrink-0 w-4 h-4 @3xl:w-7 @3xl:h-7">
                                 <path d="M4 8h8M9 5l3 3-3 3" stroke="#5f6a80" strokeWidth="1.5" strokeLinecap="round"/>
                               </svg>
-                              <div className="flex-1 bg-[#132a4d] rounded-lg px-3 py-2 text-center">
-                                <p className="text-[9px] text-[#5f6a80] uppercase tracking-wide">Máximo</p>
-                                <p className="text-[13px] font-bold text-[#f4f0e6]">${t.bitacoraTerreno.rangoValoracion.maximo?.toLocaleString()}/m²</p>
+                              <div className="flex-1 bg-[#132a4d] rounded-xl px-3 py-2 @3xl:px-4 @3xl:py-5 text-center">
+                                <p className="text-[9px] @3xl:text-[27px] leading-tight font-semibold text-[#5f6a80] uppercase tracking-wide">Máximo</p>
+                                <p className="text-[13px] @3xl:text-[39px] leading-tight font-black text-[#f4f0e6] tabular-nums">${t.bitacoraTerreno.rangoValoracion.maximo?.toLocaleString()}/m²</p>
                               </div>
-                            </div>
+                            </div></div>
                             {t.bitacoraTerreno.rangoValoracion.interpretacion && (
                               <p className="text-[10px] text-[#5f6a80] mt-1.5 leading-snug">{t.bitacoraTerreno.rangoValoracion.interpretacion}</p>
                             )}
