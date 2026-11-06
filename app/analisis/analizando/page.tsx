@@ -3585,8 +3585,15 @@ function PipelineContent() {
                       {!m?.renta && (
                         <div className="px-4 pt-3">
                           <MedidoresMercado
-                            precioVenta={m?.precioVentaDepasM2}
-                            preciosComparables={pipe.comparablesVenta.data.filter(c => !c.sospechosoPorBanda && c.precioM2).map(c => Number(c.precioM2))}
+                            // antes del Agente Financiero el precio de venta del modelo es el de la zona
+                            // (extractMercadoContext); si hay pricing por fases, el precio de lista (entrega)
+                            precioVenta={m?.pricingFases?.length ? m.pricingFases[m.pricingFases.length - 1].precioM2 : Number(String(m?.precioPromedioZona ?? '').replace(/[^0-9]/g, '')) || null}
+                            // comparables sin marca de desfase; si quedan menos de dos, todos los verificados
+                            preciosComparables={(() => {
+                              const conPrecio = pipe.comparablesVenta.data.filter(c => c.precioM2)
+                              const limpios = conPrecio.filter(c => !c.sospechosoPorBanda)
+                              return (limpios.length >= 2 ? limpios : conPrecio).map(c => Number(c.precioM2))
+                            })()}
                             precioZonaTexto={m?.precioPromedioZona}
                             absorcionTexto={m?.absorcion}
                             unidades={arquitecturaActual?.bitacoraArquitectura?.tipologiaPropuesta?.habitacional?.totalDepartamentos ?? null}
