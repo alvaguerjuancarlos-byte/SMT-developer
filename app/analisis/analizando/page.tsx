@@ -9,6 +9,7 @@ import { construirInputsNormativos, programaAUsos, type ProgramaUnidades } from 
 import { calcularConfidenceScore, calcularRango, incertidumbreDesdeConfianza } from '@/lib/construccion/costoParametricoEngine'
 import { calcularArquitecturaEnVivo, type EntradaArquitecturaEnVivo } from '@/lib/analisis/envolventeYAreas'
 import { VistasArquitectura } from '@/app/components/VistasArquitectura'
+import { MedidoresMercado } from '@/app/components/MedidoresMercado'
 import { PlanoTerreno } from '@/app/components/PlanoTerreno'
 import { PlusvaliaProyeccion } from '@/app/components/PlusvaliaProyeccion'
 import type { AnalisisData } from '@/lib/analisis/tipos'
@@ -3581,6 +3582,17 @@ function PipelineContent() {
                       <div className="px-4 py-3 border-b border-[#2a3f5c] flex items-center gap-2">
                         <CheckIcon />
                       </div>
+                      {!m?.renta && (
+                        <div className="px-4 pt-3">
+                          <MedidoresMercado
+                            precioVenta={m?.precioVentaDepasM2}
+                            preciosComparables={pipe.comparablesVenta.data.filter(c => !c.sospechosoPorBanda && c.precioM2).map(c => Number(c.precioM2))}
+                            precioZonaTexto={m?.precioPromedioZona}
+                            absorcionTexto={m?.absorcion}
+                            unidades={arquitecturaActual?.bitacoraArquitectura?.tipologiaPropuesta?.habitacional?.totalDepartamentos ?? null}
+                          />
+                        </div>
+                      )}
                       <div className="px-4 py-3 space-y-2.5">
                         <div className="flex items-center justify-between">
                           <span className="text-[11px] text-[#8b96ab]">{m?.renta ? 'Renta/m²/mes zona' : 'Precio/m² zona'}</span>
