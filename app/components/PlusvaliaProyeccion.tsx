@@ -35,40 +35,85 @@ function HorizonteCard({ label, pct, rangoMin, rangoMax }: { label: string; pct:
 }
 
 // Mini proyección hoy -> +3a -> +5a, con cono min/max — mismo concepto que el mockup validado.
+// Las curvas se muestrean por trimestre (crecimiento compuesto real, no dos segmentos rectos),
+// con cuadrícula en %, cono con degradado y valores en pastilla: trazo limpio tipo reporte.
 function MiniProyeccion({ tasaCentro, tasaMin, tasaMax }: { tasaCentro: number; tasaMin: number; tasaMax: number }) {
-  const W = 400, H = 92, padL = 30, padR = 12, padT = 14, padB = 18
-  const xPos = [0, 3, 5]
-  const centro = xPos.map((a) => Math.pow(1 + tasaCentro / 100, a))
-  const min = xPos.map((a) => Math.pow(1 + tasaMin / 100, a))
-  const max = xPos.map((a) => Math.pow(1 + tasaMax / 100, a))
-  const scaleMax = Math.max(...max, 1)
+  const W = 560, H = 170, padL = 40, padR = 22, padT = 26, padB = 26
+  const pasos = Array.from({ length: 21 }, (_, i) => i / 4)
+  const valor = (tasa: number, a: number) => (Math.pow(1 + tasa / 100, a) - 1) * 100
+  const topePct = Math.max(valor(tasaMax, 5), 10)
+  const pasoGrid = topePct > 80 ? 25 : topePct > 40 ? 20 : 10
+  const maxPct = Math.ceil(topePct / pasoGrid) * pasoGrid
   const x = (a: number) => padL + (a / 5) * (W - padL - padR)
-  const y = (v: number) => padT + (1 - (v - 1) / (scaleMax - 1 || 1)) * (H - padT - padB)
+  const y = (pct: number) => padT + (1 - pct / maxPct) * (H - padT - padB)
 
-  const coneUp = xPos.map((a, i) => `${x(a)},${y(max[i])}`).join(' L')
-  const coneDown = [...xPos].reverse().map((a, i) => `${x(a)},${y(min[min.length - 1 - i])}`).join(' L')
-  const linea = xPos.map((a, i) => `${i === 0 ? 'M' : 'L'}${x(a)},${y(centro[i])}`).join(' ')
-
-  const etiquetas = ['hoy', '+3 años', '+5 años']
+  const curva = (tasa: number) => pasos.map((a) => `${x(a).toFixed(1)},${y(valor(tasa, a)).toFixed(1)}`)
+  const sup = curva(tasaMax), inf = curva(tasaMin), cen = curva(tasaCentro)
+  const cono = `M${sup.join(' L')} L${[...inf].reverse().join(' L')} Z`
+  const lineaCentro = `M${cen.join(' L')}`
+  const areaCentro = `${lineaCentro} L${x(5)},${y(0)} L${x(0)},${y(0)} Z`
+  const grid = Array.from({ length: maxPct / pasoGrid + 1 }, (_, i) => i * pasoGrid)
+  const hitos = [3, 5]
 
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto overflow-visible">
-      <line x1={padL} y1={y(1)} x2={W - padR} y2={y(1)} stroke="#2a3f5c" strokeWidth="1" strokeDasharray="2 3" />
-      <path d={`M${coneUp} L${coneDown} Z`} fill="rgba(201,162,39,0.14)" />
-      <path d={linea} fill="none" stroke="#c9a227" strokeWidth="1.6" />
-      {xPos.map((a, i) => (
-        <g key={i}>
-          <circle cx={x(a)} cy={y(centro[i])} r="3.2" fill={i === 0 ? '#8b96ab' : '#c9a227'} stroke="#0b1d3a" strokeWidth="1.5" />
-          <text x={x(a)} y={y(centro[i]) - 8} textAnchor="middle" fontSize="8.5" fontWeight="600" fill={i === 0 ? '#8b96ab' : '#ddc06a'}>
-            {i === 0 ? 'hoy' : `+${((centro[i] - 1) * 100).toFixed(0)}%`}
-          </text>
-          <text x={x(a)} y={H - 5} textAnchor="middle" fontSize="7.5" fill="#5f6a80">{etiquetas[i]}</text>
+      <defs>
+        <linearGradient id="pv-cono" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#c9a227" stopOpacity="0.26" />
+          <stop offset="1" stopColor="#c9a227" stopOpacity="0.06" />
+        </linearGradient>
+        <linearGradient id="pv-area" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#ddc06a" stopOpacity="0.16" />
+          <stop offset="1" stopColor="#ddc06a" stopOpacity="0" />
+        </linearGradient>
+        <linearGradient id="pv-linea" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stopColor="#a8862a" />
+          <stop offset="1" stopColor="#f0d27a" />
+        </linearGradient>
+      </defs>
+
+      {grid.map((g) => (
+        <g key={g}>
+          <line x1={padL} y1={y(g)} x2={W - padR} y2={y(g)} stroke={g === 0 ? '#3a5278' : '#1f3352'} strokeWidth="1" />
+          <text x={padL - 8} y={y(g) + 3} textAnchor="end" fontSize="9" fill="#5f6a80">{g === 0 ? '0%' : `+${g}%`}</text>
         </g>
+      ))}
+      {hitos.map((a) => (
+        <line key={a} x1={x(a)} y1={padT - 6} x2={x(a)} y2={y(0)} stroke="#2a3f5c" strokeWidth="1" strokeDasharray="3 3" />
+      ))}
+
+      <path d={areaCentro} fill="url(#pv-area)" />
+      <path d={cono} fill="url(#pv-cono)" />
+      <path d={`M${sup.join(' L')}`} fill="none" stroke="#c9a227" strokeOpacity="0.45" strokeWidth="1" strokeDasharray="4 3" />
+      <path d={`M${inf.join(' L')}`} fill="none" stroke="#c9a227" strokeOpacity="0.45" strokeWidth="1" strokeDasharray="4 3" />
+      <path d={lineaCentro} fill="none" stroke="#c9a227" strokeOpacity="0.25" strokeWidth="6" strokeLinecap="round" />
+      <path d={lineaCentro} fill="none" stroke="url(#pv-linea)" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+
+      <circle cx={x(0)} cy={y(0)} r="4" fill="#8b96ab" stroke="#0b1d3a" strokeWidth="2" />
+      {hitos.map((a) => {
+        const v = valor(tasaCentro, a)
+        const cx = x(a), cy = y(v)
+        const etiqueta = `+${v.toFixed(0)}%`
+        const bw = etiqueta.length * 7 + 14
+        const bx = Math.min(cx - bw / 2, W - padR - bw + 10)
+        return (
+          <g key={a}>
+            <circle cx={cx} cy={cy} r="9" fill="#c9a227" fillOpacity="0.18" />
+            <circle cx={cx} cy={cy} r="4.5" fill="#ddc06a" stroke="#0b1d3a" strokeWidth="2" />
+            <rect x={bx} y={cy - 30} width={bw} height="18" rx="9" fill="#0b1d3a" stroke="#c9a227" strokeOpacity="0.6" />
+            <text x={bx + bw / 2} y={cy - 17.5} textAnchor="middle" fontSize="11" fontWeight="700" fill="#ddc06a">{etiqueta}</text>
+          </g>
+        )
+      })}
+
+      {[0, 1, 2, 3, 4, 5].map((a) => (
+        <text key={a} x={x(a)} y={H - 6} textAnchor="middle" fontSize="9" fontWeight={a === 0 || a === 3 || a === 5 ? 600 : 400} fill={a === 0 || a === 3 || a === 5 ? '#8b96ab' : '#4a5670'}>
+          {a === 0 ? 'hoy' : `+${a} ${a === 1 ? 'año' : 'años'}`}
+        </text>
       ))}
     </svg>
   )
 }
-
 // Histórico completo (Económica-Social + Media-Residencial nacional, más la serie regional real
 // si la ciudad mapea a una — ver SHF_CIUDAD_A_SERIE) más la proyección banda alta hacia adelante.
 function HistoricoCompleto({ ciudad, tasaCentro, tasaMin, tasaMax }: { ciudad: string | null | undefined; tasaCentro: number; tasaMin: number; tasaMax: number }) {
@@ -211,7 +256,7 @@ export function PlusvaliaProyeccion({ estimacion, ciudad }: { estimacion: Estima
 
       <div className="mt-2">
         <MiniProyeccion tasaCentro={tasaAnualizadaEstimada} tasaMin={rangoMin} tasaMax={rangoMax} />
-        <p className="text-[9px] text-[#5f6a80] text-center -mt-1">
+        <p className="text-[9px] text-[#5f6a80] text-center mt-1">
           Equivale a <span className="text-[#8b96ab] font-semibold">≈{tasaAnualizadaEstimada.toFixed(1)}%/año</span> compuesto (rango {rangoMin.toFixed(1)}%–{rangoMax.toFixed(1)}%)
         </p>
       </div>
